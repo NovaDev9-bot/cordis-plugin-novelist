@@ -1,6 +1,6 @@
 {
   "name": "cordis-plugin-novelist",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "File-ledger domain tools for long-form fiction production on DSH (deepseek-harness): 8 deterministic novel_* tools over a plain-file book ledger (project/bible/characters/foreshadows/timeline/outline/manuscript/status/events) — code does the accounting, the model does the writing.",
   "type": "module",
   "main": "lib/novelist.js",

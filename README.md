@@ -38,7 +38,7 @@ A plain-file book ledger + 8 deterministic tools for multi-agent long-form ficti
 
 ```
 <book_dir>/
-  project.json        # 书元信息、当前章
+  project.json        # 书元信息、当前章、schema_version（账本格式版本号）
   bible.json          # 设定词条（生效窗口 effective_from/to_ch）
   characters.json     # 人物卡（性别/身份/最后出场章）
   foreshadows.json    # 伏笔账（planted_ch / due_ch / status）
@@ -65,7 +65,7 @@ DSH profile 组合条目按 `file://` 绝对路径挂载（Windows 路径 `/` �
 
 无任何运行时依赖（零 npm 依赖、零构建，单文件 ES module）。要求 Node ≥ 22（DSH 同款）。
 
-跑测试：
+跑测试（8 用例 = 7 单元 + 1 全链路集成：init→outline→chapter→verify→count→assemble→状态机→冲突仲裁，内存 fs shim 驱动）：
 
 ```sh
 node --test test/novelist.test.mjs
