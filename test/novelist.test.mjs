@@ -4,7 +4,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { name, inject, apply, _internals } from '../lib/novelist.js'
 
-const { countHan, symbolGate, chapterFile, chapterTitle, CHAPTER_STATES, CHAPTER_TRANSITIONS, TOOLS } = _internals
+const { countHan, symbolGate, chapterFile, chapterTitle, CHAPTER_STATES, CHAPTER_TRANSITIONS, TOOLS, loadJson } = _internals
 
 test('module shape: name / inject / apply', () => {
   assert.equal(name, 'novelist')
@@ -49,6 +49,21 @@ test('symbolGate: 字数偏离章纲区间只报 issue 不拦稿', () => {
 
   const noOutline = symbolGate('任意长短', null)
   assert.deepEqual(noOutline.issues, [])
+})
+
+test('loadJson: 缺失→null；损坏→大声报错（拒当空账本重建）', async () => {
+  const files = {
+    '/b/bible.json': '{"terms":[] 后缀垃圾整体损坏',
+    '/b/ok.json': '{"terms":[]}',
+  }
+  const fs = {
+    resolve: async (p) => p,
+    stat: async (p) => (p in files ? {} : null),
+    readText: async (p) => files[p],
+  }
+  assert.equal(await loadJson(fs, '/b', 'none.json'), null)
+  assert.deepEqual(await loadJson(fs, '/b', 'ok.json'), { terms: [] })
+  await assert.rejects(() => loadJson(fs, '/b', 'bible.json'), /账本文件损坏/)
 })
 
 test('chapterFile / chapterTitle: 三位零填充往返', () => {
