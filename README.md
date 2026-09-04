@@ -52,7 +52,14 @@ A plain-file book ledger + 8 deterministic tools for multi-agent long-form ficti
 
 ## Install / 安装
 
-DSH profile 组合条目按 `file://` 绝对路径挂载（Windows 路径 `/` 分隔）：
+**bundle 装机**（一条命令，写入 profile 补丁层；npm 发布前可用本地路径）：
+
+```sh
+dsh plugin --profile <你的profile> add cordis-plugin-novelist   # npm 名（发布后）
+dsh plugin --profile <你的profile> add /path/to/cordis-plugin-novelist   # 本地包路径
+```
+
+**手动挂载**（不装机，`file://` 绝对路径写进 profile 组合条目，Windows 路径 `/` 分隔）：
 
 ```yaml
 # <你的 profile>/agent.cordis.yml 或 --patch 补丁层的 - insert: 条目
@@ -61,7 +68,7 @@ DSH profile 组合条目按 `file://` 绝对路径挂载（Windows 路径 `/` �
 ```
 
 > `name` 必须是 `file://` URL：headless `--patch` 路径下裸 Windows 绝对路径 import 会报
-> `ERR_UNSUPPORTED_ESM_URL_SCHEME`。npm 包发布后可直接 `dsh plugin --profile <p> add <路径>`。
+> `ERR_UNSUPPORTED_ESM_URL_SCHEME`。
 
 无任何运行时依赖（零 npm 依赖、零构建，单文件 ES module）。要求 Node ≥ 22（DSH 同款）。
 

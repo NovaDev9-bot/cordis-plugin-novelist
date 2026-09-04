@@ -1,0 +1,8 @@
+# cordis-plugin-novelist — bundle layer
+#
+# 装机：dsh plugin --profile <p> add cordis-plugin-novelist（npm 名）或本地包路径；
+# 本文件由 package.json 的 dsh.bundle.patch 指针引用，装机时自动并入 profile 补丁层。
+# 手动挂载（不装机）替代式：profile 组合条目 name: file:///<本包绝对路径>/lib/novelist.js
+- insert:
+    - id: novelist
+      name: cordis-plugin-novelist
