@@ -12,15 +12,15 @@ test('module shape: name / inject / apply', () => {
   assert.equal(typeof apply, 'function')
 })
 
-test('tool registry: 8 tools, expected names, write tools carry timeoutMs', () => {
-  assert.equal(TOOLS.length, 8)
+test('tool registry: 10 tools, expected names, write tools carry timeoutMs', () => {
+  assert.equal(TOOLS.length, 10)
   const names = TOOLS.map((t) => t.name)
   assert.deepEqual(names, [
     'novel_init', 'novel_outline', 'novel_bible', 'novel_chapter',
-    'novel_verify', 'novel_count', 'novel_ledger', 'novel_assemble',
+    'novel_verify', 'novel_count', 'novel_ledger', 'novel_event', 'novel_score', 'novel_assemble',
   ])
   for (const t of TOOLS) {
-    if (['novel_init', 'novel_outline', 'novel_chapter', 'novel_ledger', 'novel_assemble'].includes(t.name)) {
+    if (['novel_init', 'novel_outline', 'novel_chapter', 'novel_ledger', 'novel_event', 'novel_score', 'novel_assemble'].includes(t.name)) {
       assert.ok(t.timeoutMs > 0, t.name + ' 应声明 timeoutMs')
     }
     assert.equal(typeof t.execute, 'function', t.name + ' 应有 execute')
@@ -64,6 +64,124 @@ test('loadJson: 缺失→null；损坏→大声报错（拒当空账本重建）
   assert.equal(await loadJson(fs, '/b', 'none.json'), null)
   assert.deepEqual(await loadJson(fs, '/b', 'ok.json'), { terms: [] })
   await assert.rejects(() => loadJson(fs, '/b', 'bible.json'), /账本文件损坏/)
+})
+
+test('readJsonlLines: 末行撕裂容忍（真追加崩溃语义）＋中段损坏大声报错（账不撕页）', async () => {
+  const { readJsonlLines } = _internals
+  const files = new Map()
+  const fs = {
+    resolve: async (p) => p,
+    stat: async (p) => (files.has(p) ? {} : null),
+    readText: async (p) => files.get(p),
+    writeText: async (p, s) => { files.set(p, s) },
+  }
+  files.set('/x/a.jsonl', '{"a":1}\n{"b":2}\n{"torn":')
+  assert.equal((await readJsonlLines(fs, '/x/a.jsonl')).length, 2, '末行残行应跳过')
+  files.set('/x/b.jsonl', '{"a":1}\n完全不是JSON\n{"c":3}')
+  await assert.rejects(() => readJsonlLines(fs, '/x/b.jsonl'), /中段损坏/)
+  assert.equal((await readJsonlLines(fs, '/x/none.jsonl')).length, 0, '缺文件=空')
+})
+
+test('appendJsonlLine 行尾纪律: 首写必带换行（190 章压测实锤 bug 回归——首写无 \\n 则后续 os-append 并行成脏行）', async () => {
+  const { appendJsonlLine } = _internals
+  const files = new Map()
+  const fs = { // 无 processPath → 强制走降级臂（首写分支）
+    resolve: async (p) => p,
+    stat: async (p) => (files.has(p) ? {} : null),
+    readText: async (p) => files.get(p),
+    writeText: async (p, s) => { files.set(p, s) },
+  }
+  const r1 = await appendJsonlLine(fs, '/x/t.jsonl', '{"a":1}')
+  assert.equal(r1.mode, 'rmw-fallback')
+  assert.ok(files.get('/x/t.jsonl').endsWith('\n'), '首写必须以换行收尾')
+  const r2 = await appendJsonlLine(fs, '/x/t.jsonl', '{"b":2}')
+  assert.equal(files.get('/x/t.jsonl'), '{"a":1}\n{"b":2}\n', '两行独立，无合并')
+})
+
+test('事件带 append 校验（kind/长度门/必填/open_thread 必带 closes）＋read 有界窗口（粘性留窗/计数/闭线对账防重）', async () => {
+  const { appendTape, readTapeWindow } = _internals
+  const files = new Map()
+  const fs = {
+    resolve: async (p) => String(p).replace(/\/+/g, '/'),
+    stat: async (p) => (files.has(p) ? { size: files.get(p).length } : null),
+    readText: async (p) => { if (!files.has(p)) throw new Error('ENOENT ' + p); return files.get(p) },
+    writeText: async (p, s) => { files.set(p, s) },
+  }
+  const dir = '/books/tape-test'
+  await assert.rejects(() => appendTape(fs, dir, { kind: 'bogus', what: 'x', why: 'y', actor: '主编' }), /kind 必须为/)
+  await assert.rejects(() => appendTape(fs, dir, { kind: 'decision', what: 'x'.repeat(61), why: 'y', actor: '主编' }), /what 超 60/)
+  await assert.rejects(() => appendTape(fs, dir, { kind: 'decision', what: 'x', why: '', actor: '主编' }), /why 必填/)
+  await assert.rejects(() => appendTape(fs, dir, { kind: 'open_thread', what: '欠', why: '挂', actor: '主编' }), /closes/)
+
+  const a1 = await appendTape(fs, dir, { kind: 'open_thread', what: '给信时机未定', why: '兑弃书线警示', actor: '主编', closes: 8 })
+  assert.equal(a1.id, 't001')
+  for (let i = 0; i < 20; i++) await appendTape(fs, dir, { kind: 'decision', what: '决策' + i, why: '节奏', actor: '主编', ch: i + 1 })
+  const w = await readTapeWindow(fs, dir)
+  assert.equal(w.total, 21)
+  assert.ok(w.window.some((e) => e.id === 't001' && e.kind === 'open_thread'), '粘性条目（欠线）永不挤出窗口')
+  assert.ok(w.window.filter((e) => e.kind === 'decision').length <= 12, '非粘性窗口 ≤12')
+  assert.equal(w.counts.decision, 20)
+  assert.equal(w.open_threads.length, 1)
+  assert.ok(w.note.includes('计数化'), '更早条目计数化应有注')
+
+  await appendTape(fs, dir, { kind: 'revision', what: '给信提前到 ch7', why: '兑现警示', actor: '主编', closes_thread: 't001' })
+  await assert.rejects(() => appendTape(fs, dir, { kind: 'revision', what: '重复闭线', why: '误操作', actor: '主编', closes_thread: 't001' }), /已闭合过/)
+  await assert.rejects(() => appendTape(fs, dir, { kind: 'revision', what: '闭未知线', why: '误操作', actor: '主编', closes_thread: 't999' }), /未知欠线/)
+  const w2 = await readTapeWindow(fs, dir)
+  assert.equal(w2.open_threads.length, 0, '闭线后欠线清单清空')
+})
+
+test('verify 扩展: 半提交嫌疑（正文在而 chapter_commit 无）＋事件带欠线逾期', async () => {
+  const files = new Map()
+  const fs = {
+    resolve: async (p) => String(p).replace(/\/+/g, '/'),
+    stat: async (p) => (files.has(p) ? { size: files.get(p).length } : null),
+    readText: async (p) => { if (!files.has(p)) throw new Error('ENOENT ' + p); return files.get(p) },
+    writeText: async (p, s) => { files.set(p, s) },
+    listDir: async (p) => [...files.keys()].filter((k) => k.startsWith(p + '/')).map((k) => ({ name: k.slice(p.length + 1).split('/')[0] })),
+  }
+  const dir = '/books/verify-ext'
+  files.set(dir + '/project.json', JSON.stringify({ current_ch: 3 }))
+  files.set(dir + '/manuscript/chapter_001.md', '正文一')
+  files.set(dir + '/manuscript/chapter_002.md', '正文二')
+  files.set(dir + '/manuscript/chapter_003.md', '正文三')
+  files.set(dir + '/editorial/events-tape.jsonl', JSON.stringify({ ts: 't', id: 't001', kind: 'open_thread', what: '欠线', why: '挂', closes: 2, actor: '主编' }))
+  const exec = () => ({ agent: { ctx: { get: (k) => (k === 'fs' ? fs : undefined) } } })
+  const verify = TOOLS.find((t) => t.name === 'novel_verify')
+  const v = await verify.execute({ book_dir: dir }, exec())
+  assert.ok(v.issues.some((s) => s.includes('半提交嫌疑：第 1 章')), JSON.stringify(v.issues))
+  assert.ok(v.issues.some((s) => s.includes('事件带欠线逾期：t001')), JSON.stringify(v.issues))
+})
+
+test('判据账 novel_score: 落账-回读往返＋伪引文拒收（F-2 硬闸）＋模式校验', async () => {
+  const files = new Map()
+  const fs = {
+    resolve: async (p) => String(p).replace(/\/+/g, '/'),
+    stat: async (p) => (files.has(p) ? { size: files.get(p).length } : null),
+    readText: async (p) => { if (!files.has(p)) throw new Error('ENOENT ' + p); return files.get(p) },
+    writeText: async (p, s) => { files.set(p, s) },
+  }
+  const dir = '/books/score-test'
+  files.set(dir + '/manuscript/chapter_001.md', '他推开了那扇门。门后站着一个不该出现的人，纸角又掀了一下。'.repeat(2))
+  const exec = () => ({ agent: { ctx: { get: (k) => (k === 'fs' ? fs : undefined) } } })
+  const call = (args) => TOOLS.find((t) => t.name === 'novel_score').execute(args, exec())
+
+  // 真引文（含标点差异）通过
+  const ok = await call({ book_dir: dir, op: 'record', ch: 1, dim: '钩子', score: 2, evidence: '纸角又掀了一下。', judge: '试读员', mode: 'absolute' })
+  assert.equal(ok.ok, true)
+  // 伪引文拒收（ok:false + rejected，不落账）
+  const bad = await call({ book_dir: dir, op: 'record', ch: 1, dim: '钩子', score: 4, evidence: '这句话根本不在正文里出现好吗', judge: '试读员' })
+  assert.equal(bad.ok, false)
+  assert.ok(bad.rejected.includes('伪引文拒收'))
+  // anchored_pair 分值域
+  await assert.rejects(() => call({ book_dir: dir, op: 'record', ch: 1, dim: '钩子', score: 3, evidence: '纸角又掀了一下。', judge: '主编', mode: 'anchored_pair' }), /anchored_pair/)
+  // 无引文拒收
+  await assert.rejects(() => call({ book_dir: dir, op: 'record', ch: 1, dim: '钩子', score: 3, evidence: '', judge: '主编' }), /evidence 必填/)
+  // 回读过滤
+  files.set(dir + '/editorial/scores.jsonl', files.get(dir + '/editorial/scores.jsonl') || '')
+  const rd = await call({ book_dir: dir, op: 'read', dim: '钩子' })
+  assert.equal(rd.total, 1)
+  assert.equal(rd.records[0].score, 2)
 })
 
 test('chapterFile / chapterTitle: 三位零填充往返', () => {

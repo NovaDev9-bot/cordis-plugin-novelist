@@ -1,0 +1,143 @@
+{
+  "meta": {
+    "created": "2026-09-11",
+    "purpose": "L1 机检层数据文件（工程方向v3 §4.1 A3 / I4：规范以检查器形态存在，词库=数据不是散文）",
+    "provenance": {
+      "formula_detector": "旧引擎 backend/novel_plugin/rules/formula-detector.yaml → obs 05-书线知识/craft/公式化检测特征.md（已实测在役资产蒸馏，2026-08-31）——正则原样复活，权重失传处以透明计数替代并标注",
+      "negative_lexicon_master": "[RELEASE NOTE] removed for redistribution (third-party marketplace extraction, non-commercial boundary). Ship your own {category:[words]} to enable.",
+      "negative_lexicon_humanizer": "灵蟹 SoloEnt humanizer-webnovel-cn 1.4.0 SKILL.md §3/§4/§5/§6（可正则部分提取）",
+      "rules_to_falsify": "灵蟹插件市场规范断言（A4 证伪靶）"
+    },
+    "discipline": "本词库供观测器/软检查用：命中=报数+软警告，永不作语义质量门禁（仓库 AGENTS.md 纪律七：判定归模型、代码做壳）",
+    "note_release": "open-source build ships only first-party assets (old-engine formula-detector regexes + falsification rule targets); negative_lexicon is an empty extension slot"
+  },
+  "chars_per_line": 22,
+  "formula_detector": {
+    "template_openings": [
+      {
+        "label": "那是一个…的夜晚",
+        "regex": "(?:^|\\n)\\s*那是一个[^\\n。！？]{0,24}(?:夜晚|冬天|清晨|黄昏|秋天|春天|夏天)"
+      },
+      {
+        "label": "这是一个关于…的故事",
+        "regex": "(?:^|\\n)\\s*这是(?:一个|一段)关于[^\\n。！？]{0,24}的(?:故事|往事|传说)"
+      },
+      {
+        "label": "故事要从…说起",
+        "regex": "(?:^|\\n)\\s*故事要从[^\\n。！？]{0,24}说起"
+      },
+      {
+        "label": "很久很久以前",
+        "regex": "(?:^|\\n)\\s*很久很久以前"
+      },
+      {
+        "label": "那一夜/那一晚/那一天",
+        "regex": "(?:^|\\n)\\s*那一(?:夜|晚|天)[，,]"
+      },
+      {
+        "label": "当…的时候",
+        "regex": "(?:^|\\n)\\s*当[^，。！？\\n]{0,14}的时候[，,]"
+      },
+      {
+        "label": "在这…里",
+        "regex": "(?:^|\\n)\\s*在这(?:个|座|片)[^，。！？\\n]{0,14}里[，,]"
+      },
+      {
+        "label": "伴随着…",
+        "regex": "(?:^|\\n)\\s*伴随(?:着)?[^，。！？\\n]{0,20}[，,]"
+      }
+    ],
+    "generic_transitions": [
+      "与此同时",
+      "然而就在这时",
+      "不知过了多久",
+      "说时迟那时快",
+      "就在这时",
+      "突然之间",
+      "转瞬之间",
+      "话锋一转"
+    ],
+    "emphasis_abuse": [
+      "简直",
+      "竟然",
+      "居然"
+    ],
+    "triple_parallel": [
+      {
+        "label": "不是…而是…而是",
+        "regex": "不是[^。！？\\n]{1,24}而是[^。！？\\n]{1,24}而是"
+      },
+      {
+        "label": "既…又…又",
+        "regex": "既[^。！？\\n]{1,12}又[^。！？\\n]{1,12}又"
+      },
+      {
+        "label": "没有…没有…没有",
+        "regex": "没有[^。！？\\n]{1,16}没有[^。！？\\n]{1,16}没有"
+      },
+      {
+        "label": "像…像…像",
+        "regex": "像[^。！？\\n]{1,12}像[^。！？\\n]{1,12}像"
+      },
+      {
+        "label": "为了…为了…为了",
+        "regex": "为了[^。！？\\n]{1,16}为了[^。！？\\n]{1,16}为了"
+      }
+    ],
+    "thresholds": {
+      "formula_score_distinct_categories": 4.0,
+      "excl_density_per_kchar": 3.0,
+      "excl_min_count": 2,
+      "note": "旧引擎公式化总分权重在蒸馏中失传——此处改为四组特征的去重命中类别数（0-4+3+5=20 满量程），阈值 4.0 沿用原值作旗标线，仅报软警告"
+    }
+  },
+  "negative_lexicon": {},
+  "simile_markers": {
+    "strict": [
+      "仿佛",
+      "宛如",
+      "似乎",
+      "如同",
+      "好似"
+    ],
+    "loose_像": "像",
+    "note": "MASTER 2.2 滥用比喻（每章≤3）的机检代理：strict=低误报标记词；loose_像 含『好像/像话』等噪音仅作分布参考，不作规则判据"
+  },
+  "rules_to_falsify": [
+    {
+      "id": "R1",
+      "claim": "手机阅读每段不超过 150 字",
+      "source": "MASTER.md §3.2"
+    },
+    {
+      "id": "R2",
+      "claim": "一章里至少 70% 的段落控制在两行以内（两行=2×chars_per_line）",
+      "source": "灵蟹插件市场规范（工程方向v3 §二.六引）"
+    },
+    {
+      "id": "R3",
+      "claim": "每章比喻句不超过 3 个",
+      "source": "MASTER.md §2.2"
+    },
+    {
+      "id": "R4",
+      "claim": "对话需换行（对话独立成段）",
+      "source": "MASTER.md §3.2"
+    },
+    {
+      "id": "R5",
+      "claim": "感叹号密度 ≤3/千字",
+      "source": "旧引擎 formula-detector 阈值"
+    },
+    {
+      "id": "R6",
+      "claim": "模板开场套话在好书正章中罕见",
+      "source": "本证伪新增（对照公式化检测）"
+    },
+    {
+      "id": "R7",
+      "claim": "MASTER 负向词库所禁词汇在真实头部作品中本就罕见（规范与好书事实一致性）",
+      "source": "本证伪新增"
+    }
+  ]
+}
