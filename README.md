@@ -59,6 +59,7 @@ node instruments/instrument-aggregate.mjs <书工程目录> --baseline <calibrat
 - **判定归模型、代码做壳**：机检只报数+软警告，永不作语义质量门禁；符号级护栏（章号/版本链/引文核验）才用确定性代码。
 - **一切判断锚正文原句**：判据账 evidence 子串核验硬闸，伪引文当场拒收。
 - **词库=数据不是散文**：`style-lexicon.json` 是 JSON。发布版只含自有资产（旧引擎 formula-detector 正则），`negative_lexicon` 是**空扩展槽**——放入你自己的 `{类别:[词...]}` 即生效，或 `--lexicon your.json` 叠加。第三方市场提取内容已按边界移除。
+- **novel_count 只返回计数**：`file` 模式读取任意指定路径文本，但输出仅 汉字数/字节数/行数/来源路径——不回显内容（计数-only，侧信道面=文件长度指纹）。工具面按角色 deny 收口见 preset。
 
 ## License
 

@@ -34,6 +34,20 @@ test('countHan: 只数汉字（发布口径）', () => {
   assert.equal(countHan('第1章 开学'), 4) // 第/章/开/学，数字与空格不计
 })
 
+test('sanitizeOwn: 过滤原型污染键（__proto__/constructor/prototype），其余保留（2026-09-13 审查批）', () => {
+  const { sanitizeOwn } = _internals
+  // JSON.parse 产生的 __proto__ 是自有键——合并前必须滤除，否则 Object.assign 走 [[Set]] 改目标原型
+  const payload = JSON.parse('{"name":"林渡","gender":"男","__proto__":{"polluted":true},"constructor":{"x":1},"prototype":1}')
+  const clean = sanitizeOwn(payload)
+  assert.deepEqual(Object.keys(clean).sort(), ['gender', 'name'])
+  // 直接验证向量被封死：合并进既有对象后原型未变
+  const existing = { name: '林渡', gender: '女' }
+  Object.assign(existing, sanitizeOwn(payload))
+  assert.equal(Object.getPrototypeOf(existing), Object.prototype)
+  assert.ok(!('polluted' in {}))
+  assert.equal(existing.gender, '男')
+})
+
 test('symbolGate: 字数偏离章纲区间只报 issue 不拦稿', () => {
   const under = symbolGate('短文', { word_min: 1000, word_max: 3000 })
   assert.equal(under.han, 2)
