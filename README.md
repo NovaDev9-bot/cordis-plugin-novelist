@@ -35,24 +35,24 @@
 ## 快速开始
 
 ```bash
+# 一、装进你的 DSH 宿主（任选其一）
+dsh plugin --profile <你的profile> add github:NovaDev9-bot/cordis-plugin-novelist   # 从本仓装
+dsh plugin --profile <你的profile> add <本仓本地路径>                                  # 本地装
+# 装好后该 profile 的会话即带 novel_* 12 工具与 novelist-guide（无需其他配置）
+
+# 二、仓库自检（Node ≥ 20）
 git clone https://github.com/NovaDev9-bot/cordis-plugin-novelist.git
 cd cordis-plugin-novelist
+npm test          # 插件测试
+node --test instruments/style-check.test.mjs instruments/instrument-aggregate.test.mjs   # 仪器测试
 
-# 插件测试（Node ≥ 20）
-npm test
-
-# 仪器测试（11 项）
-node --test instruments/style-check.test.mjs instruments/instrument-aggregate.test.mjs
-
-# 文体机检单章（GBK 自动识别；--lexicon 叠加你自己的负向词库）
-node instruments/style-check.mjs 某章.txt
-
-# 用你自己的语料证伪规范（先生成索引 CSV：author,book,bytes,enc）
-node instruments/corpus-falsify.mjs --corpus <语料根目录> --index <索引.csv> --out <输出目录>
-
-# 判据账聚合（sd=0/常数仪表/两轴冲突都会被点名）
-node instruments/instrument-aggregate.mjs <书工程目录> --baseline <calibration-baseline.json>
+# 三、仪器单用（不依赖 DSH，纯 Node——机检/证伪/聚合任何人的书稿都能用）
+node instruments/style-check.mjs 某章.txt                    # 文体机检（GBK 自动识别；--lexicon 叠加负向词库）
+node instruments/corpus-falsify.mjs --corpus <语料根> --index <索引.csv> --out <输出>    # 用你自己的语料证伪规范
+node instruments/instrument-aggregate.mjs <书工程目录> --baseline <calibration-baseline.json>  # 判据聚合
 ```
+
+> 边界说明：本仓=账本工具与测量仪器（编辑部制度层的地基）。两座位编辑部预设（主编/主笔人格与编排）属上游私有工作区，不在本仓——但工具层的全部账本协议、状态机、批审聚合对任何 agent 宿主直接可用。
 
 ## 设计红线
 
