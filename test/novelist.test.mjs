@@ -12,12 +12,12 @@ test('module shape: name / inject / apply', () => {
   assert.equal(typeof apply, 'function')
 })
 
-test('tool registry: 10 tools, expected names, write tools carry timeoutMs', () => {
-  assert.equal(TOOLS.length, 10)
+test('tool registry: 12 tools, expected names, write tools carry timeoutMs', () => {
+  assert.equal(TOOLS.length, 12)
   const names = TOOLS.map((t) => t.name)
   assert.deepEqual(names, [
     'novel_init', 'novel_outline', 'novel_bible', 'novel_chapter',
-    'novel_verify', 'novel_count', 'novel_ledger', 'novel_event', 'novel_score', 'novel_assemble',
+    'novel_verify', 'novel_count', 'novel_ledger', 'novel_event', 'novel_score', 'novel_ask', 'novel_decide', 'novel_assemble',
   ])
   for (const t of TOOLS) {
     if (['novel_init', 'novel_outline', 'novel_chapter', 'novel_ledger', 'novel_event', 'novel_score', 'novel_assemble'].includes(t.name)) {
@@ -291,4 +291,72 @@ test('integration: 全账本流程（init→outline→chapter→verify→count�
   const res = await call('novel_ledger', { book_dir: dir, op: 'resolve_conflict', conflict: { id: cid, scope: 'semantic', verdict: 'accept_new', stance: '编辑部立场：后文明示', evidence: 'ch1 场景3' } })
   assert.equal(res.ok, true)
   assert.equal(JSON.parse(files.get(dir + '/characters.json')).characters[0].gender, '女')
+
+  // decide（v6.7 裁决原语）：Owner 一句话裁决 → 状态派生 + 伏笔改期派生 + 双落档
+  await assert.rejects(() => call('novel_decide', { book_dir: dir, ruling: '', actor: 'Owner' }), /ruling 必填/)
+  await assert.rejects(() => call('novel_decide', { book_dir: dir, ruling: 'x', actor: '路人' }), /actor 必填/)
+  const dec = await call('novel_decide', { book_dir: dir, ruling: 'ch1 细纲通过；F1 改期到 ch9', actor: 'Owner', scope: 'authority', ch: 1, status: '待试读', foreshadow_id: 'F1', due_ch: 9 })
+  assert.equal(dec.ok, true)
+  assert.equal(JSON.parse(files.get(dir + '/status.json'))[1], '待试读')
+  assert.equal(JSON.parse(files.get(dir + '/foreshadows.json')).foreshadows[0].due_ch, 9)
+  const tapeLines = files.get(dir + '/editorial/events-tape.jsonl').trim().split('\n').map((l) => JSON.parse(l))
+  assert.ok(tapeLines.some((e) => e.kind === 'decision' && e.actor === 'Owner' && e.what.includes('细纲通过')))
+  await assert.rejects(() => call('novel_decide', { book_dir: dir, ruling: '跳跃', actor: 'Owner', ch: 1, status: '已发表' }), /非法状态迁移/)
+})
+
+test('integration v7.0: novel_chapter 派生模式（decision 落带/advance_to 推进/txn 回执）+ novel_ask 问账本', async () => {
+  const files = new Map()
+  const fs = {
+    resolve: async (p) => String(p).replace(/\/+/g, '/'),
+    stat: async (p) => (files.has(p) ? { size: files.get(p).length } : null),
+    readText: async (p) => { if (!files.has(p)) throw new Error('ENOENT ' + p); return files.get(p) },
+    writeText: async (p, s) => { files.set(p, s) },
+    listDir: async (p) => [...files.keys()].filter((k) => k.startsWith(p + '/')).map((k) => ({ name: k.slice(p.length + 1).split('/')[0] })),
+  }
+  const exec = () => ({ agent: { ctx: { get: (k) => (k === 'fs' ? fs : undefined) } } })
+  const call = (n, args) => { const t = TOOLS.find((x) => x.name === n); if (!t) throw new Error('no tool ' + n); return t.execute(args, exec()) }
+  const dir = '/books/v7-test'
+  files.set(dir + '/outline.json', JSON.stringify({ volumes: [{ volume: 1, chapters: [{ chapter_no: 1, title: '开篇', goal: 'g', hook: 'h', word_min: 10, word_max: 100 }] }] }))
+  files.set(dir + '/characters.json', JSON.stringify({ characters: [{ name: '小满', gender: '女', identity: '德音楼学徒', last_seen_ch: 1 }] }))
+  files.set(dir + '/bible.json', JSON.stringify({ terms: [{ name: '影绡', value: '德音楼的织梦法器' }] }))
+  files.set(dir + '/project.json', JSON.stringify({ current_ch: 0 }))
+
+  // ① chapter 派生模式：一次调用收束（落盘+伏笔+决策落带+状态推进+txn 回执）
+  const r = await call('novel_chapter', {
+    book_dir: dir, ch: 1, title: '开篇', text: '夜里的德音楼亮着最后一盏灯。'.repeat(4),
+    seeds: [{ id: 'f1', name: '玉佩', due_ch: 5 }], cast: ['小满'],
+    advance_to: '已审', decision: { what: '第1章按拍点落盘', why: '开篇章' },
+  })
+  assert.equal(r.ok, true)
+  assert.ok(r.derived.some((d) => d.includes('草稿→已审')), '状态派生应回报')
+  assert.ok(r.derived.some((d) => d.includes('事件带')), '决策落带应回报')
+  assert.equal(JSON.parse(files.get(dir + '/status.json'))[1], '已审')
+  const tape = files.get(dir + '/editorial/events-tape.jsonl').trim().split('\n').map((l) => JSON.parse(l))
+  assert.ok(tape.some((e) => e.kind === 'decision' && e.what.includes('拍点落盘') && e.actor === '主编' && e.ch === 1), '随章决策应落带')
+  const txn = JSON.parse(files.get(dir + '/editorial/txn/chapter_001.json'))
+  assert.equal(txn.done, true); assert.equal(txn.ch, 1); assert.ok(txn.steps.includes('manuscript'))
+  const evs = files.get(dir + '/events.jsonl').trim().split('\n').map((l) => JSON.parse(l))
+  assert.ok(evs.some((e) => e.op === 'chapter_commit' && e.ch === 1))
+  assert.ok(evs.some((e) => e.op === 'chapter_status' && e.to === '已审'), '状态推进应记事件账')
+  // 非法 advance_to 仍被状态机拦
+  await assert.rejects(() => call('novel_chapter', { book_dir: dir, ch: 1, title: '开篇', text: '重稿', advance_to: '已发表' }), /非法状态迁移/)
+
+  // ② novel_ask：实体命中（人物/设定/伏笔，带出处）
+  const m1 = await call('novel_ask', { book_dir: dir, q: '小满' })
+  assert.equal(m1.ok, true)
+  assert.ok(m1.matches.some((x) => x.source === 'characters.json' && x.ref === '小满'))
+  assert.ok(!m1.matches.some((x) => x.source === 'foreshadows.json'), '问"小满"不该命中伏笔玉佩（无包含关系）')
+  const m1b = await call('novel_ask', { book_dir: dir, q: '玉佩哪来的' })
+  assert.ok(m1b.matches.some((x) => x.source === 'foreshadows.json' && x.ref.includes('f1')), '问句包含"玉佩"应命中 f1')
+  const m2 = await call('novel_ask', { book_dir: dir, q: '影绡是啥' })
+  assert.ok(m2.matches.some((x) => x.source === 'bible.json' && x.ref === '影绡'), '问句包含实体名应命中')
+  // 总览路由：伏笔欠线（current_ch 已被 chapter 推到 1，f1 due 5 未逾期）
+  const m3 = await call('novel_ask', { book_dir: dir, q: '未兑伏笔' })
+  assert.equal(m3.overview.open_foreshadows, 1)
+  assert.deepEqual(m3.overview.overdue, [], 'due 5 > current 1，未逾期')
+  // 零命中兜底：附总览 + 明说语义判断不归账本
+  const m4 = await call('novel_ask', { book_dir: dir, q: '这章写得怎么样' })
+  assert.equal(m4.matches.length, 0)
+  assert.ok(m4.overview.current_ch >= 1)
+  assert.ok(m4.note.includes('不归账本答'))
 })
