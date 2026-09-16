@@ -302,6 +302,17 @@ test('integration: 全账本流程（init→outline→chapter→verify→count�
   const tapeLines = files.get(dir + '/editorial/events-tape.jsonl').trim().split('\n').map((l) => JSON.parse(l))
   assert.ok(tapeLines.some((e) => e.kind === 'decision' && e.actor === 'Owner' && e.what.includes('细纲通过')))
   await assert.rejects(() => call('novel_decide', { book_dir: dir, ruling: '跳跃', actor: 'Owner', ch: 1, status: '已发表' }), /非法状态迁移/)
+
+  // decide 撤销语义（v7.4）：supersedes 引用即作废，重复撤销拦，readTapeWindow 出 superseded_ids
+  const dec1 = await call('novel_decide', { book_dir: dir, ruling: 'ch9 改结尾为雨夜收线', actor: 'Owner', scope: 'authority', ch: 9 })
+  assert.equal(dec1.ok, true)
+  const dec2 = await call('novel_decide', { book_dir: dir, ruling: '撤销上一条：ch9 结尾维持原案', actor: 'Owner', scope: 'authority', supersedes: dec1.id })
+  assert.equal(dec2.ok, true)
+  assert.ok(dec2.applied.some((x) => x.includes('作废 ' + dec1.id)), '撤销应回报')
+  await assert.rejects(() => call('novel_decide', { book_dir: dir, ruling: '再撤一次', actor: 'Owner', supersedes: dec1.id }), /已被作废过/)
+  await assert.rejects(() => call('novel_decide', { book_dir: dir, ruling: '撤空气', actor: 'Owner', supersedes: 't999' }), /未知事件带条目/)
+  const win = await call('novel_event', { book_dir: dir, op: 'read' })
+  assert.ok(win.superseded_ids.includes(dec1.id), 'readTapeWindow 应报 superseded_ids')
 })
 
 test('integration v7.0: novel_chapter 派生模式（decision 落带/advance_to 推进/txn 回执）+ novel_ask 问账本', async () => {
