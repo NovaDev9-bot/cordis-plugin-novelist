@@ -313,6 +313,14 @@ test('integration: 全账本流程（init→outline→chapter→verify→count�
   await assert.rejects(() => call('novel_decide', { book_dir: dir, ruling: '撤空气', actor: 'Owner', supersedes: 't999' }), /未知事件带条目/)
   const win = await call('novel_event', { book_dir: dir, op: 'read' })
   assert.ok(win.superseded_ids.includes(dec1.id), 'readTapeWindow 应报 superseded_ids')
+
+  // 代码质量批回归（2026-09-16）：①绕道防线——novel_event 直带 supersedes 拦未知 id
+  await assert.rejects(() => call('novel_event', { book_dir: dir, op: 'append', kind: 'decision', what: '绕道撤销', why: '试防线', actor: '主编', supersedes: 't999' }), /未知事件带条目/)
+  // ②空书目录——novel_ask 大声报错不给全零总览
+  await assert.rejects(() => call('novel_ask', { book_dir: '/books/no-such-book', q: '小满' }), /书工程不存在/)
+  // ③advance_to 预检 fail fast——非法迁移在正文落盘前拦下（手稿文件不应产生）
+  await assert.rejects(() => call('novel_chapter', { book_dir: dir, ch: 77, title: '预检', text: '正文不该落盘。'.repeat(5), advance_to: '已发表' }), /非法状态迁移/)
+  assert.equal(files.has(dir + '/manuscript/chapter_077.md'), false, '预检失败不得落盘手稿')
 })
 
 test('integration v7.0: novel_chapter 派生模式（decision 落带/advance_to 推进/txn 回执）+ novel_ask 问账本', async () => {
