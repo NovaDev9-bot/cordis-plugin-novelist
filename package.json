@@ -1,6 +1,6 @@
 {
   "name": "cordis-plugin-novelist",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "description": "File-ledger domain tools for long-form fiction production on DSH (deepseek-harness): 12 deterministic novel_* tools over a plain-file book ledger (project/bible/characters/foreshadows/timeline/outline/manuscript/status/events + editorial event-tape + scores.jsonl with evidence substring verification). v7.0 three semantic primitives: novel_ask (one-shot semantic ledger query with provenance), novel_chapter derive mode (in-chapter decision tape append + status advance + txn receipt), novel_decide (ruling-as-a-sentence: ledger effects + dual logging) — code does the accounting, the model does the writing.",
   "type": "module",
   "main": "lib/novelist.js",
