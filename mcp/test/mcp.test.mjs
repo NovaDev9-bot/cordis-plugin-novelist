@@ -145,6 +145,9 @@ test('协议：initialize 结构与版本协商（支持清单内回显，清单
     assert.ok(r1.result.capabilities.tools)
     assert.ok(r1.result.capabilities.prompts)
     assert.equal(r1.result.serverInfo.name, 'novelist')
+    // instructions 携带 guide 全文（全性能注入：客户端握手即得机制细则，不依赖主动拉 prompts）
+    assert.ok(typeof r1.result.instructions === 'string' && r1.result.instructions.length > 5000, 'instructions 应为 guide 全文（数千字级）')
+    assert.ok(r1.result.instructions.includes('状态机') || r1.result.instructions.includes('账本'), 'instructions 应含机制细则关键内容')
     const r2 = await handler.handleLine(req(2, 'initialize', { protocolVersion: '2099-01-01' }))
     assert.equal(r2.result.protocolVersion, '2025-06-18', '未知版本回退到支持的最新版')
   } finally { rmSync(base, { recursive: true, force: true }) }
