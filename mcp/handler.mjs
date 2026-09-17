@@ -29,7 +29,9 @@ export function createMcpHandler({ adapter, TOOLS, SECTION, serverInfo }) {
         protocolVersion: SUPPORTED_VERSIONS.includes(requested) ? requested : SUPPORTED_VERSIONS[0],
         capabilities: { tools: { listChanged: false }, prompts: { listChanged: false } },
         serverInfo,
-        instructions: '长篇小说文件账本工具集（确定性代码做壳，语义判断归模型）。工具一律显式传 book_dir 绝对路径，且必须落在书库根（--root）内。开工前建议先取 novelist-guide prompt 全文。',
+        // 与 DSH 插件 systemPrompt 同源同版：机制细则全文随 initialize 下发，
+        // 客户端无需主动拉 prompts/get 即拿到全部纪律（状态机/事件带/批审/派工）。
+        instructions: '长篇小说文件账本工具集（确定性代码做壳，语义判断归模型）。工具一律显式传 book_dir 绝对路径，且必须落在书库根（--root）内。机制细则全文如下：\n\n' + guideText,
       }
     }
     if (m === 'ping') return {}
