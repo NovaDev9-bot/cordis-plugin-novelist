@@ -23,7 +23,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "test": "node --test test/novelist.test.mjs test/context.test.mjs test/retrieval.test.mjs test/realfs.test.mjs test/preset.test.mjs test/batch-aggregate.test.mjs test/versions.test.mjs test/platform-export.test.mjs mcp/test/mcp.test.mjs"
+    "test": "node --test test/novelist.test.mjs test/context.test.mjs test/retrieval.test.mjs test/versioning.test.mjs test/realfs.test.mjs test/preset.test.mjs test/batch-aggregate.test.mjs test/versions.test.mjs test/platform-export.test.mjs mcp/test/mcp.test.mjs"
   },
   "keywords": [
     "deepseek",

@@ -2,9 +2,9 @@
 
 **File-ledger domain tools for long-form fiction production on [DSH](https://github.com/deepseek-ai/deepseek-harness) (`dsh`).**
 
-一个「文件账本」插件：给 AI 编辑部（主编 / 写手 / 审稿子代理）8 个确定性的 `novel_*` 工具，把长篇小说生产中**能用代码管死的事**（账本、字数、伏笔、版本链、状态机、冲突仲裁流程）交给代码；**语义判断（写得好不好、怎么改）留给模型**。代码做壳，模型做智能。
+一个「文件账本」插件：给 AI 编辑部（主编 / 写手 / 审稿子代理）14 个确定性的 `novel_*` 工具，把长篇小说生产中**能用代码管死的事**（账本、字数、伏笔、版本链、状态机、冲突仲裁流程）交给代码；**语义判断（写得好不好、怎么改）留给模型**。代码做壳，模型做智能。
 
-A plain-file book ledger + 8 deterministic tools for multi-agent long-form fiction: the code does accounting, the model does the writing. No HTTP, no database, no LLM calls inside the plugin — just files and invariants.
+A plain-file book ledger + 14 deterministic tools for multi-agent long-form fiction: the code does accounting, the model does the writing. No HTTP, no database, no LLM calls inside the plugin — just files and invariants.
 
 ---
 
@@ -21,16 +21,24 @@ A plain-file book ledger + 8 deterministic tools for multi-agent long-form ficti
 
 ## Tools / 工具一览
 
+> 全 14 个工具（2026-09-18 对齐实际注册表；本表此前停留在早期 8 工具版本）。仓库总览与实验结论见 README.md。
+
 | 工具 | 作用 |
 |---|---|
 | `novel_init` | 新建书工程：落全套空账本骨架（一次性，幂等防重） |
 | `novel_outline` | 读/写卷章纲；附产线校准建议（按已落盘章节实测汉字分布推荐字数窗口，只建议不替人定） |
-| `novel_bible` | 写前必查：设定/人物/伏笔/时间线按当前章过滤生效窗口（防吃书） |
-| `novel_chapter` | **唯一正稿写入口**：正文参数携带 → 落盘 + 版本快照 + 伏笔埋/收 + 时间线 + cast + 事件账 + 内联符号门 |
-| `novel_verify` | 一致性机检：伏笔逾期 / 章纲-正文存在性 / 章号断档 / 版本链跳号（只出问题清单，不做语义判定） |
+| `novel_bible` | 写前必查：设定/人物/伏笔/时间线**按当前章投影生效窗**（防吃书；同名多版本记录取窗口含本章的那条） |
+| `novel_chapter` | **唯一正稿写入口**：事务提交——回执绑 content_hash、版本快照、伏笔埋/收、时间线、cast、事实贡献账、事件账、内联符号门、`expected_rev` 并发护栏、同参幂等重试、`rollback_to_rev` 回滚 |
+| `novel_verify` | 一致性机检：伏笔逾期 / 章纲-正文存在性 / 章号断档 / 版本链跳号 / 半提交回执对账（只出问题清单，不做语义判定） |
 | `novel_count` | 只读字数核数（汉字口径 `[\u4e00-\u9fff]`）——写手/审稿子代理交付自核都用它，模型自报字数不作数 |
-| `novel_ledger` | 台账定向增改：人物卡/设定词条/伏笔策展/章状态机迁移/**冲突仲裁两分法**（语义类编辑部证据裁决 / 权责类人类拍板，否决必带理由） |
+| `novel_ledger` | 台账定向增改：人物卡/设定词条/伏笔策展/章状态机迁移/**冲突仲裁两分法**（语义类编辑部证据裁决 / 权责类人类拍板，否决必带理由）。**生效窗语义**：同名多版本记录并存，口径演进（窗口不重叠）不报冲突 |
+| `novel_event` | 事件带（决策理由/判词/修订/欠线/checkpoint）：append-only、supersedes 撤销链、有界窗口读 |
+| `novel_score` | 判据账：每条判词绑 `ch_rev`+`content_hash`，伪引文当场拒收（引文子串核验硬闸） |
+| `novel_ask` | 问账本原语：一次查账（实体卡＋伏笔欠线＋时间线＋事件带窗口），`ch` 基准章投影，`select` 结构化取数 |
+| `novel_decide` | 裁决原语：裁决＋状态迁移＋落带一次完成；撤销走 `supersedes` |
 | `novel_assemble` | 汇编全书导出单文件（章数/总字数/伏笔状态表统计） |
+| `novel_context` | 账本分层回看：`summary`（章/卷/书投影、24 章窗口）、`checkpoint`（续跑锚）、`factsheet`（前情事实卡六节确定性投影） |
+| `novel_search` | 正文检索（书目录围栏）：`manuscript/` 字面查找 → 章号＋行号＋片段；多词 AND；候选非事实源 |
 
 ## Ledger layout / 账本目录
 
