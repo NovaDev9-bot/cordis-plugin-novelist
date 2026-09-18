@@ -56,6 +56,8 @@ if (!bookArg) die('缺 --book <锚书目录>', USAGE)
 const BOOK = path.resolve(bookArg)
 const OUT = opt('--out') ? path.resolve(opt('--out')) : null
 const JSON_OUT = opt('--json') ? path.resolve(opt('--json')) : null
+/** 出处字符串（书名 · 作者）。卡里贴的是别人的正文，引用必须指明出处。 */
+const SOURCE = opt('--source') || ''
 
 // ---------------------------------------------------------------- 读文本（UTF-8 → GBK 回退）
 
@@ -397,7 +399,10 @@ function buildCard() {
   L.push('')
   L.push('> 性质：写手参照卡（**不是赏析、不是规格清单**）。字数预算 600–2000。')
   L.push('> 使用方式：随派工包**全文**贴给主笔（留在库里不贴＝这一格空转）。')
-  L.push('> 生成：本卡由 build-author-card 生成，范例来自你自己的锚书。卡名用**风格指纹**（形态描述），不点名、不点作品名。')
+  L.push('> 生成：本卡由 build-author-card 生成，范例来自你自己的锚书。**卡名用风格指纹**（形态描述）——名字不落在卡名上，落在下一行的出处上。')
+  // 出处不是可选项：卡里贴的是别人的正文，"适当引用"的前提条件就是指明作者与作品名。
+  // 卡名去名（指纹）与引文署名（出处）不冲突——两者管的是不同的东西。
+  L.push('> 出处：' + (SOURCE || '（待填：范例所出的**书名 · 作者**——卡里贴了原文，就必须指明出处）'))
   L.push('')
   L.push('## 一、语域指南（一句话，禁数字）')
   L.push('（待填：一句话定性，**禁数字**。例：冷硬克制，靠动作和对话推进，叙述者不解释情绪。）')
@@ -494,6 +499,10 @@ if (missing.length) {
   }
 }
 console.error('[build-author-card] 锚段来源：' + (anchor ? anchor.label + '（' + hanzi(anchor.text) + ' 字）' : '（锚书首章不足 ' + MIN_ANCHOR + ' 字，未取）'))
+if (!SOURCE) {
+  console.error('[build-author-card] ⚠ 未给 --source：本卡载有原文范例但没有出处。'
+    + '自用无妨；**这张卡若要给别人看（随包/入仓/发人），必须补出处**——"适当引用"的前提条件就是指明作者姓名与作品名。')
+}
 console.error('[build-author-card] 卡正文 ' + cardChars + ' 字；数字型风格断言 0 个（已断言：卡正文无 `\\d+%` 与量化词，语域指南一节无数字）')
 console.error('')
 console.error('── 以下是审校侧口径，**不进写手派工包**（给 style-check / structure-check 对手，别贴给主笔）')
