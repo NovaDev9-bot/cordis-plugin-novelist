@@ -20,13 +20,17 @@ import path from 'node:path'
  * 为什么必须归一：Windows 上 8.3 短名（`RUNNER~1`）与长名（`runneradmin`）、symlink/junction
  * 会让"同一个目录"有两种字面路径——CI windows-latest 上 tmpdir() 就是短名，realpath 展开
  * 成长名，未归一的根会把全部根内路径误判越界（2026-09-18 实测 25 项失败）。
+ * **必须用 native 实现**：`realpathSync`（JS 实现）不展开 8.3 短名，而守卫侧的 `fsp.realpath`
+ * 走 libuv（native）会展开——两侧不同实现正是这个缺陷第二次复发的直接原因（首修即踩）。
  */
+const realpathNative = realpathSync.native || realpathSync
+
 function canonicalize(p) {
   let cur = path.resolve(p)
   const tail = []
   for (;;) {
     try {
-      const real = realpathSync(cur)
+      const real = realpathNative(cur)
       return tail.length ? path.join(real, ...tail) : real
     } catch {
       const parent = path.dirname(cur)

@@ -4,7 +4,8 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync, rmSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync, rmSync, realpathSync, statSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { createNodeFsAdapter } from '../fs-adapter.mjs'
@@ -12,6 +13,24 @@ import { createMcpHandler } from '../handler.mjs'
 import { _internals } from '../../lib/novelist.js'
 
 const { TOOLS } = _internals
+
+/**
+ * 取路径的 8.3 短名（win32 且短名启用时才有）。返回 null = 该场景跳过。
+ * 严格校验：结果必须存在、是目录、且与原名经 native realpath 指向同一处——
+ * 否则一律当"取不到"（cmd/PowerShell 引号或环境差异会产出垃圾串，绝不能当成短名用）。
+ */
+function shortPathOf(p) {
+  if (process.platform !== 'win32') return null
+  try {
+    const out = execFileSync('powershell', ['-NoProfile', '-NonInteractive', '-Command',
+      `(New-Object -ComObject Scripting.FileSystemObject).GetFolder('${p}').ShortPath`], { encoding: 'utf8', windowsHide: true })
+    const s = out.trim().split(/\r?\n/).pop().trim()
+    if (!s || s === p) return null
+    if (!statSync(s).isDirectory()) return null
+    if (realpathSync.native(s) !== realpathSync.native(p)) return null
+    return s
+  } catch { return null }
+}
 
 // ---------------------------------------------------------------- 适配层：根安全
 
@@ -67,20 +86,32 @@ test('适配层：根本身经链接/短名指向真实目录时，根内路径�
   // 为什么需要：CI 的 Windows runner 上 tmpdir() 是 8.3 短名（RUNNER~1），而 realpath 展开成
   // 长名（runneradmin）——旧实现拿"realpath 后的候选路径"去比"未归一的词法根"，于是根内
   // 路径全被判越界（25 个真机测试在 windows-latest 上集体失败，本机 TEMP 无短名故测不出）。
-  // 这里用 junction/symlink 制造同一类"根的两形"，本机即可复现。
+  // 两个子场景都要钉：链接根 **和** 8.3 短名根（后者只有 native realpath 会展开——只测链接
+  // 会漏掉"两侧用了不同 realpath 实现"这一面，正是修复第一次复发的原因）。
   const base = mkdtempSync(path.join(tmpdir(), 'nf-mcp-rootlink-'))
   try {
     const target = path.join(base, 'real-root')
     mkdirSync(path.join(target, 'books'), { recursive: true })
+    // ① 链接根（junction/symlink；两平台都可造，junction 在 Windows 不需管理员）
     const link = path.join(base, 'root-link')
-    try { symlinkSync(target, link, process.platform === 'win32' ? 'junction' : 'dir') } catch { return } // 无链接权限的平台跳过
-    const fs = createNodeFsAdapter(link)
-    const p = path.join(link, 'books', 'a.json')
-    await fs.writeText(p, '{"ok":true}')
-    assert.equal(await fs.readText(p), '{"ok":true}')
-    assert.ok((await fs.stat(p)).size > 0)
-    // 逃逸仍然要拦：链接根之外的路径不得因为"根有别名"而放行
-    await assert.rejects(() => fs.resolve(path.join(base, 'outside.txt')), /路径越界/)
+    let madeLink = false
+    try { symlinkSync(target, link, process.platform === 'win32' ? 'junction' : 'dir'); madeLink = true } catch { /* 无链接权限平台跳过 */ }
+    if (madeLink) {
+      const fs = createNodeFsAdapter(link)
+      const p = path.join(link, 'books', 'a.json')
+      await fs.writeText(p, '{"ok":true}')
+      assert.equal(await fs.readText(p), '{"ok":true}')
+      assert.ok((await fs.stat(p)).size > 0)
+      await assert.rejects(() => fs.resolve(path.join(base, 'outside.txt')), /路径越界/)
+    }
+    // ② 8.3 短名根（win32；短名未启用时跳过，runner 上会真跑）
+    const short = shortPathOf(target)
+    if (short) {
+      const fsShort = createNodeFsAdapter(short)
+      const p2 = path.join(short, 'books', 'b.json')
+      await fsShort.writeText(p2, '{"short":true}')
+      assert.equal(await fsShort.readText(path.join(short, 'books', 'b.json')), '{"short":true}')
+    }
   } finally { rmSync(base, { recursive: true, force: true }) }
 })
 
