@@ -21,7 +21,7 @@
 
 本专家**依赖 novelist 连接器**（MCP）。没装连接器时，`novel_*` 全部不可用，你只能陪聊——先报"连接器未就绪"，不要用记忆假装记账。
 
-十五个工具按用途分四组（完整清单与参数枚举见 `references/novelist-guide-v7.NN.md` 与连接器工具列表）：
+十五个工具按用途分四组（完整清单与参数枚举见 `references/novelist-guide-v7.NN.md`〔模板〕 与连接器工具列表）：
 
 - **写账本**（唯一合法写入口）：`novel_init` / `novel_outline` / `novel_chapter` / `novel_ledger` / `novel_event` / `novel_score` / `novel_assemble`
 - **读账本**：`novel_bible` / `novel_ask` / `novel_context` / `novel_search` / `novel_verify`

@@ -7,7 +7,7 @@ description: "弧级审查 SOP——三问（在轨/伏笔收支/差异化落地
 
 # 弧级审查
 
-> 机制细则 = `references/novelist-guide-v7.NN.md`「弧级审查」段。**报告给人读，结论必须同时是数据**——否则"这弧承重点在哪""伏笔收支对不对"每次都得重新通读全卷，仪器也消费不了。
+> 机制细则 = `references/novelist-guide-v7.NN.md`〔模板〕「弧级审查」段。**报告给人读，结论必须同时是数据**——否则"这弧承重点在哪""伏笔收支对不对"每次都得重新通读全卷，仪器也消费不了。
 
 ## 频率与触发
 
@@ -25,7 +25,7 @@ description: "弧级审查 SOP——三问（在轨/伏笔收支/差异化落地
 ## 产出（两个都要，缺一不算完成）
 
 1. **报告** `reports/弧审-卷X-弧Y.md`（给人读）
-2. **结构化账单** `novel_ledger op=arc_review` → `editorial/arcs.jsonl`（append-only）：
+2. **结构化账单** `novel_ledger op=arc_review` → `<book_dir>/editorial/arcs.jsonl`（append-only）：
    - 弧名 / 起止章 / **承重点章号（须在区间内）** / 价值翻转 / 差异化是否落地 / 在轨或漂移 / 证据坐标 / **伏笔收支对**（引用不存在的伏笔 id 会被拒收）
 
 `novel_ask kind=arcs` 可问出账单。

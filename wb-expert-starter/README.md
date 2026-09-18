@@ -1,4 +1,11 @@
+> 引用基底：包内
+
 # 编剧部（novel-forge-editorial）
+
+> 〔引用基底说明〕本目录（`wb-expert-starter/`）是**启动包模板**，不是装配产物。
+> 里面的 `references/…`、`scripts/…` 指的是**装出来的那个包里的位置**——那些文件由
+> `scripts/build-wb-expert.mjs` 生成，模板里本来就没有。故按 `包内` 声明：本仓不解析其引用。
+> 依据 `docs/引用文法.md` §二.1。**不是豁免**：真要验证该由装配器的自检去验（它已经在验）。
 
 NarrativeForge 的**两座位制网文编辑部**，打包成 WorkBuddy 专家。装的是"**谁在说话 + 怎么干活**"；"**能干原来干不了的事**"那一半由 **novelist 连接器**提供。
 
@@ -58,7 +65,7 @@ novel-forge-editorial/
 ## 三、使用前提（必读）
 
 1. **连接器已装**：`~/.workbuddy/mcp.json` 里要有 `novelist`，且书库根 `--root` 指向你的书库目录。
-2. **接活第一件事**：调一次 `novel_guide` 取机制手册——**宿主不保证把连接器的 `initialize.instructions` 交给模型**（MCP 规范把这条留给了客户端）。本包 `references/novelist-guide-v7.NN.md` 是同版全文，可作离线兜底。
+2. **接活第一件事**：调一次 `novel_guide` 取机制手册——**宿主不保证把连接器的 `initialize.instructions` 交给模型**（MCP 规范把这条留给了客户端）。本包 `references/novelist-guide-v7.NN.md`〔模板〕 是同版全文，可作离线兜底。
 
 ---
 
