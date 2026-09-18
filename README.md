@@ -61,6 +61,11 @@ node instruments/style-check.mjs 某章.txt                    # 文体机检（
 node instruments/corpus-falsify.mjs --corpus <语料根> --index <索引.csv> --out <输出>    # 用你自己的语料证伪规范
 node instruments/instrument-aggregate.mjs <书工程目录> --baseline <calibration-baseline.json>  # 判据聚合
 node instruments/batch-report.mjs <book_dir> --write         # 生产批日报（章状态/伏笔收支/待裁事项）
+
+# 五、WorkBuddy 专家包（把同一套工具 + 编辑部编成 WorkBuddy 的"专家"）
+node scripts/build-wb-expert.mjs --book-root <你的书库目录> --out <专家包目录>
+#    纯 Node、零依赖。装配器同时认公开单仓与私有 monorepo 两种布局。
+#    --handbooks <目录> 可另外带上主编/策划/写手三份作业规程；不给会**明确报"本次不含"**，不静默少件。
 ```
 
 > 边界说明：本仓=账本工具+编辑部 starter 编排+测量仪器。starter 预设（2026-09-17 起人格公开版）与生产预设同源：机制不变，公开侧不含本机私有路径与档案库引用，读者画像卡随包提供。
