@@ -6,7 +6,7 @@
  *
  * 协议来源：modelcontextprotocol.io 规范 2025-06-18（lifecycle/tools/prompts/transports）。
  * - initialize → 回显客户端版本（在支持清单内）或回我们支持的最新版
- * - tools/list → 12 工具（schema 现成于 lib TOOLS[].parameters → inputSchema）
+ * - tools/list → 本插件全部工具（schema 现成于 lib TOOLS[].parameters → inputSchema）
  * - tools/call → 伪造 exec（agent.ctx.get('fs') 返回适配器）注入 lib 执行；渲染优先
  *   output.render（其返回 [{type:'text',text}] 恰为 MCP content 格式）；执行错误走
  *   isError:true（规范：业务错误入 result，协议错误入 JSON-RPC error）
