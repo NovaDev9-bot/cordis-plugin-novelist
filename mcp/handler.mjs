@@ -14,10 +14,104 @@
  */
 const SUPPORTED_VERSIONS = ['2025-06-18', '2024-11-05']
 
+/**
+ * 入参运行时校验（批C，2026-09-17）：按 tools/list 已公示的 schema 做 required/type/enum/
+ * 未知键预检——DSH 宿主侧有架构校验，MCP 侧没有；缺参/类型错若直落 execute，报出来的是
+ * 深层 TypeError（"Cannot read properties of undefined"），调用方看不懂也不知道该补什么。
+ * 纯确定性、零 LLM：只查结构，不做语义判断（值与业务规则的校验仍在各工具内）。
+ */
+/**
+ * 本校验器支持的 JSON Schema 关键字白名单。
+ * 为什么要有白名单：schema 里出现本校验器不认识的关键字（如 pattern/minimum/anyOf）时，
+ * 旧实现会**静默跳过**——工具对外公示的契约与实际校验强度不一致，且没有任何信号。
+ * 现在改为：启动时扫全部 schema，出现白名单外关键字即报错（宁可启动失败，不可带盲区上线）。
+ */
+const SUPPORTED_KEYWORDS = new Set(['type', 'properties', 'required', 'additionalProperties', 'enum', 'items', 'description', 'default'])
+
+/** 扫一个 schema 的白名单外关键字（递归）。返回形如 ['select.pattern'] 的路径列表。 */
+export function schemaBlindSpots(schema, at = '') {
+  const out = []
+  if (!schema || typeof schema !== 'object' || Array.isArray(schema)) return out
+  for (const [k, v] of Object.entries(schema)) {
+    const here = at ? at + '.' + k : k
+    if (!SUPPORTED_KEYWORDS.has(k)) { out.push(here); continue }
+    if (k === 'properties' && v && typeof v === 'object') {
+      for (const [pk, pv] of Object.entries(v)) out.push(...schemaBlindSpots(pv, here + '.' + pk))
+    } else if (k === 'items') {
+      out.push(...schemaBlindSpots(v, here + '[]'))
+    }
+  }
+  return out
+}
+
+/** 值 → 类型名（用于错误消息；number 区分有限/非有限）。 */
+function typeOf(v) {
+  if (typeof v === 'number') return Number.isFinite(v) ? 'number' : 'not-finite'
+  if (Array.isArray(v)) return 'array'
+  if (v === null) return 'null'
+  return typeof v
+}
+
+/**
+ * 递归校验（批R5）：旧实现只查顶层，42 处嵌套的 `additionalProperties:false` 形同虚设——
+ * `select:{kind:'timeline', 打错的键:1}`、`seeds:[{id}]` 这类嵌套结构从来没被查过。
+ * path 标出出错位置（如 select.window.from），让调用方一次改对。
+ */
+function validateNode(schema, value, at, errs) {
+  if (!schema || typeof schema !== 'object') return
+  const label = (k) => (at ? (k ? at + '.' + k : at) : k)
+  const t = schema.type
+  if (t === 'object') {
+    if (typeof value !== 'object' || Array.isArray(value) || value === null) errs.push(label('') + ' 需为对象（got ' + typeOf(value) + '）')
+  } else if (t) {
+    const got = typeOf(value)
+    if (t === 'integer' && !Number.isInteger(value)) errs.push(label('') + ' 需为整数（got ' + got + '）')
+    else if (t === 'number' && typeof value !== 'number') errs.push(label('') + ' 需为数字（got ' + got + '）')
+    else if (t === 'string' && typeof value !== 'string') errs.push(label('') + ' 需为字符串（got ' + got + '）')
+    else if (t === 'boolean' && typeof value !== 'boolean') errs.push(label('') + ' 需为布尔（got ' + got + '）')
+    else if (t === 'array' && !Array.isArray(value)) errs.push(label('') + ' 需为数组（got ' + got + '）')
+  }
+  if (Array.isArray(schema.enum) && !schema.enum.includes(value)) {
+    errs.push(label('') + ' 取值须为 ' + schema.enum.join('/') + '（got ' + JSON.stringify(value) + '）')
+  }
+  if (Array.isArray(value)) {
+    if (schema.items) value.forEach((v, i) => validateNode(schema.items, v, (at || '参数') + '[' + i + ']', errs))
+    return
+  }
+  if (value && typeof value === 'object') {
+    const props = schema.properties || {}
+    for (const r of (schema.required || [])) {
+      if (value[r] === undefined || value[r] === null) errs.push(at ? '缺少必填字段 ' + label(r) : '缺少必填参数 ' + r)
+    }
+    for (const [k, v] of Object.entries(value)) {
+      const p = props[k]
+      if (!p) {
+        if (schema.additionalProperties === false) errs.push('未知参数 ' + label(k) + '（本工具不接受该参数，检查拼写）')
+        continue
+      }
+      if (v === undefined || v === null) continue
+      validateNode(p, v, label(k), errs)
+    }
+  }
+}
+
+function validateArgs(schema, args) {
+  const errs = []
+  if (!schema || schema.type !== 'object') return errs
+  validateNode(schema, args, '', errs)
+  return errs
+}
+
 export function createMcpHandler({ adapter, TOOLS, SECTION, serverInfo }) {
   if (!adapter) throw new Error('createMcpHandler: adapter 必填')
   if (!Array.isArray(TOOLS) || !TOOLS.length) throw new Error('createMcpHandler: TOOLS 必填')
   if (!SECTION || typeof SECTION.text !== 'string' || !SECTION.text) throw new Error('createMcpHandler: SECTION 必填（lib 侧 text 为 join 后的完整字符串）')
+
+  // schema 自查（批R5）：对公示的 inputSchema 做白名单扫描——出现校验器不认识的关键字就是静默盲区
+  // （公示的约束不会被强制执行）。宁可在装配期失败，不带盲区上线。
+  const blindSpots = []
+  for (const t of TOOLS) blindSpots.push(...schemaBlindSpots(t.parameters, t.name))
+  if (blindSpots.length) throw new Error('createMcpHandler: schema 含校验器不支持的关键字（这些约束不会被强制执行）：' + blindSpots.join('、'))
 
   const guideText = SECTION.text
 
@@ -43,6 +137,11 @@ export function createMcpHandler({ adapter, TOOLS, SECTION, serverInfo }) {
       const def = TOOLS.find((t) => t.name === name)
       if (!def) throw Object.assign(new Error('Unknown tool: ' + name), { code: -32602 })
       const args = (msg.params && msg.params.arguments) || {}
+      // 结构预检（批C）：缺参/类型错/未知键当场回可读错误，不落进 execute 变深层 TypeError
+      const argErrs = validateArgs(def.parameters, args)
+      if (argErrs.length) {
+        return { content: [{ type: 'text', text: '参数校验失败（' + def.name + '）：' + argErrs.join('；') + '。请按 tools/list 的 inputSchema 重发。' }], isError: true }
+      }
       const exec = { name, args, agent: { ctx: { get: (k) => (k === 'fs' ? adapter : undefined) } } }
       try {
         const value = await def.execute(args, exec)

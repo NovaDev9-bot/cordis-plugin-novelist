@@ -1,0 +1,25 @@
+# 行尾统一（2026-09-17 批E）
+#
+# 为什么需要：两个仓的同名文件曾出现一侧 LF、一侧 CRLF。直接 diff 会把整文件报成"全部改动"
+# （实测：某次复核看到 168 行差异，实为行尾差异），而对比工具一旦按行归一又会掩盖真实差异——
+# 两种误读都真实发生过。这里把源码行尾钉死，让"内容有没有变"这个问题只有一个答案。
+#
+# 注意：本文件只约束**今后**写入的行尾。仓库里已有的 CRLF 文件不会被自动改写，
+# 要归一需单独做一次 `git add --renormalize .`（会产生一次大 diff，应当单独提交并说明）。
+* text=auto eol=lf
+
+# 二进制件不参与行尾转换
+*.png binary
+*.jpg binary
+*.ico binary
+*.zip binary
+*.tar binary
+*.exe binary
+
+# 明确按文本处理并强制 LF
+*.mjs text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
