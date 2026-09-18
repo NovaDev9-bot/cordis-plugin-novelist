@@ -1,0 +1,27 @@
+# CI（批E，2026-09-17）：推送与 PR 跑测试。
+#
+# 为什么需要：两个仓此前都没有 CI——测试只在人手动跑的时候跑，而"改了没跑"正是
+# 2026-09-17 双份实现静默分叉（生产脚本落后插件包一份）能藏那么久的原因之一。
+# 矩阵覆盖 22 与当前 LTS：engines 声明 >=22，但真机只在单个 Node 版本上验证过。
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: ['22', '24']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      # 零依赖：无需 npm install，直接跑测试
+      - run: npm test
