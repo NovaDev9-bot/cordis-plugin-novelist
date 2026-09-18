@@ -73,6 +73,15 @@ L.push('')
 L.push(`## 判据账（今日，守门口径·R8：不作为"写得好"的证据）`)
 L.push(scoreToday.length ? Object.entries(dims).map(([d, v]) => `- ${d}：n=${v.length} 均${(v.reduce((a, b) => a + b, 0) / v.length).toFixed(1)}`).join('\n') : '- 今日无判词')
 L.push('')
+// 成本行：账本可见的调用面计数（估算口径——写手=每章 1 交付+批审采样另计）。
+// 「批量产出」这一半使命此前从无数据，日报顺手把可免费得到的那部分记下来。
+const blindDir = B('editorial/blind-samples')
+let blindCount = 0
+try { for (const d of readdirSync(blindDir)) { try { blindCount += readdirSync(path.join(blindDir, d)).filter(f => f.endsWith('.json') && !f.startsWith('_')).length } catch { /* 非目录跳过 */ } } } catch { /* 尚无批审目录 */ }
+L.push(`## 成本行（账本可见调用面）`)
+L.push(`- 今日：章交付 ${commits.length} 次 / 判词 ${scoreToday.length} 条 / 盲采样累计 ${blindCount} 份（批审协议阶梯 2→6，近全票才加采）`)
+L.push(`- ⚠ 跨零点批次会被"今日"口径切分（wall-clock 启发式，跨天批以 events 全量为准）`)
+L.push('')
 L.push(`## 待 Owner 事项`)
 const deadIds = new Set(tape.filter(e => e.supersedes).map(e => e.supersedes)) // v7.4 撤销语义：已作废裁决不再入待办
 const pending = tape.filter(e => e.kind === 'decision' && !deadIds.has(e.id) && /待|呈|Owner/.test(e.what || '') && String(e.ts || '').slice(0, 10) === today)

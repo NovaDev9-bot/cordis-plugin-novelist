@@ -1,6 +1,9 @@
 /**
  * style-check.test.mjs —— A3 机检层回归（工程方向v3 §4.1 A3，2026-09-11）
- * 锁死：公式化四组检测、负向词库命中、段落/感叹号度量、章切分、GBK 回退、vault 分叉检查器。
+ * 锁死：公式化四组检测、负向词库命中、段落/感叹号度量、章切分、GBK 回退。
+ * （vault 三向一致性守卫是**仓库级**工具——它要读 vault/ 与 vault-template/，插件仓内无法工作，
+ *  故其本体与 fixture 测试都在 dsh-native/scripts/；曾有一份同代码拷贝放在本目录，因路径语义
+ *  不同而静默报绿，2026-09-18 已删除。）
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -11,7 +14,6 @@ import { execFileSync } from 'node:child_process'
 
 const DIR = import.meta.dirname
 const STYLE = path.join(DIR, 'style-check.mjs')
-const VAULT = path.join(DIR, 'vault-sync-check.mjs')
 
 async function runStyle(content, extra = []) {
   const d = await mkdtemp(path.join(tmpdir(), 'sc-'))
@@ -85,22 +87,4 @@ test('GBK 自动回退：非法 UTF-8 字节走 GBK 解码', async () => {
   const r = JSON.parse(await readFile(out, 'utf8'))
   assert.equal(r.aggregate.enc_used, 'gbk')
   assert.equal(r.units[0].exclam.count, 1)
-})
-
-test('vault-sync-check：规范文件分叉/缺失可检出，退出码 1', async () => {
-  const d = await mkdtemp(path.join(tmpdir(), 'vs-'))
-  await mkdir(path.join(d, 'dsh-native', 'vault-template', 'editorial', 'protocols'), { recursive: true })
-  await mkdir(path.join(d, 'vault', 'editorial', 'protocols'), { recursive: true })
-  await mkdir(path.join(d, 'vault', 'editorial', 'orders'), { recursive: true }) // 运行数据：不应报
-  await writeFile(path.join(d, 'dsh-native', 'vault-template', 'editorial', 'protocols', 'a.md'), '模板版', 'utf8')
-  await writeFile(path.join(d, 'vault', 'editorial', 'protocols', 'a.md'), '实例改过', 'utf8')
-  await writeFile(path.join(d, 'dsh-native', 'vault-template', 'editorial', 'protocols', 'b.md'), '手册', 'utf8') // 实例缺失
-  await writeFile(path.join(d, 'vault', 'editorial', 'orders', '运行数据.md'), 'x', 'utf8') // 不在白名单
-  let r
-  try { execFileSync(process.execPath, [VAULT, d], { stdio: 'pipe', encoding: 'utf8' }); r = { status: 0, stdout: '' } }
-  catch (e) { r = { status: e.status, stdout: e.stdout } }
-  assert.equal(r.status, 1)
-  assert.ok(r.stdout.includes('同名分叉'))
-  assert.ok(r.stdout.includes('b.md'))
-  assert.ok(!r.stdout.includes('运行数据'), '运行数据不应算分叉')
 })
