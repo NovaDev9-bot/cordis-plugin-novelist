@@ -4,12 +4,12 @@
     "purpose": "L1 机检层数据文件（工程方向v3 §4.1 A3 / I4：规范以检查器形态存在，词库=数据不是散文）",
     "provenance": {
       "formula_detector": "旧引擎 backend/novel_plugin/rules/formula-detector.yaml → obs 05-书线知识/craft/公式化检测特征.md（已实测在役资产蒸馏，2026-08-31）——正则原样复活，权重失传处以透明计数替代并标注",
-      "negative_lexicon_master": "[RELEASE NOTE] removed for redistribution (third-party marketplace extraction, non-commercial boundary). Ship your own {category:[words]} to enable.",
+      "negative_lexicon_master": "灵蟹 SoloEnt wuhang-long-all 1-边界确定/docs/MASTER.md §2 负向词库（词汇级提取）",
       "negative_lexicon_humanizer": "灵蟹 SoloEnt humanizer-webnovel-cn 1.4.0 SKILL.md §3/§4/§5/§6（可正则部分提取）",
-      "rules_to_falsify": "灵蟹插件市场规范断言（A4 证伪靶）"
+      "rules_to_falsify": "灵蟹插件市场规范断言（A4 证伪靶）",
+      "redistribution": "〔2026-09-18 授权：Owner 声明已就该词表的再分发向原插件作者取得许可。依据来源＝Owner 陈述（许可范围/日期以 Owner 与作者的往来为准，本文件不复制往来内容）。据此公开侧不再留空槽——public 与 private 两份逐字节相同，由 oss-boundary-check 断言钉住。〕"
     },
-    "discipline": "本词库供观测器/软检查用：命中=报数+软警告，永不作语义质量门禁（仓库 AGENTS.md 纪律七：判定归模型、代码做壳）",
-    "note_release": "open-source build ships only first-party assets (old-engine formula-detector regexes + falsification rule targets); negative_lexicon is an empty extension slot"
+    "discipline": "本词库供观测器/软检查用：命中=报数+软警告，永不作语义质量门禁（仓库 AGENTS.md 纪律七：判定归模型、代码做壳）"
   },
   "chars_per_line": 22,
   "formula_detector": {
@@ -91,7 +91,102 @@
       "note": "旧引擎公式化总分权重在蒸馏中失传——此处改为四组特征的去重命中类别数（0-4+3+5=20 满量程），阈值 4.0 沿用原值作旗标线，仅报软警告"
     }
   },
-  "negative_lexicon": {},
+  "negative_lexicon": {
+    "master_神态微动作": [
+      "瞬间",
+      "脸上带着笑意",
+      "显得有些兴奋",
+      "眼神热切",
+      "目光里毫不遮掩",
+      "深吸一口气缓缓地",
+      "脸上堆满了笑",
+      "攥紧了拳头",
+      "摸紧了拳头",
+      "指节因用力而发白",
+      "浮现出一抹",
+      "嘴角勾起一抹",
+      "一丝弧度",
+      "死死盯着",
+      "瞳孔剧烈收缩",
+      "瞳孔收缩"
+    ],
+    "master_形容词": [
+      "锐利的",
+      "不容置疑",
+      "不易察觉",
+      "微不可察",
+      "彻骨的冰寒",
+      "轮廓分明的下颌",
+      "难以置信的",
+      "恐怖如斯"
+    ],
+    "master_高频虚词": [
+      "涟漪",
+      "轰然",
+      "死亡的阴影"
+    ],
+    "master_陈词滥调": [
+      "倒吸一口凉气",
+      "倒吸了一口凉气",
+      "剑眉星目",
+      "面如冠玉",
+      "深邃的眼眸",
+      "深邃的眸子",
+      "淬毒的眸子",
+      "冰冷的声音",
+      "空气仿佛凝固",
+      "黑夜如墨",
+      "夜色如墨",
+      "心中翻滚",
+      "死死的钉在"
+    ],
+    "master_逻辑废话": [
+      "不得不说",
+      "毋庸置疑",
+      "电光火石之间",
+      "说时迟那时快",
+      "心中一动",
+      "心中一凛",
+      "心中暗道"
+    ],
+    "humanizer_AI高频词": [
+      "值得一提的是",
+      "值得注意的是",
+      "不难发现",
+      "由此可见",
+      "总的来说",
+      "事实上",
+      "某种程度上",
+      "进一步",
+      "显著地",
+      "极大地"
+    ],
+    "humanizer_空泛搭配": [
+      "独特的魅力",
+      "深厚的底蕴",
+      "神秘的气息",
+      "令人神往",
+      "璀璨的明珠",
+      "绝世的容颜",
+      "倾国倾城",
+      "不凡的气度"
+    ],
+    "humanizer_模糊归因": [
+      "相传",
+      "据说",
+      "传闻",
+      "有观点认为",
+      "江湖上都在说",
+      "不知从何时起"
+    ],
+    "humanizer_万能收尾": [
+      "尽管前方充满艰险",
+      "但只要坚持不懈",
+      "终有一日必将",
+      "强敌环伺",
+      "谱写属于自己的传奇"
+    ]
+  },
   "simile_markers": {
     "strict": [
       "仿佛",
