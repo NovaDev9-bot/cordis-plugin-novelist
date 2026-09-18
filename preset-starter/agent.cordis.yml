@@ -242,7 +242,7 @@
       与事件带（novel_event）、判据账（novel_score）——你知道的一切只来自派工包，
       也不查别人的判词（独立读感是盲读的全部价值）。
     toolFilter:
-      deny: [novel_chapter, novel_ledger, novel_init, novel_assemble, novel_outline, novel_bible, novel_verify, novel_count, novel_event, novel_ask, novel_decide, novel_score, novel_context, read, write, edit, glob, grep, pwsh, read_image]
+      deny: [novel_chapter, novel_ledger, novel_init, novel_assemble, novel_outline, novel_bible, novel_verify, novel_count, novel_event, novel_ask, novel_decide, novel_score, novel_context, novel_search, read, write, edit, glob, grep, pwsh, read_image]
 
 # 结构校准员（one-shot·纯盲只见正文）：八类结构病证据制检查。只读。
 - id: nf-role-calibrator
@@ -281,7 +281,7 @@
       纯就正文论正文；意见由
       主编采纳/缩小/不采纳（采纳权在主编），跨章规律挂 orders/arc-卷X-弧Y/。
     toolFilter:
-      deny: [novel_chapter, novel_ledger, novel_init, novel_assemble, novel_outline, novel_bible, novel_verify, novel_count, novel_event, novel_ask, novel_decide, novel_score, novel_context, read, write, edit, glob, grep, pwsh, read_image]
+      deny: [novel_chapter, novel_ledger, novel_init, novel_assemble, novel_outline, novel_bible, novel_verify, novel_count, novel_event, novel_ask, novel_decide, novel_score, novel_context, novel_search, read, write, edit, glob, grep, pwsh, read_image]
 
 # 校对员（one-shot；帮稿子以最专业的面貌见读者）：文字把关。只读。
 # maxTokens 30K + 交付预算纪律（实测教训：continuable 续投继承污染上下文反复不收敛，
@@ -306,7 +306,7 @@
       "无"；【建议】最多三条可不改。只校文字，不评剧情不评结构，不改文，没有
       novel_chapter 与 novel_ledger。
     toolFilter:
-      deny: [novel_chapter, novel_ledger, novel_init, novel_assemble, novel_outline, novel_bible, novel_verify, novel_count, novel_event, novel_ask, novel_decide, novel_score, novel_context, write, edit, glob, grep, pwsh, read_image]
+      deny: [novel_chapter, novel_ledger, novel_init, novel_assemble, novel_outline, novel_bible, novel_verify, novel_count, novel_event, novel_ask, novel_decide, novel_score, novel_context, novel_search, write, edit, glob, grep, pwsh, read_image]
 
 # 拆书员（one-shot 批处理）：锚书逐章解剖→结构元数据记录（beats jsonl）。
 # 只留 read+write：读章文件、写批次记录；禁 novel_* 全家（不碰书工程账本）与 shell/搜索/编辑器。
@@ -332,7 +332,7 @@
       说明，不编造；④输出紧凑：记录一行一条，无铺垫无总结段（预算纪律）。每批读完
       即交付，不自行扩读任务书清单外的章。
     toolFilter:
-      deny: [novel_chapter, novel_ledger, novel_init, novel_assemble, novel_outline, novel_bible, novel_verify, novel_count, novel_event, novel_ask, novel_decide, novel_score, novel_context, edit, glob, grep, pwsh, read_image]
+      deny: [novel_chapter, novel_ledger, novel_init, novel_assemble, novel_outline, novel_bible, novel_verify, novel_count, novel_event, novel_ask, novel_decide, novel_score, novel_context, novel_search, edit, glob, grep, pwsh, read_image]
 
 # ── NF 领域工具（按 npm 包名挂载；前提=已装本插件包） ───────────────────────
 # 装法：dsh plugin --profile <你的profile> add cordis-plugin-novelist

@@ -4,7 +4,7 @@
 
 | 件 | 是什么 | 给谁用 |
 |---|---|---|
-| **插件**（`lib/`，详见 [README-plugin.md](README-plugin.md)） | 十三个确定性工具（`novel_*`）：每部书一个目录，读写账本文件（项目/设定/人物/伏笔/时间线/章纲/状态）、正文与版本快照、追加式事件日志（JSONL）、以及编辑工作区（事务回执、逐版事实快照、评分、决策记录）。章节提交是事务性的——回执绑正文哈希、`expected_rev` 乐观并发、同文本重试幂等、编辑期快照、可回滚到任意旧版。代码做记账，模型做写作 | 想在 agent 宿主上做长篇连续性生产的人 |
+| **插件**（`lib/`，详见 [README-plugin.md](README-plugin.md)） | 十四个确定性工具（`novel_*`）：每部书一个目录，读写账本文件（项目/设定/人物/伏笔/时间线/章纲/状态）、正文与版本快照、追加式事件日志（JSONL）、以及编辑工作区（事务回执、逐版事实快照、评分、决策记录）。章节提交是事务性的——回执绑正文哈希、`expected_rev` 乐观并发、同文本重试幂等、编辑期快照、可回滚到任意旧版。代码做记账，模型做写作 | 想在 agent 宿主上做长篇连续性生产的人 |
 | **MCP server**（`mcp/`，详见 [mcp/README.md](mcp/README.md)） | 同一套工具的 MCP（Model Context Protocol）形态：执行逻辑零改动复用，路径安全由 fs 适配层自担（书库根在启动时强制校验：词法 + realpath 双防线），工具说明与机制文档走 prompts 注入 | 不用 DSH 的智能体用户（Claude Code / ZCode / Cursor 等任意 MCP 客户端） |
 | **编辑部 starter 预设**（`preset-starter/`） | 两座位制预设（主编 + 主笔，其余按需 one-shot）：人格提示词、防自批的工具白名单（子代理禁止写类工具，落盘权只在主编）、盲读输入隔离，附冷读协议与前情事实卡模板 | 想要现成协作编排（而非裸工具集）的 DSH 用户 |
 | **仪器**（`instruments/`） | 零 LLM 的确定性检查与统计层：文体机检（正则规则）、语料证伪、判据聚合、盲池构建、批量日报生成 | 想量化验证写作规范或判官可靠性的人（不依赖 DSH，纯 Node） |
@@ -40,7 +40,7 @@
 # 一、DSH 插件（任选其一）
 dsh plugin --profile <你的profile> add github:NovaDev9-bot/cordis-plugin-novelist   # 从本仓装
 dsh plugin --profile <你的profile> add <本仓本地路径>                                  # 本地装
-# 装好后该 profile 的会话即带 novel_* 13 工具与 novelist-guide（无需其他配置）
+# 装好后该 profile 的会话即带 novel_* 14 工具与 novelist-guide（无需其他配置）
 # 想要现成的编辑部编排（主编/主笔人格与协作框架）→ preset-starter/（v0.8.0 起公开）
 
 # 二、MCP server（不用 DSH 的智能体：Claude Code / ZCode / Cursor 等任意 MCP 客户端）

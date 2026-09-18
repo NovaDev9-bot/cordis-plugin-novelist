@@ -1,6 +1,6 @@
 # novelist MCP server
 
-把 novelist 十三工具暴露为 [MCP（Model Context Protocol）](https://modelcontextprotocol.io) stdio server——任何 MCP 客户端（Claude Code / ZCode / Cursor / 任意智能体）插上即用，不依赖 DSH 宿主。
+把 novelist 十四工具暴露为 [MCP（Model Context Protocol）](https://modelcontextprotocol.io) stdio server——任何 MCP 客户端（Claude Code / ZCode / Cursor / 任意智能体）插上即用，不依赖 DSH 宿主。
 
 ## 架构
 
@@ -44,7 +44,7 @@ prompts/get → novelist-guide
 
 ## 验证状态（逐宿主验收，别按承诺用）
 
-**本 server 侧已验证**：协议层（initialize 版本协商 / tools list+call / prompts / 错误通道 / 通知静默）由 `mcp/test/mcp.test.mjs` 覆盖；真进程 stdio 端到端跑通（握手 → 13 工具 → 调用 → 根外路径拦截 → 响应保序）。
+**本 server 侧已验证**：协议层（initialize 版本协商 / tools list+call / prompts / 错误通道 / 通知静默）由 `mcp/test/mcp.test.mjs` 覆盖；真进程 stdio 端到端跑通（握手 → 14 工具 → 调用 → 根外路径拦截 → 响应保序）。
 
 **未在本仓验证的部分**（第三方宿主行为，不代其背书）：
 
