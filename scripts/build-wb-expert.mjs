@@ -386,19 +386,9 @@ say('· 作家卡：' + await copyDir(path.join(PLUGIN, 'craft', 'author-cards')
   }
 }
 
-// ── 7. 清单（供人工核对与二次复算） ────────────────────────────────────────
-{
-  const lines = []
-  for (const rel of written.slice().sort()) {
-    const buf = await fsp.readFile(path.join(OUT, rel))
-    lines.push(sha(buf) + '  ' + rel)
-  }
-  await fsp.writeFile(path.join(OUT, 'MANIFEST.sha256'), lines.join('\n') + '\n')
-  say('· 清单：MANIFEST.sha256（' + lines.length + ' 件）')
-}
-
 // ── 7b. 清理旧版残留（只删"自己上一版清单里写过、本版不再产出"的文件） ───────
 // 不做全目录清理：目标目录在 WorkBuddy 手里，删不属于本装配器的东西风险太大。
+// **顺序**：本段不读刚写的清单（用的是脚本启动时读的 prevFiles），故可留在改写之前。
 if (argv.includes('--prune')) {
   if (!prevFiles) say('· 清理：无上一版清单，跳过')
   else {
@@ -406,32 +396,6 @@ if (argv.includes('--prune')) {
     for (const r of stale) { await fsp.rm(path.join(OUT, r), { force: true }); console.log('  - 清理残留 ' + r) }
     say('· 清理：上一版残留 ' + stale.length + ' 件')
   }
-}
-
-// ── 7c. 镜像到已安装缓存位（WorkBuddy 装完会拷一份到 plugins/cache/…） ──────
-// 市场目录是源、缓存是拷贝：两边不一致 = 跑起来的不是你刚改的那份。
-// 这里做**双向核对**（缺的补、多的删、内容不同的覆盖），不做"只补不删"——
-// 只补不删正是缓存静默腐烂的方式。
-if (opt('--mirror') && !CHECK) {
-  const MIR = path.resolve(opt('--mirror'))
-  if (!fsSync.existsSync(MIR)) die('镜像目标不存在：' + MIR, '镜像目标必须是已存在的安装目录（不自动创建，避免写错路径凭空造一份）')
-  const existing = walk(MIR).map((f) => path.relative(MIR, f).split(path.sep).join('/'))
-  let added = 0, updated = 0, removed = 0
-  for (const r of existing) {
-    if (!written.includes(r) && r !== 'MANIFEST.sha256') { await fsp.rm(path.join(MIR, r), { force: true }); removed++ }
-  }
-  for (const r of written) {
-    const s = path.join(OUT, r), d = path.join(MIR, r)
-    const sb = await fsp.readFile(s)
-    if (!fsSync.existsSync(d)) { await fsp.mkdir(path.dirname(d), { recursive: true }); await fsp.writeFile(d, sb); added++ }
-    else if (sha(await fsp.readFile(d)) !== sha(sb)) { await fsp.writeFile(d, sb); updated++ }
-  }
-  // 收尾自证：逐文件哈希必须一致
-  const after = walk(MIR).map((f) => path.relative(MIR, f).split(path.sep).join('/'))
-  const bad = written.filter((r) => sha(fsSync.readFileSync(path.join(MIR, r))) !== sha(fsSync.readFileSync(path.join(OUT, r))))
-  const extra = after.filter((r) => !written.includes(r) && r !== 'MANIFEST.sha256')
-  if (bad.length || extra.length) die('镜像收尾自证失败：内容不一致 ' + bad.length + ' 件、多出 ' + JSON.stringify(extra))
-  say('· 镜像：+' + added + ' ~' + updated + ' -' + removed + ' → ' + MIR + '（逐文件哈希一致）')
 }
 
 // ── 7c2. 装配期引用改写：把"源坐标"的引用改写成"包坐标" ──────────────────────
@@ -453,12 +417,24 @@ if (opt('--mirror') && !CHECK) {
     'characters.json', 'foreshadows.json', 'status.json', 'scores.jsonl', 'outline.json', 'arcs.jsonl'])
   const srcToOut = new Map()
   for (const [outRel, srcAbs] of srcOf) if (!srcToOut.has(srcAbs)) srcToOut.set(srcAbs, outRel)
-  // 引用可能写成"插件仓相对"或"monorepo 根相对"，两个候选都试
+  // 引用可能写成三种坐标，逐条试（**不猜顺序**：能解到哪个就是哪个）：
+  //   ① 文件自身所在源目录（相对写法）
+  //   ② 插件仓根 / monorepo 根
+  //   ③ **monorepo 前缀剥掉后的子仓坐标**——〔2026-09-19 对抗复核补〕
+  //      公开仓直接克隆（flat）时 PLUGIN == ROOT，`dsh-native/` 这个前缀根本不存在，
+  //      于是 `skills/blind-read/SKILL.md` 里那 5 条 `dsh-native/plugin-novelist/wb-expert-starter/…`
+  //      一条都改不动、全被判死，**公开仓"克隆后跑一次"这条路直接 exit 2**。
   const ROOTS = [PLUGIN, ROOT]
+  const stripPrefix = (t) => { const m = t.match(/^dsh-native\/[^/]+\/(.+)$/); return m ? m[1] : null }
   const resolveSrc = (t, ownSrcDir) => {
+    const cands = [t]
+    const sp = stripPrefix(t)
+    if (sp) cands.push(sp)
     for (const base of [ownSrcDir, ...ROOTS]) {
-      const p = path.resolve(base, t)
-      if (srcToOut.has(p)) return srcToOut.get(p)
+      for (const c of cands) {
+        const p = path.resolve(base, c)
+        if (srcToOut.has(p)) return srcToOut.get(p)
+      }
     }
     return null
   }
@@ -486,7 +462,7 @@ if (opt('--mirror') && !CHECK) {
       // 源仓里解得到、但**没有进包**（如 `preset-starter/agent.cordis.yml`、装配器自身）：
       // 对**包的读者**而言它在包外。这里给包副本补类型，源件保持仓根相对的干净写法——
       // 两边各自正确，源件那份检查也不丢。解都解不到的**不动**，交给 7d 报出来逼人判。
-      const inRepo = ROOTS.some((b) => fsSync.existsSync(path.resolve(b, t)))
+      const inRepo = ROOTS.some((b) => fsSync.existsSync(path.resolve(b, t)) || (stripPrefix(t) && fsSync.existsSync(path.resolve(b, stripPrefix(t)))))
       if (inRepo) { changed = true; typed++; return whole + '〔仓外〕' }
       return whole
     })).join('\n')
@@ -528,12 +504,57 @@ if (opt('--mirror') && !CHECK) {
     })
   }
   if (mdFiles.length === 0) die('自证失败：装配产物里 0 个 .md——包内引用检查扫了个空')
+  // 〔2026-09-19 对抗复核补〕**0 条引用也是失败**：本仓元纪律"空集不等于干净"。
+  // 此前只挡了"0 个 md"，把规则写坏到 0 条匹配时会打印"0/0 条解析得到"并放行。
+  if (refs === 0) die('自证失败：包内引用自证扫到 0 条引用（' + mdFiles.length + ' 个 md）——模式失配还是正则写坏？0 条不等于没问题')
   if (dead.length) {
     die('包内引用解析不到 ' + dead.length + ' 条（引用的位置在包里不存在）：\n  ' + dead.slice(0, 15).join('\n  ') +
       (dead.length > 15 ? '\n  …… 另有 ' + (dead.length - 15) + ' 条' : ''),
       '要么补上那个文件，要么按文法给它一个类型（〔模板〕/〔包内〕/绝对或符号基底）——不要靠"反正没人查"')
   }
   say('· 包内引用自证：' + checked + '/' + refs + ' 条解析得到（' + mdFiles.length + ' 个 md）')
+}
+
+// ── 7e. 清单（供人工核对与二次复算） ────────────────────────────────────────
+// 〔2026-09-19 对抗复核修〕**必须在 7c2 之后**：此前它排在改写之前，于是 58 条清单里
+// 19 条哈希是**改写前**的字节——清单是"供二次复算"的，复算的人会算出不一致而以为自己错了。
+{
+  const lines = []
+  for (const rel of written.slice().sort()) {
+    const buf = await fsp.readFile(path.join(OUT, rel))
+    lines.push(sha(buf) + '  ' + rel)
+  }
+  await fsp.writeFile(path.join(OUT, 'MANIFEST.sha256'), lines.join('\n') + '\n')
+  say('· 清单：MANIFEST.sha256（' + lines.length + ' 件）')
+}
+
+// ── 7f. 镜像到已安装缓存位（WorkBuddy 装完会拷一份到 plugins/cache/…） ──────
+// 市场目录是源、缓存是拷贝：两边不一致 = 跑起来的不是你刚改的那份。
+// 这里做**双向核对**（缺的补、多的删、内容不同的覆盖），不做"只补不删"——
+// 只补不删正是缓存静默腐烂的方式。
+// 〔2026-09-19 对抗复核修〕**必须在 7c2 之后**：此前它排在改写之前，于是
+// **镜像里拷到的是改写前的包**（实测 19 个文件与 OUT 不同），而脚本当场打印"逐文件哈希一致"
+// ——两个目录确实一致，只不过一致在一份没人要的内容上。WorkBuddy 真正跑的就是这份镜像。
+if (opt('--mirror') && !CHECK) {
+  const MIR = path.resolve(opt('--mirror'))
+  if (!fsSync.existsSync(MIR)) die('镜像目标不存在：' + MIR, '镜像目标必须是已存在的安装目录（不自动创建，避免写错路径凭空造一份）')
+  const existing = walk(MIR).map((f) => path.relative(MIR, f).split(path.sep).join('/'))
+  let added = 0, updated = 0, removed = 0
+  for (const r of existing) {
+    if (!written.includes(r) && r !== 'MANIFEST.sha256') { await fsp.rm(path.join(MIR, r), { force: true }); removed++ }
+  }
+  for (const r of written) {
+    const s = path.join(OUT, r), d = path.join(MIR, r)
+    const sb = await fsp.readFile(s)
+    if (!fsSync.existsSync(d)) { await fsp.mkdir(path.dirname(d), { recursive: true }); await fsp.writeFile(d, sb); added++ }
+    else if (sha(await fsp.readFile(d)) !== sha(sb)) { await fsp.writeFile(d, sb); updated++ }
+  }
+  // 收尾自证：逐文件哈希必须一致
+  const after = walk(MIR).map((f) => path.relative(MIR, f).split(path.sep).join('/'))
+  const bad = written.filter((r) => sha(fsSync.readFileSync(path.join(MIR, r))) !== sha(fsSync.readFileSync(path.join(OUT, r))))
+  const extra = after.filter((r) => !written.includes(r) && r !== 'MANIFEST.sha256')
+  if (bad.length || extra.length) die('镜像收尾自证失败：内容不一致 ' + bad.length + ' 件、多出 ' + JSON.stringify(extra))
+  say('· 镜像：+' + added + ' ~' + updated + ' -' + removed + ' → ' + MIR + '（逐文件哈希一致）')
 }
 
 // ── 8. 收束自证 ─────────────────────────────────────────────────────────────
