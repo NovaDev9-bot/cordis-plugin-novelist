@@ -24,7 +24,9 @@ const LEX = JSON.parse(await readFile(path.join(import.meta.dirname, 'style-lexi
 const lexArg = opt('--lexicon')
 if (lexArg) Object.assign(LEX, JSON.parse(await readFile(lexArg, 'utf8')))
 
-// 词表是否为**空槽**（公开包刻意 0 词，全量本由 --lexicon 注入）——空＝**未测**，不是"0 命中"。
+// 词表是否为**空槽**——空＝**未测**，不是"0 命中"。
+// （2026-09-18 起公开包与私有真源逐字节相同、均 76 词，空槽只剩 `--lexicon` 指向空文件这一种用法；
+//  但这条判定必须留着：它挡的是"没测"冒充"干净"，与词库公不公开无关。）
 // 用函数而非常量：LEX 会被 --lexicon 就地覆盖，求值时机必须在覆盖之后。
 const lexiconWordCount = () => Object.values(LEX.negative_lexicon || {}).reduce((a, b) => a + (Array.isArray(b) ? b.length : 0), 0)
 
@@ -103,8 +105,9 @@ function checkUnit(u) {
 
   // 负向词库
   // 〔2026-09-18 审计修复〕空词表＝**未测**，不是"0 命中"。
-  // 公开包里的 style-lexicon.json 是 0 词空槽（授权边界，刻意如此），76 词的全量本在私有仓
-  // scripts/ 下由 --lexicon 注入；旧实现把"空表"与"测到干净"都印成 `0/万字`，
+  // 〔2026-09-18 口径更正〕原注释说"公开包是 0 词空槽、76 词全量本在私有仓"——该分工**自 2026-09-18 起作废**：
+  // 词库已随包公开，公开侧与真源逐字节相同（均 76 词，oss-boundary-check 断言钉住）。
+  // 旧实现把"空表"与"测到干净"都印成 `0/万字`，
   // 主编会把它当"文风干净"——恰好是 guide 自己警告过的"压到 0 也是偏离人类分布"的自动版。
   const lex = {}; let lexHits = 0
   for (const [cat, words] of Object.entries(LEX.negative_lexicon)) {
