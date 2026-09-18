@@ -66,9 +66,9 @@ test('A: factsheet 六节确定性投影（每条带章号坐标）＋叙述节�
     { kind: 'open_thread', ref: 't001', text: '镖局旧账未清', from_ch: 2, closes: 8 },
   ])
   // ③ 近场人物（近 near 章出现过；本章"实际出场者"由主编按细纲增删）
-  assert.deepEqual(s.near_characters, [{ name: '甲', identity: '镖师', last_seen_ch: 4 }])
-  // ④ 世界观规则（effective_from_ch ≤ ch）
-  assert.deepEqual(s.world_rules, [{ name: '青玉令', value: '见令如见人', from_ch: 1 }])
+  assert.deepEqual(s.near_characters, [{ name: '甲', identity: '镖师', want: null, opposed_by: null, last_seen_ch: 4 }])
+  // ④ 世界观规则（生效窗包含 ch；带 to_ch 便于看出口径有效期）
+  assert.deepEqual(s.world_rules, [{ name: '青玉令', value: '见令如见人', from_ch: 1, to_ch: null }])
   // ⑤ 时间线锚（≤ ch，含存稿排除）
   assert.deepEqual(s.timeline_anchors, [
     { ch: 2, time: '第二夜', what: '入城' },
