@@ -63,6 +63,27 @@ test('适配层：根内目录名以 .. 开头不误杀（精确逃逸判定）'
   } finally { rmSync(base, { recursive: true, force: true }) }
 })
 
+test('适配层：根本身经链接/短名指向真实目录时，根内路径不得被误判越界', async () => {
+  // 为什么需要：CI 的 Windows runner 上 tmpdir() 是 8.3 短名（RUNNER~1），而 realpath 展开成
+  // 长名（runneradmin）——旧实现拿"realpath 后的候选路径"去比"未归一的词法根"，于是根内
+  // 路径全被判越界（25 个真机测试在 windows-latest 上集体失败，本机 TEMP 无短名故测不出）。
+  // 这里用 junction/symlink 制造同一类"根的两形"，本机即可复现。
+  const base = mkdtempSync(path.join(tmpdir(), 'nf-mcp-rootlink-'))
+  try {
+    const target = path.join(base, 'real-root')
+    mkdirSync(path.join(target, 'books'), { recursive: true })
+    const link = path.join(base, 'root-link')
+    try { symlinkSync(target, link, process.platform === 'win32' ? 'junction' : 'dir') } catch { return } // 无链接权限的平台跳过
+    const fs = createNodeFsAdapter(link)
+    const p = path.join(link, 'books', 'a.json')
+    await fs.writeText(p, '{"ok":true}')
+    assert.equal(await fs.readText(p), '{"ok":true}')
+    assert.ok((await fs.stat(p)).size > 0)
+    // 逃逸仍然要拦：链接根之外的路径不得因为"根有别名"而放行
+    await assert.rejects(() => fs.resolve(path.join(base, 'outside.txt')), /路径越界/)
+  } finally { rmSync(base, { recursive: true, force: true }) }
+})
+
 // ---------------------------------------------------------------- 适配层：DSH fs 语义
 
 test('适配层：stat 缺失→null；writeText 自动建父目录；listDir 出 {name,kind}', async () => {

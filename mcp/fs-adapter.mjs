@@ -11,19 +11,47 @@
  * 模型幻觉指路/提示注入，非本地恶意进程（机器是用户自己的）。
  */
 import { promises as fsp } from 'node:fs'
+import { realpathSync } from 'node:fs'
 import path from 'node:path'
+
+/**
+ * 归一化路径：对"最深的已存在祖先"取 realpath，再拼回尚未存在的尾部。
+ * 为什么不能直接 fsp.realpath(root)：书库根可能尚未创建（MCP server 可先起后建书库）；
+ * 为什么必须归一：Windows 上 8.3 短名（`RUNNER~1`）与长名（`runneradmin`）、symlink/junction
+ * 会让"同一个目录"有两种字面路径——CI windows-latest 上 tmpdir() 就是短名，realpath 展开
+ * 成长名，未归一的根会把全部根内路径误判越界（2026-09-18 实测 25 项失败）。
+ */
+function canonicalize(p) {
+  let cur = path.resolve(p)
+  const tail = []
+  for (;;) {
+    try {
+      const real = realpathSync(cur)
+      return tail.length ? path.join(real, ...tail) : real
+    } catch {
+      const parent = path.dirname(cur)
+      if (parent === cur) return path.resolve(p) // 到盘根仍不存在（真不存在）→ 退回词法形
+      tail.unshift(path.basename(cur))
+      cur = parent
+    }
+  }
+}
 
 export function createNodeFsAdapter(rootInput) {
   if (!rootInput || !String(rootInput).trim()) {
     throw new Error('[novelist-mcp] 书库根为空：启动必须带 --root <目录> 或环境变量 NOVELIST_ROOT（MCP 无宿主沙箱，所有路径必须圈在根内）')
   }
   const root = path.resolve(String(rootInput).trim())
-  // 逃逸判定：rel === '..' / 以 '..<sep>' 开头 / 跨盘绝对路径（Windows path.relative 行为）。
-  // 注意不能用 startsWith('..') 一刀切——根内目录名 '..foo' 会被误杀。
-  const escaped = (p) => {
-    const rel = path.relative(root, p)
-    return rel === '..' || rel.startsWith('..' + path.sep) || path.isAbsolute(rel)
+  // 词法根与归一化根可能是两种字面（短名/链接）——**两形都算根内**（同一个目录）。
+  const canonRoot = canonicalize(root)
+  const bases = canonRoot === root ? [root] : [root, canonRoot]
+  const within = (base, p) => {
+    const rel = path.relative(base, p)
+    return !(rel === '..' || rel.startsWith('..' + path.sep) || path.isAbsolute(rel))
   }
+  // 逃逸判定：对任一"根的字面形"都不在内部才算越界。
+  // 注意不能用 startsWith('..') 一刀切——根内目录名 '..foo' 会被误杀。
+  const escaped = (p) => !bases.some((b) => within(b, p))
   const guard = (p, what) => {
     if (escaped(p)) throw new Error('[novelist-mcp] 路径越界被拒（' + what + '；书库根=' + root + '）：' + p)
   }
