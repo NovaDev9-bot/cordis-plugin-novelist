@@ -23,9 +23,9 @@ const REPO_ROOT = path.resolve(HERE, '..')
 const tmp = (p) => mkdtempSync(path.join(tmpdir(), p))
 const walk = (d) => readdirSync(d, { withFileTypes: true }).flatMap((e) => e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)])
 
-// 书库根＝MCP server 的 --root 硬前置。它在私有仓里默认指向 novelforge/，
-// 而公开单仓（克隆者手上）没有那个目录——所以测试**自己造一个临时书库根**：
-// 测试不该依赖"跑它的这台机器上恰好有哪些目录"，那正是本仓反复吃过的静默降级。
+// 书库根＝MCP server 的 --root 硬前置，**必须显式给**（它是安全边界，本工具不猜默认值）。
+// 所以测试自己造一个临时书库根：测试不该依赖"跑它的这台机器上恰好有哪些目录"，
+// 那正是本仓反复吃过的静默降级。
 const BOOK_ROOT = path.join(tmp('nf-books-'), 'books')
 mkdirSync(BOOK_ROOT, { recursive: true })
 
