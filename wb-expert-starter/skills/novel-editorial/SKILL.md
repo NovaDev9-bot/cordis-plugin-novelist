@@ -7,7 +7,7 @@ description: "编剧部主流程 SOP——把「写一章」拆成可核对的�
 
 # 编剧部主流程
 
-> **机制细则的唯一真源是 `references/novelist-guide-v7.NN.md`（= 连接器 `novel_guide` 工具的同版全文）。**
+> **机制细则的唯一真源是 `references/novelist-guide-v7.NN.md`〔模板〕（= 连接器 `novel_guide` 工具的同版全文）。**
 > 本文件是操作清单，负责"下一步做什么"；两份若有出入，**以工具层（工具描述 + novel_guide）为准**。
 > 本专家依赖 **novelist 连接器**。`novel_*` 不可用时先报"连接器未就绪"，**不许用记忆假装记账**。
 

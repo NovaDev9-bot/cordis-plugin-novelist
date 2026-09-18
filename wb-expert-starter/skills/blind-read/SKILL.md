@@ -9,8 +9,8 @@ description: "盲读协议——把试读员/结构校准员/校对员/拆书员
 
 > 完整协议 = `references/protocols/盲读协议.md` 与 `references/protocols/A-B冷读协议.md`（书工程内还有一份 `editorial/protocols/`）。
 > 四个盲角色的**派工提示词全文**在 `references/roles/`（文件名用 ASCII，角色名仍用中文）：
-> `reader.md`（试读员）/ `calibrator.md`（结构校准员）/ `proofer.md`（校对员）/ `dissector.md`（拆书员）；
-> 非盲的 `archivist.md`（档案员）也在同处。派工时把该文件「人格」段全文作为子代理提示词。
+> `dsh-native/plugin-novelist/wb-expert-starter/references/roles/reader.md`（试读员）/ `dsh-native/plugin-novelist/wb-expert-starter/references/roles/calibrator.md`（结构校准员）/ `dsh-native/plugin-novelist/wb-expert-starter/references/roles/proofer.md`（校对员）/ `dsh-native/plugin-novelist/wb-expert-starter/references/roles/dissector.md`（拆书员）；
+> 非盲的 `dsh-native/plugin-novelist/wb-expert-starter/references/roles/archivist.md`（档案员）也在同处。派工时把该文件「人格」段全文作为子代理提示词。
 
 ## 派工纪律（五条，违者交付无效）
 

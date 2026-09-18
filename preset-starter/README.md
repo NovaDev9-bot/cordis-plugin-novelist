@@ -31,9 +31,9 @@ dsh web
 
 | 文件 | 用途 |
 |---|---|
-| `A-B冷读协议.md` | 语义级回改定稿前的隐藏版本盲读（防"改完重审"的带期望验证） |
-| `前情事实卡.md` | 每章派工前的连续性材料模板（带章号坐标，会话即抛·档案即记忆） |
-| `读者画像卡.md` | 冷读派工三选一画像及默认番茄画像；主编将选定卡全文附进派工包，盲角色不自行读文件 |
+| `dsh-native/vault-template/editorial/protocols/A-B冷读协议.md` | 语义级回改定稿前的隐藏版本盲读（防"改完重审"的带期望验证） |
+| `dsh-native/vault-template/editorial/protocols/前情事实卡.md` | 每章派工前的连续性材料模板（带章号坐标，会话即抛·档案即记忆） |
+| `dsh-native/vault-template/editorial/protocols/读者画像卡.md` | 冷读派工三选一画像及默认番茄画像；主编将选定卡全文附进派工包，盲角色不自行读文件 |
 
 ## 日报脚本
 
