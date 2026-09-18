@@ -12,21 +12,26 @@ test('module shape: name / inject / apply', () => {
   assert.equal(typeof apply, 'function')
 })
 
-test('tool registry: 14 tools, expected names, write tools carry timeoutMs', () => {
-  assert.equal(TOOLS.length, 14)
+test('tool registry: 15 tools, expected names, write tools carry timeoutMs', () => {
+  assert.equal(TOOLS.length, 15)
   const names = TOOLS.map((t) => t.name)
   assert.deepEqual(names, [
     'novel_init', 'novel_outline', 'novel_bible', 'novel_chapter',
-    'novel_verify', 'novel_count', 'novel_ledger', 'novel_event', 'novel_score', 'novel_ask', 'novel_decide', 'novel_assemble', 'novel_context', 'novel_search',
+    'novel_verify', 'novel_count', 'novel_guide', 'novel_ledger', 'novel_event', 'novel_score', 'novel_ask', 'novel_decide', 'novel_assemble', 'novel_context', 'novel_search',
   ])
   for (const t of TOOLS) {
     if (['novel_init', 'novel_outline', 'novel_chapter', 'novel_ledger', 'novel_event', 'novel_score', 'novel_assemble'].includes(t.name)) {
       assert.ok(t.timeoutMs > 0, t.name + ' 应声明 timeoutMs')
     }
     assert.equal(typeof t.execute, 'function', t.name + ' 应有 execute')
-    // 对外 schema 完整性（2026-09-17 批C 修复回归）：book_dir 必须同时出现在 required 与 properties 里——
+    // 对外 schema 完整性（批C 修复回归）：book_dir 必须同时出现在 required 与 properties 里——
     // 旧实现用 Object.assign 平铺 extra，extra.properties 整体替换掉了 { book_dir }，schema 少了这个参数
-    if (t.name !== 'novel_count') {
+    //
+    // 免此约束的工具（**必须显式登记**，不是"漏了就跳过"——静默跳过等于这条回归失效）：
+    //   novel_count：可只给 file 或 text，不碰账本
+    //   novel_guide：零参数，取的是插件自带的机制手册，与任何一本书无关
+    const NO_BOOK_TOOLS = new Set(['novel_count', 'novel_guide'])
+    if (!NO_BOOK_TOOLS.has(t.name)) {
       assert.ok(t.parameters.properties.book_dir, t.name + ' 的 inputSchema 应含 book_dir 属性（不只 required）')
       assert.ok(t.parameters.required.includes('book_dir'), t.name + ' 应 required book_dir')
     }
@@ -289,12 +294,16 @@ test('integration: 全账本流程（init→outline→chapter→verify→count�
   assert.equal(fsh.foreshadows.length, 1)
   assert.equal(fsh.foreshadows[0].due_ch, 5)
 
-  // verify：跳写第 3 章（断档）→ 章纲已写正文缺失 + 章号断档两分支都报
+  // verify：跳写第 3 章（断档）→ 缺章一次报清
+  // 旧实现是两条检查各报一遍同一根因（实测《第七封》56 条 issues 里真实原因只有 1 个），
+  // 已合并为一条：有章纲但无正文的具名列前 6 章 + 计数。
   await call('novel_outline', { book_dir: dir, op: 'write', volume: 1, chapter_no: 2, entry: { title: '第二章', goal: 'g2', hook: 'h2', word_min: 5, word_max: 100, differentiation: 'd' } })
   await call('novel_chapter', { book_dir: dir, ch: 3, title: '第三章', text: '跳写产生的断档场景正文。'.repeat(5) })
   const ver = await call('novel_verify', { book_dir: dir })
-  assert.ok(ver.issues.some((s) => s.includes('章纲已写但正文缺失：第 2 章')))
-  assert.ok(ver.issues.some((s) => s.includes('章号断档：第 2 章')))
+  const miss = ver.issues.filter((s) => s.includes('缺正文'))
+  assert.equal(miss.length, 1, '同一根因只报一条：' + JSON.stringify(ver.issues))
+  assert.ok(miss[0].includes('第 2 章'), '要具名：' + miss[0])
+  assert.ok(!ver.issues.some((s) => s.includes('章号断档')), '第 2 章有章纲，不该同时落进"章号断档"那条（那是给章纲外缺口用的）')
 
   // count：file 模式汉字口径
   const cnt = await call('novel_count', { file: dir + '/manuscript/chapter_001.md' })

@@ -21,7 +21,7 @@ A plain-file book ledger + 14 deterministic tools for multi-agent long-form fict
 
 ## Tools / 工具一览
 
-> 全 14 个工具（2026-09-18 对齐实际注册表；本表此前停留在早期 8 工具版本）。仓库总览与实验结论见 README.md。
+> 全 15 个工具（2026-09-18 对齐实际注册表；本表此前停留在早期 8 工具版本）。仓库总览与实验结论见 README.md。
 
 | 工具 | 作用 |
 |---|---|
@@ -39,6 +39,7 @@ A plain-file book ledger + 14 deterministic tools for multi-agent long-form fict
 | `novel_assemble` | 汇编全书导出单文件（章数/总字数/伏笔状态表统计） |
 | `novel_context` | 账本分层回看：`summary`（章/卷/书投影、24 章窗口）、`checkpoint`（续跑锚）、`factsheet`（前情事实卡六节确定性投影） |
 | `novel_search` | 正文检索（书目录围栏）：`manuscript/` 字面查找 → 章号＋行号＋片段；多词 AND；候选非事实源 |
+| `novel_guide` | **取机制手册全文**（零参数）——接手任何 novelist 任务前先调一次。宿主不保证把指南注入上下文（MCP 的 `initialize.instructions` 由客户端决定是否采用），而工具列表是**一定会**进上下文的 |
 
 ## Ledger layout / 账本目录
 

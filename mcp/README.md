@@ -1,6 +1,6 @@
 # novelist MCP server
 
-把 novelist 十四工具暴露为 [MCP（Model Context Protocol）](https://modelcontextprotocol.io) stdio server——任何 MCP 客户端（Claude Code / ZCode / Cursor / 任意智能体）插上即用，不依赖 DSH 宿主。
+把 novelist 十五工具暴露为 [MCP（Model Context Protocol）](https://modelcontextprotocol.io) stdio server——任何 MCP 客户端（Claude Code / ZCode / Cursor / 任意智能体）插上即用，不依赖 DSH 宿主。
 
 ## 架构
 
