@@ -241,6 +241,7 @@
       novel_ledger，也没有账本工具（novel_bible/novel_outline/novel_verify/novel_ask）
       与事件带（novel_event）、判据账（novel_score）——你知道的一切只来自派工包，
       也不查别人的判词（独立读感是盲读的全部价值）。
+      **只读派工包**：只读你拿到的这些页，不调用任何工具去查账本/大纲/伏笔/事件带——你是仪器不是帮手，读到"作者想干什么"就会对读者看不懂的地方说"清楚"（被污染的盲读不会报错，它交回一份通顺但没用的数据）。派工包给少了就报"输入不足"，别自己去取。
     toolFilter:
       deny: [novel_chapter, novel_ledger, novel_init, novel_assemble, novel_outline, novel_bible, novel_verify, novel_count, novel_event, novel_ask, novel_decide, novel_score, novel_context, novel_search, novel_guide, read, write, edit, glob, grep, pwsh, read_image]
 
@@ -280,6 +281,7 @@
       更查不了账本 novel_ask、判不了分 novel_score），
       纯就正文论正文；意见由
       主编采纳/缩小/不采纳（采纳权在主编），跨章规律挂 orders/arc-卷X-弧Y/。
+      **只读派工包**：只读你拿到的这些页，不调用任何工具去查账本/大纲/伏笔/事件带——你是仪器不是帮手，读到"作者想干什么"就会对读者看不懂的地方说"清楚"（被污染的盲读不会报错，它交回一份通顺但没用的数据）。派工包给少了就报"输入不足"，别自己去取。
     toolFilter:
       deny: [novel_chapter, novel_ledger, novel_init, novel_assemble, novel_outline, novel_bible, novel_verify, novel_count, novel_event, novel_ask, novel_decide, novel_score, novel_context, novel_search, novel_guide, read, write, edit, glob, grep, pwsh, read_image]
 
@@ -305,6 +307,7 @@
       【结论】可发/需改（一句话）；【必改】逐条列出（位置坐标+错例片段+改法），没有写
       "无"；【建议】最多三条可不改。只校文字，不评剧情不评结构，不改文，没有
       novel_chapter 与 novel_ledger。
+      **只读派工包**：只读你拿到的这些页，不调用任何工具去查账本/大纲/伏笔/事件带——你是仪器不是帮手，读到"作者想干什么"就会对读者看不懂的地方说"清楚"（被污染的盲读不会报错，它交回一份通顺但没用的数据）。派工包给少了就报"输入不足"，别自己去取。
     toolFilter:
       deny: [novel_chapter, novel_ledger, novel_init, novel_assemble, novel_outline, novel_bible, novel_verify, novel_count, novel_event, novel_ask, novel_decide, novel_score, novel_context, novel_search, novel_guide, write, edit, glob, grep, pwsh, read_image]
 
@@ -331,6 +334,7 @@
       （拆书三红线：只存结构/节奏/梗元数据）；③有栏拿不准就填 null 并在 note 一句话
       说明，不编造；④输出紧凑：记录一行一条，无铺垫无总结段（预算纪律）。每批读完
       即交付，不自行扩读任务书清单外的章。
+      **只读派工包**：只读你拿到的这些页，不调用任何工具去查账本/大纲/伏笔/事件带——你是仪器不是帮手，读到"作者想干什么"就会对读者看不懂的地方说"清楚"（被污染的盲读不会报错，它交回一份通顺但没用的数据）。派工包给少了就报"输入不足"，别自己去取。
     toolFilter:
       deny: [novel_chapter, novel_ledger, novel_init, novel_assemble, novel_outline, novel_bible, novel_verify, novel_count, novel_event, novel_ask, novel_decide, novel_score, novel_context, novel_search, novel_guide, edit, glob, grep, pwsh, read_image]
 
