@@ -4,10 +4,9 @@
     "purpose": "L1 机检层数据文件（工程方向v3 §4.1 A3 / I4：规范以检查器形态存在，词库=数据不是散文）",
     "provenance": {
       "formula_detector": "旧引擎 backend/novel_plugin/rules/formula-detector.yaml → obs 05-书线知识/craft/公式化检测特征.md（已实测在役资产蒸馏，2026-08-31）——正则原样复活，权重失传处以透明计数替代并标注",
-      "negative_lexicon_master": "灵蟹 SoloEnt wuhang-long-all 1-边界确定/docs/MASTER.md §2 负向词库（词汇级提取）",
+      "negative_lexicon_master": "灵蟹 SoloEnt wuhang-long-all 1-边界确定/docs/MASTER.md §2 负向词库（词汇级提取；边界=不搬提示词全文）",
       "negative_lexicon_humanizer": "灵蟹 SoloEnt humanizer-webnovel-cn 1.4.0 SKILL.md §3/§4/§5/§6（可正则部分提取）",
-      "rules_to_falsify": "灵蟹插件市场规范断言（A4 证伪靶）",
-      "redistribution": "〔2026-09-18 授权：Owner 声明已就该词表的再分发向原插件作者取得许可。依据来源＝Owner 陈述（许可范围/日期以 Owner 与作者的往来为准，本文件不复制往来内容）。据此公开侧不再留空槽——public 与 private 两份逐字节相同，由 oss-boundary-check 断言钉住。〕"
+      "rules_to_falsify": "灵蟹插件市场规范断言（A4 证伪靶）"
     },
     "discipline": "本词库供观测器/软检查用：命中=报数+软警告，永不作语义质量门禁（仓库 AGENTS.md 纪律七：判定归模型、代码做壳）"
   },
