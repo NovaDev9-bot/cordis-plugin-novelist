@@ -39,6 +39,13 @@ test('预设：主笔 deny 写类与事件带，但保留查设定、自核字�
   for (const t of ['novel_chapter', 'novel_ledger', 'novel_init', 'novel_assemble', 'novel_outline', 'novel_event', 'edit', 'glob', 'grep', 'pwsh']) {
     assert.ok(deny.includes(t), '主笔应 deny ' + t + '（落账权唯一在主编）')
   }
+  // 2026-09-18 审计 P0 修复：deny 是按"工具名清单"手工枚举的，而"写能力"的判据是"会不会落盘"——
+  // 两者不同源，v7.0/v7.4 新增 novel_decide（改章状态机/落事件带）与 novel_score（写判据账）时
+  // 只给盲角色补了名单，主笔这边漏了：他能自批状态迁移、自写"裁决"、冒名 judge。
+  // 清单枚举型红线在工具增加时必然漂移，故此处把写类全家显式钉死。
+  for (const t of ['novel_decide', 'novel_score']) {
+    assert.ok(deny.includes(t), '主笔必须 deny ' + t + '（写类：状态机/事件带/判据账——防自批不变量是构造性的，不能只靠纪律）')
+  }
   for (const keep of ['novel_bible', 'novel_count', 'novel_ask', 'read', 'write']) {
     assert.equal(deny.includes(keep), false, '主笔应保留 ' + keep + '（写前查设定 / 交付自核字数 / 重读纪律）')
   }

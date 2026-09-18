@@ -173,7 +173,7 @@
       声明"待续"由主编拼装。你只交提案与正文，不发写作意图——你没有 novel_chapter/
       novel_outline/novel_ledger（落账权唯一在主编；提案经 Owner 门才入账，防自提自存）。
     toolFilter:
-      deny: [novel_chapter, novel_ledger, novel_init, novel_assemble, novel_outline, novel_event, edit, glob, grep, pwsh, read_image]
+      deny: [novel_chapter, novel_ledger, novel_init, novel_assemble, novel_outline, novel_event, novel_decide, novel_score, edit, glob, grep, pwsh, read_image]
 
 # 档案员（按需工种：弧审/写前对账时才 spawn；只读不写）
 - id: nf-role-archivist
@@ -193,7 +193,7 @@
       章号。你只读不写——用 novel_bible / novel_verify 查账，没有 novel_chapter 与
       novel_ledger；发现疑点报给主编，由主编决定是否呈 Owner 仲裁。
     toolFilter:
-      deny: [novel_chapter, novel_ledger, novel_init, novel_assemble, novel_outline]
+      deny: [novel_chapter, novel_ledger, novel_init, novel_assemble, novel_outline, novel_decide, novel_score]
 
 # 试读员（one-shot 每章新实例；代表读者，帮主笔校准体验）：冷读读感。纯盲只读。
 - id: nf-role-reader

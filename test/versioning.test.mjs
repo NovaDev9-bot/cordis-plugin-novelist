@@ -117,6 +117,32 @@ test('时间线版本①: 改稿后只认当前版的叙述（旧版留档不进
   assert.ok(ask2.overview.timeline.some((e) => e.what.includes('新版叙述')))
 })
 
+// 回归锁定（2026-09-18 P0）：改稿不带 timeline_events / 带逐字相同的，事件曾从**所有读取路径**消失。
+// 旧投影要求 rev 精确等于当前 rev，而重交只携正文时账上那条停在 rev 1 → 磁盘还在、读不到、零报错。
+test('时间线版本④: 改稿不带 timeline_events＝沿用上次声明（不得静默消失）', async () => {
+  for (const [label, resubmit] of [
+    ['不带 timeline_events', (b) => b.call('novel_chapter', { book_dir: b.dir, ch: 1, title: '一', text: '改稿正文。'.repeat(10) })],
+    ['带逐字相同的 timeline_events', (b) => b.call('novel_chapter', { book_dir: b.dir, ch: 1, title: '一', text: '改稿正文。'.repeat(10), timeline_events: [{ time: '第一夜', what: '他去了码头' }] })],
+  ]) {
+    const b = await book()
+    await b.call('novel_chapter', { book_dir: b.dir, ch: 1, title: '一', text: '初稿正文。'.repeat(10), timeline_events: [{ time: '第一夜', what: '他去了码头' }] })
+    await resubmit(b)
+
+    const onDisk = JSON.parse(b.files.get(b.dir + '/timeline.json')).events
+    assert.equal(onDisk.length, 1, label + '：磁盘上仍是一条（不被删）')
+
+    const ask = await b.call('novel_ask', { book_dir: b.dir, q: '时间线' })
+    assert.equal(ask.overview.timeline.length, 1, label + '：novel_ask 必须仍看得到（曾静默消失）：' + JSON.stringify(ask.overview.timeline))
+    assert.ok(ask.overview.timeline[0].what.includes('码头'))
+
+    const bible = await b.call('novel_bible', { book_dir: b.dir, ch: 1, scope: 'timeline' })
+    assert.equal(bible.timeline.length, 1, label + '：novel_bible 同口径')
+
+    const card = await b.call('novel_context', { book_dir: b.dir, op: 'factsheet', ch: 2 })
+    assert.equal(card.sections.timeline_anchors.length, 1, label + '：前情事实卡同口径')
+  }
+})
+
 test('时间线版本②: 无 rev 的旧事件仍全留（不误伤存量书）', async () => {
   const b = await book()
   // 手工塞一条"合并前产生"的事件（无 rev 字段）
