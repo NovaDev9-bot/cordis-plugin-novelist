@@ -28,11 +28,11 @@ A plain-file book ledger + 14 deterministic tools for multi-agent long-form fict
 | `novel_init` | 新建书工程：落全套空账本骨架（一次性，幂等防重） |
 | `novel_outline` | 读/写卷章纲；附产线校准建议（按已落盘章节实测汉字分布推荐字数窗口，只建议不替人定） |
 | `novel_bible` | 写前必查：设定/人物/伏笔/时间线**按当前章投影生效窗**（防吃书；同名多版本记录取窗口含本章的那条） |
-| `novel_chapter` | **唯一正稿写入口**：事务提交——回执绑 content_hash、版本快照、伏笔埋/收、时间线、cast、事实贡献账、事件账、内联符号门、`expected_rev` 并发护栏、同参幂等重试、`rollback_to_rev` 回滚 |
-| `novel_verify` | 一致性机检：伏笔逾期 / 章纲-正文存在性 / 章号断档 / 版本链跳号 / 半提交回执对账（只出问题清单，不做语义判定） |
+| `novel_chapter` | **唯一正稿写入口**：事务提交——回执绑 content_hash、版本快照、伏笔埋/收、时间线、cast、事实贡献账、事件账、内联符号门、`expected_rev` 并发护栏、同参幂等重试、`rollback_to_rev` 回滚、`hook`/`pays_hooks` 章末钩子记账 |
+| `novel_verify` | 一致性机检，**两清单分开**：`issues`（硬清单，决定 `ok`）=伏笔逾期/章纲-正文存在性/章号断档/版本链跳号/半提交回执对账/**近 10 章漏记章末钩子**/**卷过宽限期无弧审账单**；`warnings`（业务提示，不翻 `ok`）=钩子超期未兑现/卷尾结算清单 |
 | `novel_count` | 只读字数核数（汉字口径 `[\u4e00-\u9fff]`）——写手/审稿子代理交付自核都用它，模型自报字数不作数 |
-| `novel_ledger` | 台账定向增改：人物卡/设定词条/伏笔策展/章状态机迁移/**冲突仲裁两分法**（语义类编辑部证据裁决 / 权责类人类拍板，否决必带理由）。**生效窗语义**：同名多版本记录并存，口径演进（窗口不重叠）不报冲突 |
-| `novel_event` | 事件带（决策理由/判词/修订/欠线/checkpoint）：append-only、supersedes 撤销链、有界窗口读 |
+| `novel_ledger` | 台账定向增改：人物卡/设定词条/伏笔策展/章状态机迁移/**冲突仲裁两分法**（语义类编辑部证据裁决 / 权责类人类拍板，否决必带理由）/**弧审结构化账单**（`arc_review` → `editorial/arcs.jsonl`：承重点章号/价值翻转/伏笔收支对）。**生效窗语义**：同名多版本记录并存，口径演进（窗口不重叠）不报冲突 |
+| `novel_event` | 事件带（决策理由/判词/修订/欠线/**章末钩子 hook＋兑现 payoff**/checkpoint）：append-only、supersedes 撤销链、有界窗口读；钩子只计数不占窗，未闭钩子在 `open_hooks` 完整列出 |
 | `novel_score` | 判据账：每条判词绑 `ch_rev`+`content_hash`，伪引文当场拒收（引文子串核验硬闸） |
 | `novel_ask` | 问账本原语：一次查账（实体卡＋伏笔欠线＋时间线＋事件带窗口），`ch` 基准章投影，`select` 结构化取数 |
 | `novel_decide` | 裁决原语：裁决＋状态迁移＋落带一次完成；撤销走 `supersedes` |
@@ -56,7 +56,23 @@ A plain-file book ledger + 14 deterministic tools for multi-agent long-form fict
   versions/           # chapter_001.v1.md …（修订快照链）
   status.json         # 章状态机：草稿→已审→待试读→…→已发表
   events.jsonl        # 事件账（append-only，一切操作的审计轨迹）
+  editorial/
+    events-tape.jsonl # 事件带：决策/判词/修订/欠线/章末钩子/checkpoint（编辑部口径的"为什么"）
+    txn/              # 每章提交回执（pending→done，绑 content_hash）
+    facts/            # 每章每版的事实贡献账（append-only）
+    scores.jsonl      # 判据账：判词的维度/分/引文/版本绑定
+    arcs.jsonl        # 弧审结构化账单：承重点章号/价值翻转/伏笔收支对（novel_ledger op=arc_review）
 ```
+
+### Instruments / 离线仪器（`instruments/`，零依赖只读脚本）
+
+| 脚本 | 作用 |
+|---|---|
+| `structure-check.mjs <book_dir>` | 结构观测：伏笔曝光曲线＋爽点间隔。**只算账本能算的两个量**，"未测"与"测到没有"分开报，并显式列出不可测量（反转真伪/节奏/幕结构） |
+| `style-check.mjs <file>` | 文体观测：公式化检测、段落/句长分布、负向词密度（双向偏差） |
+| `corpus-falsify.mjs` | 对锚书语料逐条验证流行写作规范（哪些是行业线、哪些只是某位作者的口味） |
+| `platform-export.mjs` | 番茄平台导出格式（章标题/书籍信息块，字数口径与 `novel_count` 同源） |
+| `instrument-aggregate.mjs` / `batch-report.mjs` / `batch-aggregate.mjs` | 判据账聚合、批审报告、多采样意见聚合 |
 
 ## Install / 安装
 
