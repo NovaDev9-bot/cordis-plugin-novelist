@@ -17,7 +17,9 @@
     "test",
     "mcp",
     "instruments",
+    "craft",
     "preset-starter",
+    "wb-expert-starter",
     "cordis.patch.yml",
     "README.md",
     "LICENSE"

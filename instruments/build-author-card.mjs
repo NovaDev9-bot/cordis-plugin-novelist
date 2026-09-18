@@ -189,10 +189,24 @@ const ACTION_VERBS = ['冲', '扑', '抓', '拽', '扯', '踢', '踹', '砍', '�
 const PSY_MARKS = ['心里', '心想', '想到', '觉得', '思绪', '回忆', '记忆', '脑海', '意识到', '明白',
   '知道', '怕', '慌', '恐惧', '后悔', '纠结', '犹豫', '茫然', '难受', '忍住', '默念', '盘算', '琢磨', '发冷']
 
-/** 引号内汉字占比——对话量的代理量。 */
+/**
+ * 引号形态普查——把"这本书没有对白"与"这本书的引号我不认识"分开。
+ * 实测踩过：一份用 ASCII 直引号的锚书，对话密集类被判成"未测到"——
+ * 那是量具没认出来，不是这本书没有对话。所以普查结果要印出来（stderr）。
+ */
+const QUOTE_FORMS = {
+  '直角引号「」': /[「」『』]/g,
+  '弯引号“”': /[“”]/g,
+  '直引号"': /["＂]/g,
+}
+const quoteCensus = (t) => Object.fromEntries(
+  Object.entries(QUOTE_FORMS).map(([k, re]) => [k, (t.match(re) || []).length]))
+const hasAnyQuote = (t) => Object.values(quoteCensus(t)).some((n) => n > 0)
+
+/** 引号内汉字占比——对话量的代理量。三种印法都认：语料来自哪里不可控，
+ *  直引号（开闭同形）按出现次序交替配对，其余按开闭异形配对。 */
 function dialogueRatio(t) {
   let inQ = 0
-  let total = 0
   for (const [open, close] of [['「', '」'], ['『', '』'], ['“', '”']]) {
     let i = 0
     for (;;) {
@@ -203,7 +217,12 @@ function dialogueRatio(t) {
       inQ += hanzi(t.slice(a + 1, b)); i = b + 1
     }
   }
-  total = hanzi(t)
+  for (const q of ['"', '＂']) {
+    const at = []
+    for (let i = t.indexOf(q); i >= 0; i = t.indexOf(q, i + 1)) at.push(i)
+    for (let k = 0; k + 1 < at.length; k += 2) inQ += hanzi(t.slice(at[k] + 1, at[k + 1]))
+  }
+  const total = hanzi(t)
   return total ? inQ / total : 0
 }
 const per1000 = (t, words) => {
@@ -315,6 +334,8 @@ for (const u of units) {
 // ---------------------------------------------------------------- 审校侧统计（只进 stderr / --json）
 
 const allText = units.map((u) => u.text).join('\n')
+const census = quoteCensus(allText)
+const noQuoteBook = !hasAnyQuote(allText)
 const sentences = allText.split(/[。！？!?；;]+/).map((s) => s.trim()).filter(Boolean)
 const sentLens = sentences.map(hanzi).sort((a, b) => a - b)
 const quantile = (sorted, q) => (sorted.length ? sorted[Math.min(sorted.length - 1, Math.floor(q * sorted.length))] : null)
@@ -441,7 +462,14 @@ if (violations.length) {
 
 console.error('[build-author-card] 锚书=' + BOOK + '（' + units.length + ' 个章节文件，模式=' + (units[0].label.startsWith('第 ') ? 'manuscript' : 'files') + '）')
 console.error('[build-author-card] 范例候选 ' + candidates.length + ' 条：' + candidates.map((c) => c.cls + '@' + c.unit.label).join('、'))
-if (missing.length) console.error('[build-author-card] 未测到合格段落的功能类：' + missing.join('、') + '（未测到≠没有；未用别的类顶替）')
+console.error('[build-author-card] 引号普查：' + Object.entries(census).map(([k, v]) => k + ' ×' + v).join(' ｜ '))
+if (missing.length) {
+  console.error('[build-author-card] 未测到合格段落的功能类：' + missing.join('、') + '（未测到≠没有；未用别的类顶替）')
+  if (missing.includes('对话密集') && noQuoteBook) {
+    console.error('[build-author-card]   ⚠ 全书一个引号都没有——"对话密集未测到"多半是**语料不带引号**，'
+      + '不是"这本书没有对白"：直引号/弯引号/直角引号本工具都认，裸文本没有引号则判不了对白。')
+  }
+}
 console.error('[build-author-card] 锚段来源：' + (anchor ? anchor.label + '（' + hanzi(anchor.text) + ' 字）' : '（锚书首章不足 ' + MIN_ANCHOR + ' 字，未取）'))
 console.error('[build-author-card] 卡正文 ' + cardChars + ' 字；数字型风格断言 0 个（已断言：卡正文无 `\\d+%` 与量化词，语域指南一节无数字）')
 console.error('')
