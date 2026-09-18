@@ -63,7 +63,12 @@ const PLUGIN = isMono(ROOT) ? path.join(ROOT, 'dsh-native', 'plugin-novelist') :
 // 作业手册（主编/策划/写手三份作业规程）：**不在发布清单里**，公开克隆里没有这个目录。
 // 所以它是**可选的**——给了就用，没给就明说"本次不含"，不做静默跳过（少 3 件要看得见）。
 // 默认值只在 monorepo 形态下有意义；flat 形态别去拼一个不存在的路径，直接报"未指定"。
-const HB_DEFAULT = isMono(ROOT) ? path.join(ROOT, 'dsh-native', 'vault-template', 'editorial', 'handbooks') : null
+// 作业手册默认源：mono（私有仓）读真源模板；flat（公开仓 clone）读插件仓内的派生副本。
+// 两处都要有——2026-09-18 前 flat 下 HB_DEFAULT=null，包**默认就缺这一层**（虽打印"本次不含"，
+// 但对"clone 完照一条命令装"的用户来说，缺件应当是意外而不是默认）。
+const HB_DEFAULT = isMono(ROOT)
+  ? path.join(ROOT, 'dsh-native', 'vault-template', 'editorial', 'handbooks')
+  : path.join(PLUGIN, 'editorial', 'handbooks')
 const HB_RAW = opt('--handbooks') || process.env.NF_HANDBOOKS || HB_DEFAULT
 const HANDBOOKS = HB_RAW && fsSync.existsSync(HB_RAW) ? HB_RAW : null
 
@@ -197,7 +202,7 @@ say('· 协议模板（公开脱敏版）：' + await copyDir(path.join(PLUGIN, 
 if (HANDBOOKS) {
   say('· 作业手册：' + await copyDir(HANDBOOKS, 'references/handbooks', (f) => f.endsWith('.md')) + ' 件（源=' + HANDBOOKS + '）')
 } else {
-  say('· 作业手册：**本次不含**（' + (HB_RAW ? HB_RAW + ' 不存在' : '未指定 --handbooks') + '）。缺的是主编/策划/写手三份作业规程——')
+  say('· 作业手册：**本次不含**（' + (HB_RAW ? HB_RAW + ' 不存在' : '未指定 --handbooks') + '）。缺的是主编/主笔两份作业规程——')
   say('  工具、协议、卡、人格都不受影响；要含进去就用 --handbooks <目录> 指定。')
 }
 
