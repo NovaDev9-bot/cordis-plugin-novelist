@@ -1,13 +1,13 @@
 # cordis-plugin-novelist
 
-**一套"人当法官、机器当产线、仪器做公证"的长篇小说量产运行逻辑**，跑在 [DSH（DeepSeek Harness）](https://www.npmjs.com/package/@deepseek-ai/dsh) 上。本仓四件东西：
+**一套以文件账本为状态载体的长篇写作工具链**，跑在 [DSH（DeepSeek Harness）](https://www.npmjs.com/package/@deepseek-ai/dsh) 上，也可作为独立 MCP server 接到任何客户端。本仓四件东西：
 
 | 件 | 是什么 | 给谁用 |
 |---|---|---|
-| **插件**（`lib/`，详见 [README-plugin.md](README-plugin.md)） | novelist 十二工具（v7.0 三原语：`novel_ask` 语义查账 / `novel_chapter` 派生模式（随章决策落带+状态推进+txn 回执）/ `novel_decide` 一句话裁决）：文件账本制度的确定性实现——项目/设定集/人物/伏笔/时间线/章纲/正文/状态机/事件带/判据账，代码管记账，模型管写作 | 任何想在 agent 宿主上做长篇连续性生产的人 |
-| **MCP server**（`mcp/`，详见 [mcp/README.md](mcp/README.md)） | 同一套十二工具的 MCP（Model Context Protocol）形态：lib 执行逻辑零改动复用，fs 适配层自担路径安全（书库根硬前置：词法+realpath 双防线），novelist-guide 走 prompts 同源注入 | 不用 DSH 的智能体用户（Claude Code / ZCode / Cursor 等任意 MCP 客户端） |
-| **编辑部 starter 预设**（`preset-starter/`） | 两座位制编辑部（主编+主笔，按需工种 one-shot）：三段式人格+裁量条款、防自批不变量（子代理 deny 写类工具、落盘权唯一在主编）、盲读输入隔离，附 A-B 冷读协议与前情事实卡模板 | 想要现成协作编排（而非裸工具集）的 DSH 用户 |
-| **仪器**（`instruments/`） | 零 LLM 测量层：文体机检、语料证伪、判据聚合、盲池构建、批末日报生成 | 任何想**量化验证写作规范/判官可靠性**的人（不依赖 DSH，纯 Node） |
+| **插件**（`lib/`，详见 [README-plugin.md](README-plugin.md)） | 十三个确定性工具（`novel_*`）：每部书一个目录，读写账本文件（项目/设定/人物/伏笔/时间线/章纲/状态）、正文与版本快照、追加式事件日志（JSONL）、以及编辑工作区（事务回执、逐版事实快照、评分、决策记录）。章节提交是事务性的——回执绑正文哈希、`expected_rev` 乐观并发、同文本重试幂等、编辑期快照、可回滚到任意旧版。代码做记账，模型做写作 | 想在 agent 宿主上做长篇连续性生产的人 |
+| **MCP server**（`mcp/`，详见 [mcp/README.md](mcp/README.md)） | 同一套工具的 MCP（Model Context Protocol）形态：执行逻辑零改动复用，路径安全由 fs 适配层自担（书库根在启动时强制校验：词法 + realpath 双防线），工具说明与机制文档走 prompts 注入 | 不用 DSH 的智能体用户（Claude Code / ZCode / Cursor 等任意 MCP 客户端） |
+| **编辑部 starter 预设**（`preset-starter/`） | 两座位制预设（主编 + 主笔，其余按需 one-shot）：人格提示词、防自批的工具白名单（子代理禁止写类工具，落盘权只在主编）、盲读输入隔离，附冷读协议与前情事实卡模板 | 想要现成协作编排（而非裸工具集）的 DSH 用户 |
+| **仪器**（`instruments/`） | 零 LLM 的确定性检查与统计层：文体机检（正则规则）、语料证伪、判据聚合、盲池构建、批量日报生成 | 想量化验证写作规范或判官可靠性的人（不依赖 DSH，纯 Node） |
 
 ## 为什么是"运行逻辑"而不是"又一个 AI 写作插件"
 
@@ -40,7 +40,7 @@
 # 一、DSH 插件（任选其一）
 dsh plugin --profile <你的profile> add github:NovaDev9-bot/cordis-plugin-novelist   # 从本仓装
 dsh plugin --profile <你的profile> add <本仓本地路径>                                  # 本地装
-# 装好后该 profile 的会话即带 novel_* 12 工具与 novelist-guide（无需其他配置）
+# 装好后该 profile 的会话即带 novel_* 13 工具与 novelist-guide（无需其他配置）
 # 想要现成的编辑部编排（主编/主笔人格与协作框架）→ preset-starter/（v0.8.0 起公开）
 
 # 二、MCP server（不用 DSH 的智能体：Claude Code / ZCode / Cursor 等任意 MCP 客户端）
@@ -61,7 +61,7 @@ node instruments/instrument-aggregate.mjs <书工程目录> --baseline <calibrat
 node instruments/batch-report.mjs <book_dir> --write         # 生产批日报（章状态/伏笔收支/待裁事项）
 ```
 
-> 边界说明：本仓=账本工具+编辑部 starter 编排+测量仪器。starter 预设（v0.8.0 起公开）是生产用预设的精简版——机制不变，去掉私有引用（内部档案库/读者画像组扩展卡）。
+> 边界说明：本仓=账本工具+编辑部 starter 编排+测量仪器。starter 预设（2026-09-17 起人格公开版）与生产预设同源：机制不变，公开侧不含本机私有路径与档案库引用，读者画像卡随包提供。
 
 ## 设计红线
 

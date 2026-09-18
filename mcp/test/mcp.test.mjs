@@ -153,13 +153,13 @@ test('协议：initialize 结构与版本协商（支持清单内回显，清单
   } finally { rmSync(base, { recursive: true, force: true }) }
 })
 
-test('协议：tools/list 出 12 工具带 inputSchema；tools/call 走 render 渲染', async () => {
+test('协议：tools/list 出 13 工具带 inputSchema；tools/call 走 render 渲染', async () => {
   const base = mkdtempSync(path.join(tmpdir(), 'nf-mcp-tools-'))
   try {
     const { handler } = await makeHandler(base)
     const listed = await handler.handleLine(req(1, 'tools/list', {}))
     assert.equal(listed.result.tools.length, TOOLS.length)
-    assert.equal(listed.result.tools.length, 12)
+    assert.equal(listed.result.tools.length, 13)
     const cnt = listed.result.tools.find((t) => t.name === 'novel_count')
     assert.ok(cnt.inputSchema.properties.text, 'inputSchema 来自 lib parameters')
 
@@ -187,6 +187,33 @@ test('协议：执行错误走 isError 通道；未知工具/未知方法走 JSO
   } finally { rmSync(base, { recursive: true, force: true }) }
 })
 
+test('协议（批C）：tools/call 入参结构预检——缺参/类型错/未知键回可读错误，不落进深层异常', async () => {
+  const base = mkdtempSync(path.join(tmpdir(), 'nf-mcp-argv-'))
+  try {
+    const { handler } = await makeHandler(base)
+    // 缺必填参数
+    const miss = await handler.handleLine(req(1, 'tools/call', { name: 'novel_chapter', arguments: {} }))
+    assert.equal(miss.result.isError, true)
+    assert.ok(miss.result.content[0].text.includes('参数校验失败') && miss.result.content[0].text.includes('inputSchema'), '报错要指路：' + miss.result.content[0].text)
+    assert.ok(miss.result.content[0].text.includes('book_dir'), '缺参点名到具体字段：' + miss.result.content[0].text)
+    // 类型错（ch 声明 integer 却给字符串）
+    const badType = await handler.handleLine(req(2, 'tools/call', { name: 'novel_verify', arguments: { book_dir: base, ch: '三' } }))
+    assert.equal(badType.result.isError, true)
+    assert.ok(badType.result.content[0].text.includes('ch 需为整数'), badType.result.content[0].text)
+    // enum 越界
+    const badEnum = await handler.handleLine(req(3, 'tools/call', { name: 'novel_score', arguments: { book_dir: base, op: 'delete' } }))
+    assert.equal(badEnum.result.isError, true)
+    assert.ok(badEnum.result.content[0].text.includes('op 取值须为'), badEnum.result.content[0].text)
+    // 未知参数（拼错）当场拦，不静默吞掉
+    const unknown = await handler.handleLine(req(4, 'tools/call', { name: 'novel_count', arguments: { text: '你好世界', wenben: 'x' } }))
+    assert.equal(unknown.result.isError, true)
+    assert.ok(unknown.result.content[0].text.includes('未知参数 wenben'), unknown.result.content[0].text)
+    // 合法参数不受影响
+    const ok = await handler.handleLine(req(5, 'tools/call', { name: 'novel_count', arguments: { text: '你好世界' } }))
+    assert.equal(ok.result.isError, false)
+  } finally { rmSync(base, { recursive: true, force: true }) }
+})
+
 test('协议：prompts/list/get 走 novelist-guide 同源全文；通知与坏行静默（无响应）', async () => {
   const base = mkdtempSync(path.join(tmpdir(), 'nf-mcp-prompts-'))
   try {
@@ -205,4 +232,41 @@ test('协议：prompts/list/get 走 novelist-guide 同源全文；通知与坏�
     assert.equal(await handler.handleLine('不是JSON'), null, '坏行无响应')
     assert.equal(await handler.handleLine('[{"jsonrpc":"2.0"}]'), null, 'MCP 不用批量，数组行忽略')
   } finally { rmSync(base, { recursive: true, force: true }) }
+})
+
+// ---------------------------------------------------------------- 批R5 校验器补全 + schema 盲区自查
+
+test('批R5: 嵌套结构与数组元素也校验（旧实现只查顶层，42 处 additionalProperties:false 形同虚设）', async (t) => {
+  const { createMcpHandler: mk, schemaBlindSpots } = await import('../handler.mjs')
+  const root = mkdtempSync(path.join(tmpdir(), 'nf-arg-'))
+  t.after(() => rmSync(root, { recursive: true, force: true }))
+  const adapter = createNodeFsAdapter(root)
+  const h = mk({ adapter, TOOLS: _internals.TOOLS, SECTION: _internals.SECTION, serverInfo: { name: 'x', version: '0' } })
+  const call = async (name, args) => {
+    const res = await h.handleLine(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments: args } }))
+    return res.result
+  }
+
+  // 嵌套对象里的错键（select 是 v7.0 加的结构化选择器，旧校验器完全没查过）
+  const bad1 = await call('novel_ask', { book_dir: '/books/x', select: { kind: 'timeline', window: { from: 1, to: 2 }, 打错的键: 1 } })
+  assert.equal(bad1.isError, true)
+  assert.match(bad1.content[0].text, /select\.打错的键/, '嵌套未知键必须被指出来并带路径')
+
+  // 数组元素的类型（seeds 是对象数组）
+  const bad2 = await call('novel_chapter', { book_dir: '/books/x', ch: 1, title: 't', text: '正文', seeds: ['应该是对象不是字符串'] })
+  assert.equal(bad2.isError, true)
+  assert.match(bad2.content[0].text, /seeds\[0\]/, '数组元素类型错必须带下标定位')
+
+  // schema 盲区扫描：白名单外的关键字必须被点名，不能静默放过
+  assert.deepEqual(schemaBlindSpots({ type: 'object', properties: { a: { type: 'string', pattern: '^x' } } }), ['properties.a.pattern'])
+  assert.deepEqual(schemaBlindSpots(_internals.TOOLS[0].parameters, 'novel_init'), [], '真实工具 schema 不得含盲区关键字')
+})
+
+test('批R5: 公示的 schema 含校验器不认识的关键字时，装配期直接拒启动（不带盲区上线）', async () => {
+  const { createMcpHandler: mk } = await import('../handler.mjs')
+  const bad = [{ name: 'novel_x', description: 'd', parameters: { type: 'object', properties: { book_dir: { type: 'string', minLength: 3 } } }, execute: async () => ({}) }]
+  assert.throws(
+    () => mk({ adapter: {}, TOOLS: bad, SECTION: _internals.SECTION, serverInfo: { name: 'x', version: '0' } }),
+    /校验器不支持的关键字/,
+  )
 })

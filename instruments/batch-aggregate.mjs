@@ -47,10 +47,13 @@ for (const h of hits) {
 }
 const escalated = []
 const single = []
+const p0_review = []
 for (const [key, members] of clusters) {
   const voters = [...new Set(members.map((m) => m.sampler))]
   const rec = { para: key.split('#')[0], kind: key.split('#')[1], votes: voters.length, total: members.length, p0: members.some((m) => m.p0), representative: members[0], samplers: voters }
-  if (voters.length >= k) escalated.push(rec); else single.push(rec)
+  if (voters.length >= k) escalated.push(rec)
+  else if (rec.p0) p0_review.push(rec) // p0 严重单报：证据不因票少隐没，入待复核（不自动确诊——单票同坐标≠语义共识）
+  else single.push(rec)
 }
 escalated.sort((a, b) => b.votes - a.votes || (b.p0 ? 1 : 0) - (a.p0 ? 1 : 0))
 
@@ -60,11 +63,17 @@ for (const e of escalated.slice(0, 10)) {
   console.log(`  [${e.p0 ? 'P0' : e.kind}] 第${Number(e.para) + 1}段 ×${e.votes}票（${e.samplers.join('/')}）｜${e.representative.evidence}…｜${e.representative.issue}`)
 }
 if (escalated.length === 0) console.log('  （无——本批无分歧升级）')
+if (p0_review.length) {
+  console.log(`待复核 ${p0_review.length} 条（p0 严重单报，未达 k 票——单票证据保留待人工复核，不自动确诊）：`)
+  for (const e of p0_review.slice(0, 10)) {
+    console.log(`  [P0·待复核] 第${Number(e.para) + 1}段 1票（${e.samplers.join('/')}）｜${e.representative.evidence}…｜${e.representative.issue}`)
+  }
+}
 console.log(`单报 ${single.length} 条已盲存（不展示，防聚合点污染；审计见 _aggregate.json）`)
 
 if (outDir) {
   mkdirSync(outDir, { recursive: true })
-  const out = { ts: new Date().toISOString(), chapter: chapterFile, samples: samples.length, k, rejected, rejected_short, escalated, single_blind: single }
+  const out = { ts: new Date().toISOString(), chapter: chapterFile, samples: samples.length, k, rejected, rejected_short, escalated, p0_review, single_blind: single }
   const p = path.join(outDir, '_aggregate-' + Date.now() + '.json')
   writeFileSync(p, JSON.stringify(out, null, 2))
   console.log('盲存+审计件：' + p)
