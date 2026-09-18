@@ -252,10 +252,26 @@ const CLASSES = [
 
 // ---------------------------------------------------------------- 挑范例候选（每类 1 条，互不重叠）
 
+/**
+ * 语料洁净度：盗版/OCR 文本会在正文里插入带圈数字、罗马数字、CJK 兼容字。
+ * 实测踩过：一份锚书的对白范例里混进「㈤⒐Ⅱ」，夹在"盘子多大，底儿多大"中间。
+ * 那不是风格，是噪声——贴给主笔等于教它写乱码。含这类字符的窗口一律不进候选池。
+ *
+ * 第二条：人称代词 + 地（他地／你地／我地／其地）在规范汉语里几乎不存在，
+ * 是"的/地"误用的高置信度标记（实测：一份锚书里"他地内力／对其地排斥"连着出现）。
+ * 只收这一种形状，不做通用的的/地判定——那要词性标注，猜错的代价是误杀好窗口。
+ */
+const JUNK_RE = /[\u2460-\u24ff\u2150-\u218f\u3200-\u33ff\u2e80-\u2eff\uf900-\ufaff]/
+const DE_TYPO_RE = /[他你我其]地/
+
 const all = []
+let junkWindows = 0
+let deWindows = 0
 for (const u of units) {
   let off = 0
   for (const w of windowsOf(paragraphsOf(u.text))) {
+    if (JUNK_RE.test(w)) { junkWindows++; off += w.length; continue }
+    if (DE_TYPO_RE.test(w)) { deWindows++; off += w.length; continue }
     all.push({ unit: u, text: w, ...measure(w), off })
     off += w.length
   }
@@ -463,6 +479,13 @@ if (violations.length) {
 console.error('[build-author-card] 锚书=' + BOOK + '（' + units.length + ' 个章节文件，模式=' + (units[0].label.startsWith('第 ') ? 'manuscript' : 'files') + '）')
 console.error('[build-author-card] 范例候选 ' + candidates.length + ' 条：' + candidates.map((c) => c.cls + '@' + c.unit.label).join('、'))
 console.error('[build-author-card] 引号普查：' + Object.entries(census).map(([k, v]) => k + ' ×' + v).join(' ｜ '))
+if (junkWindows || deWindows) {
+  const parts = []
+  if (junkWindows) parts.push('OCR 噪声（带圈数字/罗马数字/CJK 兼容字）' + junkWindows + ' 个')
+  if (deWindows) parts.push('的/地误用（人称代词+地）' + deWindows + ' 个')
+  console.error('[build-author-card] 洁净度：剔除 ' + parts.join('、') + ' 窗口——'
+    + '盗版文本常见，那不是风格，贴给主笔等于教它写乱码与错字。')
+}
 if (missing.length) {
   console.error('[build-author-card] 未测到合格段落的功能类：' + missing.join('、') + '（未测到≠没有；未用别的类顶替）')
   if (missing.includes('对话密集') && noQuoteBook) {
