@@ -1,6 +1,7 @@
 /**
  * batch-aggregate.mjs —— R2 批处理器聚合引擎（零 LLM；总蓝图 R2 施工 2026-09-16）
  * 用法：node instruments/batch-aggregate.mjs <chapter_file> <samples_dir> [--k=2] [--write <out_dir>]
+ *          [--gate <anchors.jsonl>]   迁移回归门：与串行审已知 P0 集合一致率 ≥0.8（锚点 ≥10 才判）
  * 详见仓库 README 与批审协议；输入=N 份 {sampler, opinions:[{evidence, issue, p0, kind}]}，
  * 引擎=引文规范化定位（伪引文拒收）→段落坐标聚类→k 票投票升级→单报盲存（审计件）→近全票加采建议。
  */
@@ -80,3 +81,58 @@ if (outDir) {
 }
 const near = escalated.filter((e) => e.votes === samples.length - 1)
 if (near.length) console.log(`建议：${near.length} 簇近全票（${samples.length - 1}/${samples.length}），可加采 1-2 份再聚合`)
+
+// ── R2 迁移回归门（依据：批审协议 §口径 "一致率 0.8 = 迁移回归门"）─────────────
+// 规则："与串行审已知 P0 集合一致率 ≥0.8（**锚点 ≥10 条裁决记录后才生效**，冷启动期此口径不判）"。
+// 这条 2026-09-16 就写进协议了，而**代码里一直没有这道门**——总台账因此把 R2 的验收
+// 挂在"需裁决锚点积累"上。但那是两件事：
+//   · **门本身对不对**（冷启动判不判、一致率算得对吗）→ 用**合成锚点当场就能验收**；
+//   · **真判官达不达标** → 只能等真实锚点积累。
+// 现在落成可执行的门：`--gate <anchors.jsonl>`，每行 {para, kind, verdict:"p0"|"ok"}。
+{
+  const gi = argv.indexOf('--gate')
+  if (gi >= 0) {
+    const af = argv[gi + 1]
+    if (!af) { console.error('用法：--gate <anchors.jsonl>（每行 {para, kind, verdict:"p0"|"ok"}）'); process.exit(2) }
+    const MIN_ANCHORS = 10      // 冷启动门槛，写死在代码里＝这条纪律不靠人记
+    const PASS_RATE = 0.8
+    const anchors = readFileSync(af, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l))
+    // 口径按协议原话：比的是 **P0 集合**（"与串行审已知 P0 集合一致率"）。
+    // 所以"非 P0 的锚点"只要求在 P0 集合里**不出现**——它被升级成非 P0 分歧不算不一致。
+    const aggP0 = new Set(escalated.filter((e) => e.p0).map((e) => e.para + '#' + e.kind))
+    const mismatch = []
+    let hit = 0
+    for (const a of anchors) {
+      const key = String(a.para) + '#' + a.kind
+      const inAggP0 = aggP0.has(key)
+      const agree = a.verdict === 'p0' ? inAggP0 : !inAggP0
+      if (agree) hit++
+      else mismatch.push({ key, want: a.verdict, agg: inAggP0 ? 'p0' : '不在P0集合' })
+    }
+    const rate = anchors.length ? hit / anchors.length : null
+    const gate = {
+      anchors: anchors.length, min_anchors: MIN_ANCHORS, pass_rate: PASS_RATE,
+      hit, rate: rate === null ? null : Math.round(rate * 1000) / 1000, mismatch,
+    }
+    if (anchors.length < MIN_ANCHORS) {
+      // 冷启动：**明确报"不判"**，不报 0.8 也不报 PASS——"没判"不是"通过"
+      gate.verdict = `不判（冷启动：锚点 ${anchors.length}/${MIN_ANCHORS} 条，口径未生效）`
+      console.log(`\n${gate.verdict}`)
+    } else if (rate >= PASS_RATE) {
+      gate.verdict = `PASS（一致率 ${(rate * 100).toFixed(1)}% ≥ ${PASS_RATE * 100}%，锚点 ${anchors.length}）`
+      console.log(`\n迁移回归门：${gate.verdict}`)
+    } else {
+      gate.verdict = `FAIL（一致率 ${(rate * 100).toFixed(1)}% < ${PASS_RATE * 100}%，锚点 ${anchors.length}）`
+      console.log(`\n迁移回归门：${gate.verdict}`)
+      for (const m of mismatch.slice(0, 10)) console.log(`  ✗ ${m.key}｜串行审=${m.want}｜本聚合=${m.agg}`)
+    }
+    if (outDir || true) {
+      const dst = outDir || path.dirname(path.resolve(chapterFile))
+      mkdirSync(dst, { recursive: true })
+      writeFileSync(path.join(dst, '_gate-' + Date.now() + '.json'), JSON.stringify(gate, null, 2))
+      console.log('门记录：_gate-*.json（判也留、不判也留）')
+    }
+    // 冷启动**不算失败**（协议明写"此口径不判"），但也不许被读成通过——退出码 0，输出写明"不判"
+    if (gate.verdict.startsWith('FAIL')) process.exit(1)
+  }
+}

@@ -75,3 +75,74 @@ test('聚合引擎：--k=3 时两票簇降为盲存（阈值可调）', () => {
   assert.ok(stdout.includes('无——本批无分歧升级'), 'k=3 两票不升级')
   assert.equal(agg.single_blind.length, 1, '两票簇整体转盲存')
 })
+
+// ── R2 迁移回归门：**用合成锚点验收门本身** ────────────────────────────────
+// 背景：协议写着"一致率 ≥0.8（锚点 ≥10 才生效）"，而代码里此前没有这道门，
+// 总台账因此把 R2 验收挂在"需裁决锚点积累"上。这是两件事：
+//   · 门**判得对不对**（冷启动判不判、一致率算得对、边界怎么走）→ 合成锚点当场可验；
+//   · 真判官**达不达标** → 只能等真实锚点。下面锁的是前者。
+function runGate(anchors) {
+  const dir = mkdtempSync(path.join(tmpdir(), 'bag-'))
+  const chap = path.join(dir, 'ch.md')
+  writeFileSync(chap, ['第一段。夜里的德音楼亮着最后一盏灯。', '第二段。小满推门进来攥着玉佩。', '第三段。雨停了檐下还在滴水。'].join('\n'), 'utf8')
+  const sdir = path.join(dir, 'samples'); mkdirSync(sdir)
+  // 两簇：para0/A1 双票且 P0；para1/B8 双票非 P0
+  const S = (who) => ({ sampler: who, opinions: [
+    { evidence: '夜里的德音楼亮着最后一盏灯', issue: '开场无钩', p0: true, kind: 'A1' },
+    { evidence: '雨停了檐下还在滴水', issue: '收尾仓促', p0: false, kind: 'B8' },
+  ] })
+  writeFileSync(path.join(sdir, 's1.json'), JSON.stringify(S('R1')), 'utf8')
+  writeFileSync(path.join(sdir, 's2.json'), JSON.stringify(S('R2')), 'utf8')
+  const af = path.join(dir, 'anchors.jsonl')
+  writeFileSync(af, anchors.map((a) => JSON.stringify(a)).join('\n'), 'utf8')
+  const out = spawnSync(process.execPath, [SCRIPT, chap, sdir, '--write', dir, '--gate', af], { encoding: 'utf8' })
+  const gf = readdirSync(dir).find((f) => f.startsWith('_gate-'))
+  return { stdout: out.stdout, code: out.status, gate: gf ? JSON.parse(readFileSync(path.join(dir, gf), 'utf8')) : null }
+}
+
+test('R2 门①冷启动：锚点 <10 → 报"不判"，不报 PASS 也不报 0 命中', () => {
+  const { stdout, code, gate } = runGate([{ para: 0, kind: 'A1', verdict: 'p0' }])
+  assert.equal(code, 0, '冷启动不是失败（协议明写此口径不判）')
+  assert.equal(gate.verdict.startsWith('不判'), true, '要报"不判"：' + gate.verdict)
+  assert.ok(stdout.includes('不判'), '输出里必须看得见"不判"——"没判"不许被读成"通过"')
+  assert.equal(gate.rate, 1, '一致率照算并留档，只是不下结论')
+})
+
+test('R2 门②锚点足量且全对 → PASS，一致率 100%', () => {
+  const anchors = [
+    { para: 0, kind: 'A1', verdict: 'p0' },     // 聚合器确实升级成 P0 ✓
+    ...Array.from({ length: 10 }, (_, i) => ({ para: 5 + i, kind: 'B8', verdict: 'ok' })), // 不在 P0 集合 ✓
+  ]
+  const { stdout, code, gate } = runGate(anchors)
+  assert.equal(code, 0)
+  assert.equal(gate.verdict.startsWith('PASS'), true, gate.verdict)
+  assert.equal(gate.rate, 1)
+  assert.ok(stdout.includes('PASS'))
+})
+
+test('R2 门③一致率跌破 0.8 → FAIL 并逐条点名分歧', () => {
+  const anchors = [
+    { para: 0, kind: 'A1', verdict: 'p0' },
+    ...Array.from({ length: 7 }, (_, i) => ({ para: 5 + i, kind: 'B8', verdict: 'ok' })), // 对 8
+    ...Array.from({ length: 4 }, (_, i) => ({ para: 9 + i, kind: 'B8', verdict: 'p0' })), // 错 4 → 8/12=66.7%
+  ]
+  const { stdout, code, gate } = runGate(anchors)
+  assert.equal(code, 1, '跌破门槛必须非 0，不许悄悄放行')
+  assert.equal(gate.verdict.startsWith('FAIL'), true, gate.verdict)
+  assert.equal(gate.mismatch.length, 4)
+  assert.ok(stdout.includes('✗'), '要逐条点出哪条判反了')
+})
+
+test('R2 门④边界：恰好 0.8（16/20）→ PASS；0.75 → FAIL', () => {
+  const mk = (wrong) => [
+    { para: 0, kind: 'A1', verdict: 'p0' },
+    ...Array.from({ length: 19 - wrong }, (_, i) => ({ para: 5 + i, kind: 'B8', verdict: 'ok' })),
+    ...Array.from({ length: wrong }, (_, i) => ({ para: 30 + i, kind: 'C1', verdict: 'p0' })),
+  ]
+  const a = runGate(mk(4))   // 16/20 = 0.80
+  assert.equal(a.gate.rate, 0.8)
+  assert.equal(a.code, 0, '恰好 0.8 应过（协议写的是 ≥0.8）')
+  const b = runGate(mk(5))   // 15/20 = 0.75
+  assert.equal(b.gate.rate, 0.75)
+  assert.equal(b.code, 1, '0.75 应拦')
+})
