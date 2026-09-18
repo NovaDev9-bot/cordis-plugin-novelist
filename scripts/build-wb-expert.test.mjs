@@ -13,6 +13,7 @@ import fsSync from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { stripAbsPaths, absPaths } from './abs-path.mjs'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const SCRIPT = path.join(HERE, 'build-wb-expert.mjs')
@@ -84,10 +85,11 @@ test('专家自带连接器：mcpServers 指向包内 + vendor 资产齐全 + �
   // 手册同文（去绝对路径后）+ 内嵌路径全部存在 —— 这一条抓的是"资产没跟走 → 静默降级成假路径"
   const srcText = (await import(pathToFileURL(path.join(REPO_ROOT, 'lib', 'novelist.js')).href))._internals.SECTION.text
   const vText = (await import(pathToFileURL(path.join(out, 'vendor/novelist/lib/novelist.js')).href))._internals.SECTION.text
-  const PATHPART = '[A-Za-z]:\\\\[^\\s\\u4e00-\\u9fff`）"\'*，。；—、]+'
-  const strip = (s) => s.replace(new RegExp(PATHPART, 'g'), '<PATH>')
-  assert.equal(strip(vText), strip(srcText), '内置手册与真源内容不一致')
-  const paths = [...new Set(vText.match(new RegExp(PATHPART, 'g')) || [])]
+  // 2026-09-19：正则与本装配器共用 `scripts/abs-path.mjs`。此前这里另抄了一份**只认
+  // Windows 盘符**的版本，于是 linux CI 上 POSIX 路径剥不掉 → 断言假红（本机 Windows 全绿）。
+  // 断言与实现共用一份，才不会一边改一边忘。
+  assert.equal(stripAbsPaths(vText), stripAbsPaths(srcText), '内置手册与真源内容不一致')
+  const paths = absPaths(vText)
   assert.ok(paths.length >= 3, '内置手册里的绝对路径少于 3 条（多半已降级成提示语）：' + paths.length)
   for (const p of paths) assert.ok(fsSync.existsSync(p), '内置手册指向的路径不存在（假路径）：' + p)
 })
@@ -123,8 +125,7 @@ test('--prune 只清上一版清单里的残留，且确实清掉', () => {
   assert.equal(existsSync(path.join(out, 'NOT-MINE.txt')), true, '不在清单里的文件不许动')
 })
 
-test('自证：仓库根找不到 / 源为空 时必须 exit 2，不许假装成功', () => {
-  const empty = tmp('nf-empty-')
+test('自证：仓库根找不到 / 源为空 时必须 exit 2，不许假装成功', () => {  const empty = tmp('nf-empty-')
   const r1 = run(['--out', path.join(empty, 'plugins', 'x'), '--root', empty])
   assert.equal(r1.status, 2, '找不到仓库根应 exit 2，实得 ' + r1.status)
   assert.match(r1.stderr, /无法执行/, '应打印中文原因而不是堆栈')
@@ -150,4 +151,19 @@ test('自证：仓库根找不到 / 源为空 时必须 exit 2，不许假装成
     assert.match(r2.stderr, /0 件|是空的/, label + ' 报错要说清是空目录（0 件 ≠ 没有变化）：' + r2.stderr)
     rmSync(fake, { recursive: true, force: true })
   }
+})
+
+test('路径识别必须跨平台：POSIX 绝对路径同样要剥掉（linux CI 假红的根因）', () => {
+  // 锁住 2026-09-19 的病：正则只认 Windows 盘符（`C:\…`），于是 linux CI 上
+  // `/home/runner/…` 剥不掉 → "去路径后逐字一致"永远不成立 → 装配器 die → 四条回归全灭。
+  // 本机 Windows 全绿，谁都看不出来；只有 CI 换平台才暴露。
+  assert.equal(stripAbsPaths('/home/runner/work/x/y.md'), '<PATH>')
+  assert.equal(stripAbsPaths('C:\\Users\\a\\b.md'), '<PATH>')
+  assert.equal(stripAbsPaths('C:/Users/a/b.md'), '<PATH>')
+  // 相对写法不许被当成绝对路径（误报会把"路径不存在"变成噪音）
+  for (const rel of ['editorial/protocols/盲读协议.md', 'dsh-native/plugin-novelist/lib/novelist.js', 'A/B 两种给法']) {
+    assert.equal(stripAbsPaths(rel), rel, '相对写法被误判成绝对路径：' + rel)
+  }
+  assert.equal(absPaths('/a/b/c.md').length, 1)
+  assert.equal(absPaths('见 /a/b 与 /a/b').length, 1, '同一路径应去重')
 })

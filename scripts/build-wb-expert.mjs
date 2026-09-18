@@ -24,6 +24,7 @@ import os from 'node:os'
 import crypto from 'node:crypto'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { deflateSync } from 'node:zlib'
+import { stripAbsPaths, absPaths } from './abs-path.mjs'
 
 // 两种落地形态都要认（2026-09-18 本脚本从私有仓搬进公开仓）：
 //   ① mono：私有仓 —— ROOT/dsh-native/{vault,plugin-novelist}
@@ -365,16 +366,16 @@ say('· 作家卡：' + await copyDir(path.join(PLUGIN, 'craft', 'author-cards')
 
     // 路径正则要排除 CJK 与破折号：手册里路径后面常常直接跟中文（"…guide-history.md——只在对…"），
     // 用 [^\s…] 会把整句中文一起当成路径，于是"路径不存在"变成假警报（本断言第二版踩的坑）
-    const PATHPART = '[A-Za-z]:\\\\[^\\s\\u4e00-\\u9fff`）"\'*，。；—、]+'
-    const strip = (s) => s.replace(new RegExp(PATHPART, 'g'), '<PATH>')
-    if (strip(vt) !== strip(guideText)) {
-      const a = strip(vt), b = strip(guideText)
+    // 2026-09-19：正则移进 `scripts/abs-path.mjs`——它与本文件被抄成两份，且两份都只认
+    // Windows 盘符，linux CI 因此整条装配失败（详见该文件头注）。这里只 import，不再自带副本。
+    if (stripAbsPaths(vt) !== stripAbsPaths(guideText)) {
+      const a = stripAbsPaths(vt), b = stripAbsPaths(guideText)
       const at = [...a].findIndex((c, i) => c !== b[i])
       die('内置连接器的机制手册与真源**内容**不一致（去路径后 ' + a.length + ' vs ' + b.length + ' 字符，首个差异在 ' + at + ' 附近）：\n' +
         '  真源: ' + JSON.stringify(b.slice(Math.max(0, at - 40), at + 60)) + '\n' +
         '  内置: ' + JSON.stringify(a.slice(Math.max(0, at - 40), at + 60)))
     }
-    const paths = [...new Set((vt.match(new RegExp(PATHPART, 'g')) || []))]
+    const paths = absPaths(vt)
     if (paths.length < 3) die('自证失败：内置手册里只找到 ' + paths.length + ' 条绝对路径（期望 ≥3：沿革件/作家卡目录/词库）——多半已降级成提示语')
     const missing = paths.filter((p) => !fsSync.existsSync(p))
     if (missing.length) die('内置手册指向的路径不存在（静默降级成假路径，写手照找不到）：\n  ' + missing.join('\n  '),
