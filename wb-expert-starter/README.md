@@ -33,7 +33,10 @@ novel-forge-editorial/
 │  ├─ arc-review/                  # 弧审（三问 + 报告与结构化账单双落）
 │  └─ dissect/                     # 拆书（三红线 + beats jsonl）
 ├─ references/
-│  ├─ novelist-guide-v7.12.md      # ★ 机制手册全文（= novel_guide 工具同版）
+│  ├─ novelist-guide-v7.NN.md      # ★ 机制手册全文（= novel_guide 工具同版）
+│  │                               #   `NN` 是**占位符**：装配时由 build-wb-expert.mjs 按
+│  │                               #   guide 实际版本改写（现为 v7.13）。**不要在这里写死版本号**——
+│  │                               #   写死了每次 guide 升版都会静默断链，2026-09-18 审计实测踩过。
 │  ├─ protocols/                   # 九份协议模板（盲读/A-B/批审/事件带/选题/画像卡…）
 │  ├─ handbooks/                   # 主编手册 / 写手施工须知 / 策划手册
 │  └─ roles/                       # 五个按需工种的派工提示词全文
@@ -55,7 +58,7 @@ novel-forge-editorial/
 ## 三、使用前提（必读）
 
 1. **连接器已装**：`~/.workbuddy/mcp.json` 里要有 `novelist`，且书库根 `--root` 指向你的书库目录。
-2. **接活第一件事**：调一次 `novel_guide` 取机制手册——**宿主不保证把连接器的 `initialize.instructions` 交给模型**（MCP 规范把这条留给了客户端）。本包 `references/novelist-guide-v7.12.md` 是同版全文，可作离线兜底。
+2. **接活第一件事**：调一次 `novel_guide` 取机制手册——**宿主不保证把连接器的 `initialize.instructions` 交给模型**（MCP 规范把这条留给了客户端）。本包 `references/novelist-guide-v7.NN.md` 是同版全文，可作离线兜底。
 
 ---
 
@@ -86,6 +89,6 @@ WorkBuddy 与 DSH 的差距不是性能差距，是**约束强度**差距。打�
 
 ## 六、来源与真源
 
-- 人格、协议、仪器、作家卡、机制手册均来自 `cordis-plugin-novelist`（NarrativeForge 书线插件）的仓内真源；装配过程见 `dsh-native/scripts/build-wb-expert.mjs`。
+- 人格、协议、仪器、作家卡、机制手册均来自 `cordis-plugin-novelist`（NarrativeForge 书线插件）的仓内真源；装配过程见 **`dsh-native/plugin-novelist/scripts/build-wb-expert.mjs`**〔2026-09-18 更正：原写 `dsh-native/scripts/build-wb-expert.mjs`——该路径不存在，装配器在插件仓内〕。
 - 人格为 **Owner 手工资产，逐字照搬，不得随意改写**；本包只在文件末尾追加「宿主适配层」说明宿主差异。
 - 机制口径的**唯一真源是工具层**（连接器工具描述 + `novel_guide`）。本包文档与工具层若有出入，**以工具层为准**。
