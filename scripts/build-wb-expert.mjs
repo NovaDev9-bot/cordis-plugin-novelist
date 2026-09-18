@@ -93,14 +93,16 @@ const prevFiles = fsSync.existsSync(prevManifestPath)
   ? fsSync.readFileSync(prevManifestPath, 'utf8').split('\n').map((l) => l.trim().split(/\s{2,}/)[1]).filter(Boolean)
   : null
 const report = []
+const srcOf = new Map()          // outRel → 源绝对路径（引用改写用；生成件不入表）
 const say = (s) => { report.push(s); console.log(s); }
 const sha = (buf) => crypto.createHash('sha256').update(buf).digest('hex')
-const write = async (rel, data) => {
+const write = async (rel, data, srcAbs) => {
   const norm = rel.split(path.sep).join('/')      // 清单/自证一律用 / 口径（Windows path.join 给的是 \）
   const p = path.join(OUT, norm)
   await fsp.mkdir(path.dirname(p), { recursive: true })
   await fsp.writeFile(p, data)
   written.push(norm)
+  if (srcAbs) srcOf.set(norm, path.resolve(srcAbs))   // 供"源坐标→包坐标"引用改写（见 7c2）
 }
 const copyDir = async (src, destRel, filter) => {
   if (!fsSync.existsSync(src)) die('源目录不存在：' + src)
@@ -108,7 +110,8 @@ const copyDir = async (src, destRel, filter) => {
   let n = 0
   for (const name of names) {
     if (filter && !filter(name)) continue
-    await write(path.join(destRel, name), await fsp.readFile(path.join(src, name)))
+    const s = path.join(src, name)
+    await write(path.join(destRel, name), await fsp.readFile(s), s)
     n++
   }
   if (n === 0) die('自证失败：' + src + ' 扫到 0 件（0 件不等于"没有变化"——多半是路径错了）')
@@ -124,10 +127,12 @@ if (tplFiles.length === 0) die('自证失败：模板目录 ' + TPL + ' 是空�
 // marketplace.json 不落在包内——它在"市场根"的 .codebuddy-plugin/ 下（见下）
 // 先读进内存不落盘：启动包里对 guide 文件名的引用要等 guide 版本算出来才能改写（见下方 2b）
 const tplBuf = new Map()
+const tplSrc = new Map()
 for (const f of tplFiles) {
   const rel = path.relative(TPL, f).split(path.sep).join('/')
   if (rel === 'marketplace.json') continue
   tplBuf.set(rel, await fsp.readFile(f, 'utf8'))
+  tplSrc.set(rel, f)
 }
 say('· 模板：' + (tplFiles.length - 1) + ' 件（agents/skills/plugin.json/README/selfcheck）')
 
@@ -187,7 +192,7 @@ let guideText = '', guideName = '', guideVer = ''
   let subs = 0
   for (const [rel, text] of tplBuf) {
     subs += (text.match(GUIDE_REF) || []).length
-    await write(rel, text.replace(GUIDE_REF, guideFile))
+    await write(rel, text.replace(GUIDE_REF, guideFile), tplSrc.get(rel))
   }
   if (subs === 0) say('· ⚠ 启动包里 0 处引用 guide 文件名——要么确实不引用了，要么模式已失配（2026-09-18 基线＝5 处）')
   else say('· 启动包 guide 引用改写：' + subs + ' 处 → ' + guideFile)
@@ -211,7 +216,7 @@ say('· 仪器脚本：' + await copyDir(path.join(PLUGIN, 'instruments'), 'scri
 {
   const lex = path.join(PLUGIN, 'instruments', 'style-lexicon.json')
   if (!fsSync.existsSync(lex)) die('词库缺失：' + lex)
-  await write('scripts/style-lexicon.json', await fsp.readFile(lex))
+  await write('scripts/style-lexicon.json', await fsp.readFile(lex), lex)
 }
 
 // ── 5. 作家个体参照卡 ───────────────────────────────────────────────────────
@@ -302,7 +307,7 @@ say('· 作家卡：' + await copyDir(path.join(PLUGIN, 'craft', 'author-cards')
   for (const [from, to] of vendorFiles) {
     const src = path.join(PLUGIN, from)
     if (!fsSync.existsSync(src)) die('内置连接器缺件：' + src)
-    await write('vendor/novelist/' + to, await fsp.readFile(src))
+    await write('vendor/novelist/' + to, await fsp.readFile(src), src)
     vn++
   }
   if (vn === 0) die('自证失败：内置连接器一件也没装进包')
@@ -316,13 +321,13 @@ say('· 作家卡：' + await copyDir(path.join(PLUGIN, 'craft', 'author-cards')
   // （../craft/author-cards/、../instruments/style-lexicon.json），落位一变就**静默降级**
   // 成提示语（existsSync 失败走 fallback），指南里就出现"与本插件同目录"这种假路径——
   // 写手照着找找不到，L1 词库层与作家卡层直接空转，全程不报错。
-  await write('vendor/novelist/instruments/style-lexicon.json', await fsp.readFile(path.join(PLUGIN, 'instruments', 'style-lexicon.json')))
+  await write('vendor/novelist/instruments/style-lexicon.json', await fsp.readFile(path.join(PLUGIN, 'instruments', 'style-lexicon.json')), path.join(PLUGIN, 'instruments', 'style-lexicon.json'))
   {
     const cards = await fsp.readdir(path.join(PLUGIN, 'craft', 'author-cards'))
     let n = 0
     for (const f of cards) {
       if (!f.endsWith('.md')) continue
-      await write('vendor/novelist/craft/author-cards/' + f, await fsp.readFile(path.join(PLUGIN, 'craft', 'author-cards', f)))
+      await write('vendor/novelist/craft/author-cards/' + f, await fsp.readFile(path.join(PLUGIN, 'craft', 'author-cards', f)), path.join(PLUGIN, 'craft', 'author-cards', f))
       n++
     }
     if (n === 0) die('自证失败：作家卡一件也没装进 vendor')
@@ -427,6 +432,108 @@ if (opt('--mirror') && !CHECK) {
   const extra = after.filter((r) => !written.includes(r) && r !== 'MANIFEST.sha256')
   if (bad.length || extra.length) die('镜像收尾自证失败：内容不一致 ' + bad.length + ' 件、多出 ' + JSON.stringify(extra))
   say('· 镜像：+' + added + ' ~' + updated + ' -' + removed + ' → ' + MIR + '（逐文件哈希一致）')
+}
+
+// ── 7c2. 装配期引用改写：把"源坐标"的引用改写成"包坐标" ──────────────────────
+// 2026-09-18 修 guide 文件名时只治了那一个点；09-19 加上面那条自证才看见全貌：
+// **装配产物里 50 条引用按仓库视角写**（`dsh-native/plugin-novelist/instruments/x.mjs`），
+// 而包里那些文件在 `scripts/`；`skills/blind-read/SKILL.md` 指着
+// `dsh-native/plugin-novelist/wb-expert-starter/references/roles/reader.md`，
+// 而包里就在它旁边 `references/roles/reader.md`。**读者点进去全是空的，而没有任何东西会报。**
+//
+// 改写用的是**源→包映射**，不是猜：引用能解析到某个已装配的源文件，就换成它在包内的位置；
+// 解析不到的**一律不动**，交给下面 7d 报出来逼人给类型（猜错比不猜坏）。
+{
+  const TICK = /`([^`\n]{2,140}?)`/g
+  const ANYFILE = /\.(md|mjs|js|json|yml|yaml|txt|jsonl|csv)$/i
+  const MARK = /^〔(已撤|模板|示例|私有|仓外|包内)〕/
+  const TYPED = /^(https?:|mailto:|~\/|[A-Za-z]:[\\/]|\/|<)/
+  const PLACEHOLDER = /(YYYY|MM-DD|NN|XXX|卷N|第N|模型名_轮次|issue-NNN|弧X-弧Y|卷X-弧Y)/
+  const BOOK_FILES = new Set(['project.json', 'timeline.json', 'events.jsonl', 'events-tape.jsonl', 'bible.json',
+    'characters.json', 'foreshadows.json', 'status.json', 'scores.jsonl', 'outline.json', 'arcs.jsonl'])
+  const srcToOut = new Map()
+  for (const [outRel, srcAbs] of srcOf) if (!srcToOut.has(srcAbs)) srcToOut.set(srcAbs, outRel)
+  // 引用可能写成"插件仓相对"或"monorepo 根相对"，两个候选都试
+  const ROOTS = [PLUGIN, ROOT]
+  const resolveSrc = (t, ownSrcDir) => {
+    for (const base of [ownSrcDir, ...ROOTS]) {
+      const p = path.resolve(base, t)
+      if (srcToOut.has(p)) return srcToOut.get(p)
+    }
+    return null
+  }
+  let subs = 0, typed = 0
+  for (const outRel of written.filter((r) => r.endsWith('.md'))) {
+    const outAbs = path.join(OUT, outRel)
+    const srcAbs = srcOf.get(outRel)
+    const ownSrcDir = srcAbs ? path.dirname(srcAbs) : path.dirname(outAbs)
+    const text = fsSync.readFileSync(outAbs, 'utf8')
+    let changed = false
+    const next = text.split('\n').map((line) => line.replace(TICK, (whole, raw) => {
+      const t = raw.trim()
+      if (!ANYFILE.test(t)) return whole
+      if (/[\s>|，。；：]/.test(t)) return whole
+      if (/^\.[a-z]+$/i.test(t)) return whole
+      if (TYPED.test(t) || PLACEHOLDER.test(t)) return whole
+      // 书工程内的相对路径（`status.json`、`editorial/arcs.jsonl`）：包外，属"这本书的目录"，
+      // 给符号基底而不是当成包内路径——否则读者会以为包里有这么个文件。
+      if (BOOK_FILES.has(t) || /^(editorial|manuscript|versions|\.drafts)\//.test(t)) {
+        changed = true; typed++; return '`<book_dir>/' + t + '`'
+      }
+      const mapped = resolveSrc(t, ownSrcDir)
+      if (mapped && mapped !== t) { changed = true; subs++; return '`' + mapped + '`' }
+      if (mapped) return whole                       // 已在包内同位置，不动
+      // 源仓里解得到、但**没有进包**（如 `preset-starter/agent.cordis.yml`、装配器自身）：
+      // 对**包的读者**而言它在包外。这里给包副本补类型，源件保持仓根相对的干净写法——
+      // 两边各自正确，源件那份检查也不丢。解都解不到的**不动**，交给 7d 报出来逼人判。
+      const inRepo = ROOTS.some((b) => fsSync.existsSync(path.resolve(b, t)))
+      if (inRepo) { changed = true; typed++; return whole + '〔仓外〕' }
+      return whole
+    })).join('\n')
+    if (changed) await fsp.writeFile(outAbs, next)
+  }
+  say('· 包内引用改写：' + subs + ' 条源坐标 → 包坐标 · ' + typed + ' 条只存在于源仓 → 包副本补 〔仓外〕')
+}
+
+// ── 7d. 包内引用自证：模板里的反引号路径，在**装出来的包**里必须真的存在 ──────
+// `wb-expert-starter/README.md` 声明 `包内` 时说"该由装配器的自检去验（它已经在验）"——
+// 2026-09-19 自查发现**当时没有任何一处真在验**：selfcheck 只核 plugin.json 声明的路径，
+// 本脚本的 --check 只比哈希。那句话是"把没查写成验过了"的文案版，现在把它变成真的。
+// 规则与私有仓 `docs/引用文法.md` 同源：有类型的不查，判不出的报出来。
+{
+  const TICK = /`([^`\n]{2,140}?)`/g
+  const ANYFILE = /\.(md|mjs|js|json|yml|yaml|txt|jsonl|csv)$/i
+  const MARK = /^〔(已撤|模板|示例|私有|仓外|包内)〕/
+  const TYPED = /^(https?:|mailto:|~\/|[A-Za-z]:[\\/]|\/|<)/
+  const PLACEHOLDER = /(YYYY|MM-DD|NN|XXX|卷N|第N|模型名_轮次|issue-NNN|弧X-弧Y|卷X-弧Y)/
+  const mdFiles = written.filter((r) => r.endsWith('.md'))
+  let refs = 0, checked = 0
+  const dead = []
+  for (const r of mdFiles) {
+    const abs = path.join(OUT, r)
+    const own = path.dirname(abs)
+    fsSync.readFileSync(abs, 'utf8').split(/\r?\n/).forEach((line, i) => {
+      for (const m of line.matchAll(TICK)) {
+        const t = m[1].trim()
+        if (!ANYFILE.test(t)) continue
+        if (/[\s>|，。；：]/.test(t)) continue     // 命令行/表格/句子片段
+        if (/^\.[a-z]+$/i.test(t)) continue        // 光秃秃的扩展名＝在说"文件后缀"
+        if (TYPED.test(t) || PLACEHOLDER.test(t)) continue
+        const after = line.slice(m.index + m[0].length, m.index + m[0].length + 6)
+        if (MARK.test(after)) continue
+        refs++
+        if (fsSync.existsSync(path.join(OUT, t)) || fsSync.existsSync(path.join(own, t))) { checked++; continue }
+        dead.push(r + ':' + (i + 1) + '  ' + t)
+      }
+    })
+  }
+  if (mdFiles.length === 0) die('自证失败：装配产物里 0 个 .md——包内引用检查扫了个空')
+  if (dead.length) {
+    die('包内引用解析不到 ' + dead.length + ' 条（引用的位置在包里不存在）：\n  ' + dead.slice(0, 15).join('\n  ') +
+      (dead.length > 15 ? '\n  …… 另有 ' + (dead.length - 15) + ' 条' : ''),
+      '要么补上那个文件，要么按文法给它一个类型（〔模板〕/〔包内〕/绝对或符号基底）——不要靠"反正没人查"')
+  }
+  say('· 包内引用自证：' + checked + '/' + refs + ' 条解析得到（' + mdFiles.length + ' 个 md）')
 }
 
 // ── 8. 收束自证 ─────────────────────────────────────────────────────────────

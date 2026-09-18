@@ -71,9 +71,9 @@ A plain-file book ledger + 14 deterministic tools for multi-agent long-form fict
 |---|---|
 | `structure-check.mjs <book_dir>` | 结构观测：伏笔曝光曲线＋爽点间隔。**只算账本能算的两个量**，"未测"与"测到没有"分开报，并显式列出不可测量（反转真伪/节奏/幕结构） |
 | `style-check.mjs <file>` | 文体观测：公式化检测、段落/句长分布、负向词密度（双向偏差） |
-| `dsh-native/plugin-novelist/instruments/corpus-falsify.mjs` | 对锚书语料逐条验证流行写作规范（哪些是行业线、哪些只是某位作者的口味） |
+| `instruments/corpus-falsify.mjs` | 对锚书语料逐条验证流行写作规范（哪些是行业线、哪些只是某位作者的口味） |
 | `instruments/platform-export.mjs` | 番茄平台导出格式（章标题/书籍信息块，字数口径与 `novel_count` 同源） |
-| `dsh-native/plugin-novelist/instruments/instrument-aggregate.mjs` / `dsh-native/plugin-novelist/instruments/batch-report.mjs` / `dsh-native/plugin-novelist/instruments/batch-aggregate.mjs` | 判据账聚合、批审报告、多采样意见聚合 |
+| `instruments/instrument-aggregate.mjs` / `instruments/batch-report.mjs` / `instruments/batch-aggregate.mjs` | 判据账聚合、批审报告、多采样意见聚合 |
 
 ## Install / 安装
 
