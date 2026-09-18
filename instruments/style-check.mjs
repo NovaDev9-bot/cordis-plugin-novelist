@@ -24,6 +24,10 @@ const LEX = JSON.parse(await readFile(path.join(import.meta.dirname, 'style-lexi
 const lexArg = opt('--lexicon')
 if (lexArg) Object.assign(LEX, JSON.parse(await readFile(lexArg, 'utf8')))
 
+// 词表是否为**空槽**（公开包刻意 0 词，全量本由 --lexicon 注入）——空＝**未测**，不是"0 命中"。
+// 用函数而非常量：LEX 会被 --lexicon 就地覆盖，求值时机必须在覆盖之后。
+const lexiconWordCount = () => Object.values(LEX.negative_lexicon || {}).reduce((a, b) => a + (Array.isArray(b) ? b.length : 0), 0)
+
 // ---------- 编码探测 ----------
 const raw = await readFile(file)
 let encUsed = 'utf8'
@@ -98,6 +102,10 @@ function checkUnit(u) {
   const formulaScore = [Object.keys(tpl).length, Object.keys(trans).length, Object.keys(emph).length, Object.keys(tp).length].filter((x) => x > 0).length
 
   // 负向词库
+  // 〔2026-09-18 审计修复〕空词表＝**未测**，不是"0 命中"。
+  // 公开包里的 style-lexicon.json 是 0 词空槽（授权边界，刻意如此），76 词的全量本在私有仓
+  // scripts/ 下由 --lexicon 注入；旧实现把"空表"与"测到干净"都印成 `0/万字`，
+  // 主编会把它当"文风干净"——恰好是 guide 自己警告过的"压到 0 也是偏离人类分布"的自动版。
   const lex = {}; let lexHits = 0
   for (const [cat, words] of Object.entries(LEX.negative_lexicon)) {
     let c = 0; const hits = {}
@@ -157,7 +165,7 @@ function checkUnit(u) {
       template_openings: tpl, generic_transitions: trans, emphasis_abuse: emph, triple_parallel: tp,
       chapter_opening_template_hit: openingHit,
     },
-    negative_lexicon: { total_hits: lexHits, per_10k: han ? Math.round(lexHits / han * 10000 * 100) / 100 : null, by_cat: lex },
+    negative_lexicon: { measured: lexiconWordCount() > 0, lexicon_words: lexiconWordCount(), total_hits: lexHits, per_10k: han ? Math.round(lexHits / han * 10000 * 100) / 100 : null, by_cat: lex },
   }
 }
 
@@ -191,6 +199,6 @@ const A = agg.avg
 console.log(`[style-check] ${agg.label}（enc=${encUsed}, 章=${chapters.length}, 抽=${units.length}）`)
 console.log(`  段落: 中位 ${A.para_median} 字 / p90 ${A.para_p90} / ≤两行 ${(A.para_share_le_2line * 100).toFixed(1)}% / >150字 ${(A.para_share_gt_150 * 100).toFixed(1)}%`)
 console.log(`  句长>40字占比 ${(A.sent_share_gt_40 * 100).toFixed(1)}% ｜ 对话段占比 ${(A.dialogue_para_share * 100).toFixed(1)}%`)
-console.log(`  感叹号 ${A.excl_per_kchar}/千字 ｜ 比喻(strict) ${A.simile_strict_per_chapter}/章 ｜ 负向词(L2 观测) ${A.neglex_per_10k}/万字`)
+console.log(`  感叹号 ${A.excl_per_kchar}/千字 ｜ 比喻(strict) ${A.simile_strict_per_chapter}/章 ｜ 负向词(L2 观测) ${lexiconWordCount() > 0 ? A.neglex_per_10k + '/万字' : '未测（词表为空槽——用 --lexicon 注入全量词表后再跑）'}`)
 console.log(`  L1 硬规则 ${A.L1_per_10k}/万字 ｜ 标点(冒号/破折号·观测) ${A.punct_per_kchar}/千字${A.quote_mix_units ? ' ｜ ⚠ 引号混用的章 ' + A.quote_mix_units + '/' + unitReports.length : ''}`)
 console.log(`  公式化旗标率 ${(A.formula_flag_rate * 100).toFixed(1)}% ｜ 章首模板开场命中率 ${(A.chapter_opening_template_hit_rate * 100).toFixed(1)}%`)
