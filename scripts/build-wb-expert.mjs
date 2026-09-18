@@ -117,10 +117,12 @@ const walk = (d) => fsSync.readdirSync(d, { withFileTypes: true }).flatMap((e) =
 const tplFiles = walk(TPL)
 if (tplFiles.length === 0) die('自证失败：模板目录 ' + TPL + ' 是空的')
 // marketplace.json 不落在包内——它在"市场根"的 .codebuddy-plugin/ 下（见下）
+// 先读进内存不落盘：启动包里对 guide 文件名的引用要等 guide 版本算出来才能改写（见下方 2b）
+const tplBuf = new Map()
 for (const f of tplFiles) {
   const rel = path.relative(TPL, f).split(path.sep).join('/')
   if (rel === 'marketplace.json') continue
-  await write(rel, await fsp.readFile(f))
+  tplBuf.set(rel, await fsp.readFile(f, 'utf8'))
 }
 say('· 模板：' + (tplFiles.length - 1) + ' 件（agents/skills/plugin.json/README/selfcheck）')
 
@@ -142,7 +144,7 @@ say('· 模板：' + (tplFiles.length - 1) + ' 件（agents/skills/plugin.json/R
 }
 
 // ── 2. 机制手册（从 lib/novelist.js 的 SECTION 现导，杜绝过期副本） ──────────
-let guideText = '', guideName = ''
+let guideText = '', guideName = '', guideVer = ''
 {
   const libUrl = pathToFileURL(path.join(PLUGIN, 'lib', 'novelist.js')).href
   let mod
@@ -159,12 +161,31 @@ let guideText = '', guideName = ''
   if (vers.length === 0) die('自证失败：SECTION.text 里找不到任何 v7.N 版本标记，无法定文件名')
   // 取文中最高版本＝当前生效口径（文本开头写的是"沿革起点"，直接取首个匹配会得到旧版本号）
   const ver = 'v7.' + Math.max(...vers)
+  guideVer = ver
   const head = '# ' + guideName + ' ' + ver + '（工具层同版注入 · 机制细则唯一真源）\n\n' +
     '> 本文件由 lib/novelist.js 的 SECTION 原文导出（chars=' + guideText.length + '）。\n' +
     '> 宿主不一定注入 MCP initialize.instructions —— 接活前先调 novel_guide 工具取同版全文，或以本文件为准。\n' +
     '> **工具层优先**：本文件与工具 description 若有出入，以工具描述为准。\n\n---\n\n'
   await write('references/' + guideName + '-' + ver + '.md', head + guideText + '\n')
   say('· 机制手册：现导 ' + guideText.length + ' 字符（' + ver + '）')
+}
+
+// ── 2b. 落盘模板件，并把对 guide 文件名的引用改写成实际生成名 ─────────────────
+// 为什么要改写：启动包把版本号**抄了一份**（5 处），而本装配器按 SECTION 里的最高版本**现算**文件名——
+// 每次 guide 升版，包内这 5 处路径就静默断一次（2026-09-18 审计实测：包里写 v7.12，实际生成 v7.13，
+// 而这两个文件名的差别对读者不可见，只有点进去才发现文件不存在）。
+// 抄写这件事本身不该存在：让装配器改写，则"抄的那份"永远不会漂。零命中也要报——静默零命中＝模式失配。
+{
+  // 匹配两种写法：具体版本（历史遗留）与占位符 `v7.NN`（推荐——占位符永远不会陈旧）
+  const GUIDE_REF = /novelist-guide-v7(?:\.\d+|\.NN)\.md/g
+  const guideFile = guideName + '-' + guideVer + '.md'
+  let subs = 0
+  for (const [rel, text] of tplBuf) {
+    subs += (text.match(GUIDE_REF) || []).length
+    await write(rel, text.replace(GUIDE_REF, guideFile))
+  }
+  if (subs === 0) say('· ⚠ 启动包里 0 处引用 guide 文件名——要么确实不引用了，要么模式已失配（2026-09-18 基线＝5 处）')
+  else say('· 启动包 guide 引用改写：' + subs + ' 处 → ' + guideFile)
 }
 
 // ── 3. 协议与作业手册 ───────────────────────────────────────────────────────
