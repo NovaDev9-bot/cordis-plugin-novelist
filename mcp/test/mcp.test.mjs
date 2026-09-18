@@ -157,7 +157,10 @@ test('工具全链：init→outline→chapter→verify→count 全走适配器�
     assert.equal(init.ok, true)
     assert.ok(init.created.includes('project.json'))
 
-    await call('novel_outline', { book_dir: dir, op: 'write', volume: 1, chapter_no: 1, entry: { title: '开篇', goal: 'g', hook: 'h', word_min: 5, word_max: 100, differentiation: '与榜单头部不同：X' } })
+    // 卷首章带齐 project.required_outline_fields 的缺省清单（differentiation + choice_axis）——
+    // 2026-09-18 起 verify 对新书按清单查"该有的有没有"（旧口径按"字段出现过"查，
+    // 那个口径自带"整本书都没用即永不检查"的后门，见总台账 S9）
+    await call('novel_outline', { book_dir: dir, op: 'write', volume: 1, chapter_no: 1, entry: { title: '开篇', goal: 'g', hook: 'h', word_min: 5, word_max: 100, differentiation: '与榜单头部不同：X', choice_axis: { chosen: '走向甲', sacrificed: ['放弃乙'], hook_bearing: 'f1' } } })
     const ch = await call('novel_chapter', { book_dir: dir, ch: 1, title: '开篇', text: '他推开那扇门，里面空无一人。'.repeat(3), seeds: [{ id: 'F1', name: '空屋', due_ch: 3 }] })
     assert.equal(ch.ok, true)
     const verify = await call('novel_verify', { book_dir: dir })
