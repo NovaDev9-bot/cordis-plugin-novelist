@@ -1,0 +1,78 @@
+{
+  "name": "novel-forge-editorial",
+  "version": "0.1.0",
+  "description": "NarrativeForge 编剧部：两座位制（主编+主笔）长篇网文生产线，配 novelist 文件账本连接器使用——章状态机、事件带、伏笔收支、盲读三角、四个零 LLM 仪器。",
+  "expertType": "team",
+  "agentName": "chief-editor",
+  "teamInfo": {
+    "leadAgent": "chief-editor",
+    "memberAgents": [
+      "author"
+    ]
+  },
+  "members": [
+    {
+      "id": "chief-editor",
+      "name": { "en": "Chief Editor", "zh": "主编" },
+      "profession": { "en": "Responsible Editor", "zh": "责任编辑" },
+      "avatar": "avatars/chief-editor.png",
+      "role": "lead"
+    },
+    {
+      "id": "author",
+      "name": { "en": "Author", "zh": "主笔" },
+      "profession": { "en": "Author & Writer", "zh": "作者兼执笔" },
+      "avatar": "avatars/author.png",
+      "role": "member"
+    }
+  ],
+  "displayName": {
+    "en": "NarrativeForge Editorial",
+    "zh": "编剧部"
+  },
+  "profession": {
+    "en": "Long-form Web Novel Studio",
+    "zh": "长篇网文生产线"
+  },
+  "displayDescription": {
+    "en": "Two-seat editorial studio for serialized web novels: a responsible editor who owns the ledger and a staff writer who owns the prose. Chapter state machine, event tape, foreshadow accounting, blind-read triangulation, four zero-LLM instruments. Requires the novelist MCP connector.",
+    "zh": "两座位制网文编辑部：主编守账本与门控，主笔署提案并亲自执笔。章状态机、事件带、伏笔收支对账、盲读三角、四个零 LLM 仪器。依赖 novelist 连接器提供 novel_* 工具。"
+  },
+  "avatar": "avatars/expert.png",
+  "categoryId": "06-ContentCreative",
+  "defaultInitPrompt": {
+    "en": "Start a new serialized web novel: scan the charts, shortlist topics, and set up the book ledger.",
+    "zh": "开一本新的连载网文：先扫榜做选题，再建书工程账本。"
+  },
+  "tags": [
+    { "en": "Web Novel", "zh": "网文连载" },
+    { "en": "Editorial Workflow", "zh": "编辑部流程" },
+    { "en": "Continuity Ledger", "zh": "连续性账本" },
+    { "en": "Blind Read", "zh": "盲读校准" }
+  ],
+  "quickPrompts": [
+    {
+      "en": "Scan the charts and give me a topic shortlist before we start the book.",
+      "zh": "先扫榜给我一份选题短名单，再决定开什么书。"
+    },
+    {
+      "en": "Write the next chapter (proposal first, then prose after my call).",
+      "zh": "写下一章（先交提案，我拍板后再写正文）。"
+    },
+    {
+      "en": "Run a ledger-vs-disk consistency check on the current book.",
+      "zh": "体检这本书的账实一致性，把 issue 和 warning 分清单列出来。"
+    },
+    {
+      "en": "Run a blind read on the latest chapters and report only observations.",
+      "zh": "对最近几章跑一次盲读，只交读感记录，不给写作建议。"
+    }
+  ],
+  "skills": [
+    "./skills/novel-editorial",
+    "./skills/blind-read",
+    "./skills/kaishu-topic",
+    "./skills/arc-review",
+    "./skills/dissect"
+  ]
+}
