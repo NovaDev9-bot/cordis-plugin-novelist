@@ -34,10 +34,10 @@ test('批E: guide 机制版本格式良好，且沿革件指针指向真实文�
 
 test('批E: 工具数量口径一致（防"文档说 12 个、实际变了没人发现"）', () => {
   const n = _internals.TOOLS.length
-  assert.equal(n, 14, 'novel_search 注册后应有 14 个工具')
-  const desc = read('package.json').match(/(\d+|Twelve|Eleven|Thirteen|Fourteen) deterministic novel_\* tools/i)
+  assert.equal(n, 15, 'novel_guide 注册后应有 15 个工具')
+  const desc = read('package.json').match(/(\d+|Eleven|Twelve|Thirteen|Fourteen|Fifteen) deterministic novel_\* tools/i)
   assert.ok(desc, 'package.json 描述应声明工具数量')
-  const words = { twelve: 12, eleven: 11, thirteen: 13, fourteen: 14 }
+  const words = { eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15 }
   const claimed = /^\d+$/.test(desc[1]) ? Number(desc[1]) : words[desc[1].toLowerCase()]
   assert.equal(claimed, n, 'package.json 描述的工具数与实际不符（实际 ' + n + '）')
   const names = _internals.TOOLS.map((t) => t.name)
