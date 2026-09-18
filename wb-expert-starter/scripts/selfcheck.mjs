@@ -82,6 +82,32 @@ if (pj.expertType === 'team') {
   if (pj.agentName !== (pj.teamInfo || {}).leadAgent) findings.push('agentName 与 teamInfo.leadAgent 不一致')
 }
 
+// ── 3b. 内置连接器（专家自带的"手"） ────────────────────────────────────────
+// 只装专家不带连接器 = 有嘴没手。本包若声明 mcpServers，就必须真有那个 server，
+// 且其依赖（vendor 根的 package.json —— server.mjs 会 require 它取版本号）必须齐。
+{
+  const mcp = pj.mcpServers
+  if (!mcp || typeof mcp !== 'object' || Object.keys(mcp).length === 0) {
+    findings.push('plugin.json 没有 mcpServers：专家不带工具，用户必须另开连接器才有 novel_*（有嘴没手）')
+  } else {
+    for (const [name, cfg] of Object.entries(mcp)) {
+      const paths = [cfg.command, ...(cfg.args || [])].filter((s) => typeof s === 'string')
+        .filter((s) => s.includes('PLUGIN_ROOT'))
+        .map((s) => s.replace(/\$\{[A-Z_]*PLUGIN_ROOT\}/g, '').replace(/^[/\\]/, ''))
+      if (paths.length === 0) { findings.push('mcpServers.' + name + ' 没有任何指向包内的路径（没写 ${...PLUGIN_ROOT}）'); continue }
+      for (const p of paths) if (!isFile(p)) findings.push('mcpServers.' + name + ' 指向包内文件但不存在：' + p)
+      if (cfg.env && cfg.env.NOVELIST_ROOT && !existsSync(cfg.env.NOVELIST_ROOT)) {
+        findings.push('mcpServers.' + name + ' 的 NOVELIST_ROOT 指向不存在的目录：' + cfg.env.NOVELIST_ROOT)
+      }
+      say('· 内置连接器：' + name + ' → ' + paths.join(', '))
+    }
+    if (!isFile('vendor/novelist/package.json')) findings.push('缺 vendor/novelist/package.json（server.mjs require 它取版本号，少了会启动即崩）')
+    for (const f of ['vendor/novelist/mcp/server.mjs', 'vendor/novelist/lib/novelist.js', 'vendor/novelist/lib/book-access.mjs']) {
+      if (!isFile(f)) findings.push('内置连接器缺件：' + f)
+    }
+  }
+}
+
 // ── 4. 关键资产存在性 + 基数自证 ────────────────────────────────────────────
 const assets = [
   ['机制手册', () => listDir('references').filter((f) => /^novelist-guide-.*\.md$/.test(f)), 1],
