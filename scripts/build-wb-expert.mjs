@@ -253,13 +253,18 @@ say('· 作家卡：' + await copyDir(path.join(PLUGIN, 'craft', 'author-cards')
 // （官方 sheetagent 等就这么做，用 ${CODEBUDDY_PLUGIN_ROOT} 指包内路径）。
 // 模板里的 plugin.json 保持机器无关，mcpServers 由本装配器按当机书库根注入。
 {
+  // 书库根＝MCP server 的 --root 硬前置（所有 book_dir 都圈在它里面）。
+  // **必须显式给**：它是安全边界，不是可以猜的默认值——也就不该把任何人的本机目录名写进本仓。
   const bookRaw = opt('--book-root') || process.env.NF_BOOK_ROOT
-  const bookRoot = path.resolve(bookRaw || path.join(ROOT, 'novelforge'))
-  if (!fsSync.existsSync(bookRoot)) {
-    die('书库根不存在：' + bookRoot,
+  if (!bookRaw) {
+    die('缺 --book-root <书库目录>',
       '书库根＝你放书稿的目录（MCP server 的 --root 硬前置，所有 book_dir 都圈在它里面）。'
       + '\n  两种给法：①--book-root <目录>  ②环境变量 NF_BOOK_ROOT。'
-      + '\n  默认值 ' + path.join(ROOT, 'novelforge') + ' 是私有仓约定，克隆自公开仓时它通常不存在——属正常，给一个你自己的目录即可。')
+      + '\n  它是安全边界，所以本工具**不猜默认值**——给一个你自己的目录即可。')
+  }
+  const bookRoot = path.resolve(bookRaw)
+  if (!fsSync.existsSync(bookRoot)) {
+    die('书库根不存在：' + bookRoot, '换一个已存在的目录，或先把它建出来。')
   }
   const pkgJson = JSON.parse(fsSync.readFileSync(path.join(PLUGIN, 'package.json'), 'utf8'))
 
