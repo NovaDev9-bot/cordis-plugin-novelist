@@ -105,6 +105,25 @@ function checkUnit(u) {
     if (c) { lex[cat] = { count: c, per_10k: han ? Math.round(c / han * 10000 * 100) / 100 : null, hits }; lexHits += c }
   }
 
+  // L1 硬规则层：命中即问题（与 L2 密度观测层分开——L2 的词在头部好作品里常见，只能观测不能禁）
+  const l1 = {}; let l1Hits = 0
+  for (const [cat, spec] of Object.entries(LEX.forbidden_lexicon || {})) {
+    if (cat.startsWith('_') || !spec || !Array.isArray(spec.words)) continue
+    const hits = {}; let c = 0
+    for (const w of spec.words) { const n = t.split(w).length - 1; if (n) { hits[w] = n; c += n } }
+    if (c) { l1[cat] = { count: c, hits, fix: Object.fromEntries(Object.entries(hits).map(([w]) => [w, (spec.replacement || {})[w] || '']).filter(([, v]) => v)) }; l1Hits += c }
+  }
+  // 标点指纹（新增能力：此前只测感叹号，冒号/破折号/引号形态一概不查）
+  // 口径＝**观测不是禁令**：实测头部作品冒号+破折号 4.795/千字，并不罕见；按"命中即问题"处理
+  // 只会制造误报（与负向词库从"严禁使用"降级为"密度观测项"是同一条教训）。
+  const punct = (LEX.forbidden_lexicon && LEX.forbidden_lexicon.标点) || null
+  const punctHits = {}
+  if (punct && Array.isArray(punct.observe)) {
+    for (const p of punct.observe) { const n = t.split(p).length - 1; if (n) punctHits[p] = n }
+  }
+  // 引号形态：直角引号「」 vs 弯引号“” —— 不是"哪种对"，是"同一本书里混用"才算问题（混用=编排痕迹）
+  const q = { corner: (t.match(/[「」]/g) || []).length, curly: (t.match(/[“”]/g) || []).length }
+
   // 感叹号 / 比喻标记
   const excl = (t.match(/！/g) || []).length
   const simileStrict = LEX.simile_markers.strict.reduce((a, w) => a + (t.split(w).length - 1), 0)
@@ -128,6 +147,8 @@ function checkUnit(u) {
     sentences: { n: sentLens.length, median: quantile(sentLens, 0.5), p90: quantile(sentLens, 0.9), share_gt_40: sentLens.length ? Math.round(sentLens.filter((l) => l > 40).length / sentLens.length * 1000) / 1000 : null },
     dialogue_para_share: paras.length ? Math.round(dlgParas / paras.length * 1000) / 1000 : null,
     exclam: { count: excl, per_kchar: han ? Math.round(excl / han * 1000 * 100) / 100 : null },
+    L1_hard: { total_hits: l1Hits, per_10k: han ? Math.round(l1Hits / han * 10000 * 100) / 100 : null, by_cat: l1 },
+    punctuation: { observed: punctHits, per_kchar: han ? Math.round(Object.values(punctHits).reduce((a, b) => a + b, 0) / han * 1000 * 100) / 100 : null, quote_mix: (q.corner > 0 && q.curly > 0) ? { corner: q.corner, curly: q.curly } : null },
     simile: { strict: simileStrict, strict_per_10k: han ? Math.round(simileStrict / han * 10000 * 100) / 100 : null, loose_像: simileLoose },
     formula: {
       score_distinct_categories: formulaScore,
@@ -157,6 +178,9 @@ const agg = {
     formula_flag_rate: avg((u) => (u.formula.flag ? 1 : 0)),
     chapter_opening_template_hit_rate: avg((u) => (u.formula.chapter_opening_template_hit ? 1 : 0)),
     neglex_per_10k: avg((u) => u.negative_lexicon.per_10k),
+    L1_per_10k: avg((u) => u.L1_hard.per_10k),
+    punct_per_kchar: avg((u) => u.punctuation.per_kchar),
+    quote_mix_units: unitReports.filter((u) => u.punctuation.quote_mix).length,
   },
 }
 
@@ -167,5 +191,6 @@ const A = agg.avg
 console.log(`[style-check] ${agg.label}（enc=${encUsed}, 章=${chapters.length}, 抽=${units.length}）`)
 console.log(`  段落: 中位 ${A.para_median} 字 / p90 ${A.para_p90} / ≤两行 ${(A.para_share_le_2line * 100).toFixed(1)}% / >150字 ${(A.para_share_gt_150 * 100).toFixed(1)}%`)
 console.log(`  句长>40字占比 ${(A.sent_share_gt_40 * 100).toFixed(1)}% ｜ 对话段占比 ${(A.dialogue_para_share * 100).toFixed(1)}%`)
-console.log(`  感叹号 ${A.excl_per_kchar}/千字 ｜ 比喻(strict) ${A.simile_strict_per_chapter}/章 ｜ 负向词 ${A.neglex_per_10k}/万字`)
+console.log(`  感叹号 ${A.excl_per_kchar}/千字 ｜ 比喻(strict) ${A.simile_strict_per_chapter}/章 ｜ 负向词(L2 观测) ${A.neglex_per_10k}/万字`)
+console.log(`  L1 硬规则 ${A.L1_per_10k}/万字 ｜ 标点(冒号/破折号·观测) ${A.punct_per_kchar}/千字${A.quote_mix_units ? ' ｜ ⚠ 引号混用的章 ' + A.quote_mix_units + '/' + unitReports.length : ''}`)
 console.log(`  公式化旗标率 ${(A.formula_flag_rate * 100).toFixed(1)}% ｜ 章首模板开场命中率 ${(A.chapter_opening_template_hit_rate * 100).toFixed(1)}%`)

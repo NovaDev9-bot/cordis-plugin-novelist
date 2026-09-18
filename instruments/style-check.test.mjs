@@ -88,3 +88,27 @@ test('GBK 自动回退：非法 UTF-8 字节走 GBK 解码', async () => {
   assert.equal(r.aggregate.enc_used, 'gbk')
   assert.equal(r.units[0].exclam.count, 1)
 })
+
+test('L1 硬规则层：评论文体套话命中且带替换建议（与 L2 密度观测层分开）', async () => {
+  const r = await runStyle('「综上所述，这条路是对的。说白了，他只是在等。', ['--label', 'l1'])
+  assert.ok(r.units[0].L1_hard.total_hits >= 2, '应命中"综上所述"与"说白了"')
+  const byCat = r.units[0].L1_hard.by_cat['评论文体套话']
+  assert.ok(byCat && byCat.fix['说白了'], 'L1 命中必须带替换建议——只有禁令的表会让写手知道躲什么、不知道往哪写')
+})
+
+test('标点是观测项不是禁令：报密度但不计入 L1（实测头部作品冒号+破折号 4.795/千字）', async () => {
+  const r = await runStyle('他说：好。——然后他走了。', ['--label', 'punct'])
+  const p = r.units[0].punctuation
+  assert.equal(p.observed['：'], 1)
+  assert.equal(p.observed['——'], 1)
+  assert.ok(p.per_kchar > 0)
+  assert.equal(r.units[0].L1_hard.total_hits, 0, '标点必须是观测项——与"负向词库从严禁降为观测"同一条教训')
+})
+
+test('引号混用只在同一样本内「」与“”并存时才报（单用一种不算问题）', async () => {
+  const a = await runStyle('「你来了。」「嗯。」', ['--label', 'corner-only'])
+  assert.equal(a.units[0].punctuation.quote_mix, null, '只用直角引号不该报混用')
+  const b = await runStyle('「你来了。」他答：“嗯。”', ['--label', 'mixed'])
+  assert.ok(b.units[0].punctuation.quote_mix, '两种并存才算混用（混用＝编排痕迹）')
+  assert.equal(b.aggregate.avg.quote_mix_units, 1)
+})
