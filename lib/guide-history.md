@@ -15,6 +15,6 @@ novelist-guide 机制沿革正文（下含 v6.0 → v7.13 逐版增量）。**�
 **〔2026-09-18 口径收敛批（v7.13 内更正，非新机制）〕** 2026-09-18 四方向文档审计实测：v7.2 把"策划"并入主笔时，**改名没有覆盖全部落点**，guide 正文与随附文档里仍留着已不存在的座位与旧职能名。本批一次性收口：
 
 1. **guide 正文残留"策划"5 处已改**：`novel_event` 的 actor 说明、`novel_ledger` 幂等分支的 actor 报错、事件带注入规则行（原"策划/档案员可 read"）、`novel_event` description、商业工位行（原"策划交书名候选×5"→**主笔**）。保留的两处"策划"是**合法历史注**（`v6.4 原口径` 与 `子代理编排纪律` 的沿革句），不改写。
-2. **随附文档同步**：`dsh-native/vault-template/editorial/protocols/书名简介工位.md`（3 处）、`dsh-native/vault-template/editorial/orders/README.md`（2 处 写手→主笔）、`dsh-native/vault-template/editorial/reports/弧审模板.md`（八类→**九类**、撤"策划按需"、档位 出轨→**待定**）。
+2. **随附文档同步**：`dsh-native/vault-template/editorial/protocols/书名简介工位.md`〔私有〕（3 处）、`dsh-native/vault-template/editorial/orders/README.md`〔私有〕（2 处 写手→主笔）、`dsh-native/vault-template/editorial/reports/弧审模板.md`〔私有〕（八类→**九类**、撤"策划按需"、档位 出轨→**待定**）。
 3. **`reports/`、`orders/`、`board/` 三件模板纳入守卫视野**（此前完全在 CURATED 之外——改了不派生、坏了没人报；纳入时当场发现两份实例副本已陈旧分叉）。
 4. 前条【2】的"档位"更正带一个实测教训：`弧审模板` 教人填"出轨"，而 `novel_ledger op=arc_review` 的 verdict 走**白名单硬校验**（在轨/漂移/待定）——**照文档填必被 `BAD_ARG` 拒收**。文档与代码各说各的，受害者是照做的人。
