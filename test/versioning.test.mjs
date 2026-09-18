@@ -93,3 +93,44 @@ test('生效窗⑥: 人物性别同样纳入窗口（人设演进不再被当成
   const chars = JSON.parse(b.files.get(b.dir + '/characters.json')).characters
   assert.equal(chars.length, 2, '两条版本记录并存')
 })
+
+// ── 时间线版本绑定（2026-09-18，外部体检 P1-D 处置）──────────────────────────
+// 现象：改稿后旧叙述不退役、新版追加，事实层出现"平行版本"——
+// 实测《第七封》79 条 timeline 里有 16 组同 ch+time 的双叙述（文本略有差异，
+// 故旧的"同文本去重"抓不住）。与 term/character 是同一族问题，故用同一套口径：
+// 事件带版本戳，读路径按各章**当前 rev** 投影；旧叙述原样留档但不进当前账。
+
+test('时间线版本①: 改稿后只认当前版的叙述（旧版留档不进账）', async () => {
+  const b = await book()
+  await b.call('novel_chapter', { book_dir: b.dir, ch: 1, title: '一', text: '初稿正文。'.repeat(10), timeline_events: [{ time: '第一夜', what: '旧版叙述：他去了码头' }] })
+  const ask1 = await b.call('novel_ask', { book_dir: b.dir, q: '时间线' })
+  assert.equal(ask1.overview.timeline.length, 1, '初稿后应只有一条')
+
+  // 改稿：换一版叙述（逐字不同，旧去重抓不住）+ 新增一条
+  await b.call('novel_chapter', { book_dir: b.dir, ch: 1, title: '一', text: '改稿正文。'.repeat(10), timeline_events: [{ time: '第一夜', what: '新版叙述：他去了戏楼' }, { time: '第二夜', what: '新增：灯灭了' }] })
+  const onDisk = JSON.parse(b.files.get(b.dir + '/timeline.json')).events
+  assert.equal(onDisk.length, 3, 'append-only：磁盘上三条都在（旧叙述原样留档）')
+
+  const ask2 = await b.call('novel_ask', { book_dir: b.dir, q: '时间线' })
+  assert.equal(ask2.overview.timeline.length, 2, '当前账只认新版两条：' + JSON.stringify(ask2.overview.timeline))
+  assert.ok(!ask2.overview.timeline.some((e) => e.what.includes('旧版叙述')), '旧版叙述不得进当前账')
+  assert.ok(ask2.overview.timeline.some((e) => e.what.includes('新版叙述')))
+})
+
+test('时间线版本②: 无 rev 的旧事件仍全留（不误伤存量书）', async () => {
+  const b = await book()
+  // 手工塞一条"合并前产生"的事件（无 rev 字段）
+  b.files.set(b.dir + '/timeline.json', JSON.stringify({ events: [{ ch: 1, time: '从前', what: '没有版本戳的旧事件' }] }))
+  await b.call('novel_chapter', { book_dir: b.dir, ch: 1, title: '一', text: '正文。'.repeat(10), timeline_events: [{ time: '现在', what: '带版本戳的新事件' }] })
+  const ask = await b.call('novel_ask', { book_dir: b.dir, q: '时间线' })
+  assert.equal(ask.overview.timeline.length, 2, 'legacy 事件必须保留——宁可多给不可少给：漏报事实比多报更危险')
+})
+
+test('时间线版本③: novel_bible 的 timeline 与 novel_ask 同口径（处处一致）', async () => {
+  const b = await book()
+  await b.call('novel_chapter', { book_dir: b.dir, ch: 1, title: '一', text: '初稿。'.repeat(10), timeline_events: [{ time: 'T', what: '旧' }] })
+  await b.call('novel_chapter', { book_dir: b.dir, ch: 1, title: '一', text: '改稿。'.repeat(10), timeline_events: [{ time: 'T', what: '新' }] })
+  const bib = await b.call('novel_bible', { book_dir: b.dir, ch: 5, scope: 'timeline' })
+  assert.equal(bib.timeline.length, 1, 'bible 也走同一投影：' + JSON.stringify(bib.timeline))
+  assert.equal(bib.timeline[0].what, '新')
+})
