@@ -34,16 +34,16 @@ test('批E: guide 机制版本格式良好，且沿革件指针指向真实文�
 
 test('批E: 工具数量口径一致（防"文档说 12 个、实际变了没人发现"）', () => {
   const n = _internals.TOOLS.length
-  assert.equal(n, 13, 'B8 novel_context 注册后应有 13 个工具')
-  const desc = read('package.json').match(/(\d+|Twelve|Eleven|Thirteen) deterministic novel_\* tools/i)
+  assert.equal(n, 14, 'novel_search 注册后应有 14 个工具')
+  const desc = read('package.json').match(/(\d+|Twelve|Eleven|Thirteen|Fourteen) deterministic novel_\* tools/i)
   assert.ok(desc, 'package.json 描述应声明工具数量')
-  const words = { twelve: 12, eleven: 11, thirteen: 13 }
+  const words = { twelve: 12, eleven: 11, thirteen: 13, fourteen: 14 }
   const claimed = /^\d+$/.test(desc[1]) ? Number(desc[1]) : words[desc[1].toLowerCase()]
   assert.equal(claimed, n, 'package.json 描述的工具数与实际不符（实际 ' + n + '）')
   const names = _internals.TOOLS.map((t) => t.name)
   for (const f of ['README.md', 'mcp/README.md']) {
     const s = read(f)
-    if (/\d+ 个工具|12 tools/.test(s)) assert.ok(s.includes(String(n)) || s.includes('12'), f + ' 里的工具数与实际不符')
+    if (/\d+ 个工具|1[0-9] tools/.test(s)) assert.ok(s.includes(String(n)) || s.includes('十二') || s.includes('十三') || s.includes('十四'), f + ' 里的工具数与实际不符')
   }
   assert.equal(new Set(names).size, n, '工具名不得重复')
 })

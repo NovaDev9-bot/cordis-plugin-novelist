@@ -12,12 +12,12 @@ test('module shape: name / inject / apply', () => {
   assert.equal(typeof apply, 'function')
 })
 
-test('tool registry: 13 tools, expected names, write tools carry timeoutMs', () => {
-  assert.equal(TOOLS.length, 13)
+test('tool registry: 14 tools, expected names, write tools carry timeoutMs', () => {
+  assert.equal(TOOLS.length, 14)
   const names = TOOLS.map((t) => t.name)
   assert.deepEqual(names, [
     'novel_init', 'novel_outline', 'novel_bible', 'novel_chapter',
-    'novel_verify', 'novel_count', 'novel_ledger', 'novel_event', 'novel_score', 'novel_ask', 'novel_decide', 'novel_assemble', 'novel_context',
+    'novel_verify', 'novel_count', 'novel_ledger', 'novel_event', 'novel_score', 'novel_ask', 'novel_decide', 'novel_assemble', 'novel_context', 'novel_search',
   ])
   for (const t of TOOLS) {
     if (['novel_init', 'novel_outline', 'novel_chapter', 'novel_ledger', 'novel_event', 'novel_score', 'novel_assemble'].includes(t.name)) {

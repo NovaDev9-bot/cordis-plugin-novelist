@@ -205,13 +205,13 @@ test('协议：initialize 结构与版本协商（支持清单内回显，清单
   } finally { rmSync(base, { recursive: true, force: true }) }
 })
 
-test('协议：tools/list 出 13 工具带 inputSchema；tools/call 走 render 渲染', async () => {
+test('协议：tools/list 出 14 工具带 inputSchema；tools/call 走 render 渲染', async () => {
   const base = mkdtempSync(path.join(tmpdir(), 'nf-mcp-tools-'))
   try {
     const { handler } = await makeHandler(base)
     const listed = await handler.handleLine(req(1, 'tools/list', {}))
     assert.equal(listed.result.tools.length, TOOLS.length)
-    assert.equal(listed.result.tools.length, 13)
+    assert.equal(listed.result.tools.length, 14)
     const cnt = listed.result.tools.find((t) => t.name === 'novel_count')
     assert.ok(cnt.inputSchema.properties.text, 'inputSchema 来自 lib parameters')
 
