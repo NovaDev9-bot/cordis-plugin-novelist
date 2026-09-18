@@ -21,6 +21,9 @@ const indexPath = opt('--index')
 const N_BOOKS = Number(opt('--books', 60)) || 60
 const N_CH = Number(opt('--chapters', 30)) || 30
 const outDir = path.resolve(opt('--out', '.'))
+// 可选：把某份候选词表拿到真实头部作品上量一遍（词表定性用）。透传给 style-check，
+// 不复刻抽样逻辑——同一条采样管线只此一处。
+const lexArg = opt('--lexicon')
 
 function mulberry32(a) {
   return function () {
@@ -62,7 +65,8 @@ for (let i = 0; i < picked.length; i++) {
   const e = picked[i]
   const file = path.join(corpusRoot, e.author, `${e.book}.txt`)
   const jsonOut = path.join(outDir, `_tmp-a4-${i}.json`)
-  const r = spawnSync(process.execPath, [SCRIPT, file, '--sample', String(N_CH), '--json', jsonOut, '--label', e.book], { stdio: 'pipe', encoding: 'utf8' })
+  const lexArgs = lexArg ? ['--lexicon', path.resolve(lexArg)] : []
+  const r = spawnSync(process.execPath, [SCRIPT, file, '--sample', String(N_CH), '--json', jsonOut, '--label', e.book, ...lexArgs], { stdio: 'pipe', encoding: 'utf8' })
   if (r.status !== 0) { console.log(`  ✗ [${i + 1}/${picked.length}] ${e.book}：${(r.stderr || '').split('\n')[0]}`); continue }
   const rep = JSON.parse(await readFile(jsonOut, 'utf8'))
   results.push({ author: e.author, book: e.book, bytes: e.bytes, enc: rep.aggregate.enc_used, chapters_detected: rep.aggregate.chapters_detected, agg: rep.aggregate.avg })
