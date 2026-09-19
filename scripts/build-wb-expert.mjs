@@ -177,7 +177,25 @@ let guideText = '', guideName = '', guideVer = ''
     '> 本文件由 lib/novelist.js 的 SECTION 原文导出（chars=' + guideText.length + '）。\n' +
     '> 宿主不一定注入 MCP initialize.instructions —— 接活前先调 novel_guide 工具取同版全文，或以本文件为准。\n' +
     '> **工具层优先**：本文件与工具 description 若有出入，以工具描述为准。\n\n---\n\n'
-  await write('references/' + guideName + '-' + ver + '.md', head + guideText + '\n')
+  // 静态导出副本的路径改写：SECTION.text 里的绝对路径是**真源机**在 import 时算出来的
+  // （沿真源 lib/ 位置），原样烤进包里就是死路径（2026-09-19 审计实测：包内手册带着装配机的
+  // H 盘路径，离线兜底那份谁也读不到）。改写成包内坐标（vendor 资产已随包）；认不出的
+  // 绝对路径 die，不猜——改写后不允许残留任何机器路径。
+  const GUIDE_PKG_MAP = [
+    ['lib/guide-history.md', 'vendor/novelist/lib/guide-history.md'],
+    ['craft/author-cards', 'vendor/novelist/craft/author-cards'],
+    ['instruments/style-lexicon.json', 'vendor/novelist/instruments/style-lexicon.json'],
+  ]
+  let staticGuide = guideText
+  for (const raw of absPaths(staticGuide)) {
+    const p = raw.replace(/[\\/]+$/, '')            // 目录路径常带尾分隔符（…\craft\author-cards\）
+    const norm = p.split(path.sep).join('/').replace(/\\/g, '/')
+    const hit = GUIDE_PKG_MAP.find(([suf]) => norm.toLowerCase().endsWith(suf.toLowerCase()))
+    if (!hit) die('静态机制手册里有认不出的绝对路径（不猜：往 GUIDE_PKG_MAP 加映射，或修真源文本）：' + raw)
+    const tail = /[\\/]$/.test(raw) ? '/' : ''
+    staticGuide = staticGuide.split(raw).join(hit[1] + tail)
+  }
+  await write('references/' + guideName + '-' + ver + '.md', head + staticGuide + '\n')
   say('· 机制手册：现导 ' + guideText.length + ' 字符（' + ver + '）')
 }
 
@@ -193,7 +211,10 @@ let guideText = '', guideName = '', guideVer = ''
   let subs = 0
   for (const [rel, text] of tplBuf) {
     subs += (text.match(GUIDE_REF) || []).length
-    await write(rel, text.replace(GUIDE_REF, guideFile), tplSrc.get(rel))
+    // 改写成实际文件名后，顺手摘掉占位符标记〔模板〕——此刻它已是包内实件，
+    // 留着标记会让 7d 的引用自证把它当"占位符不查"放过去（自证就该查它）
+    const out = text.replace(GUIDE_REF, guideFile).split('`' + guideFile + '`〔模板〕').join('`' + guideFile + '`')
+    await write(rel, out, tplSrc.get(rel))
   }
   if (subs === 0) say('· ⚠ 启动包里 0 处引用 guide 文件名——要么确实不引用了，要么模式已失配（2026-09-18 基线＝5 处）')
   else say('· 启动包 guide 引用改写：' + subs + ' 处 → ' + guideFile)
@@ -337,11 +358,13 @@ say('· 作家卡：' + await copyDir(path.join(PLUGIN, 'craft', 'author-cards')
 
   const pjPath = path.join(OUT, '.codebuddy-plugin', 'plugin.json')
   const pj = JSON.parse(fsSync.readFileSync(pjPath, 'utf8'))
+  // 书库根走 args `--root`（server.mjs 解析顺序：--root → env NOVELIST_ROOT）。
+  // 〔2026-09-19 审计 P0-1 修〕此前只写 env：藏在 plugin.json 深处不可见，排查时看起来
+  // 像调用方 book_dir 写错；改 args 后一眼可见，env 不再写（根的声明只此一处）。
   pj.mcpServers = {
     novelist: {
       command: 'node',
-      args: ['${CODEBUDDY_PLUGIN_ROOT}/vendor/novelist/mcp/server.mjs'],
-      env: { NOVELIST_ROOT: bookRoot },
+      args: ['${CODEBUDDY_PLUGIN_ROOT}/vendor/novelist/mcp/server.mjs', '--root', bookRoot],
       defer_loading: true,
     },
   }
@@ -458,8 +481,30 @@ if (argv.includes('--prune')) {
         changed = true; typed++; return '`<book_dir>/' + t + '`'
       }
       const mapped = resolveSrc(t, ownSrcDir)
+      // skill 内引用按 **skill 自身目录** 解析（WB 宿主加载 skill 的语义基准，2026-09-19
+      // 审计 P0-2 实测 20/20 断链）——包根相对写法在包根下存在、运行时点进去全是空的。
+      // 只要目标解析得到（无论 ref 写的是源坐标还是已与包坐标同形），一律改成 skill 相对
+      // （../../references/...），包根与 skill 两种基准下都成立。
+      if (outRel.startsWith('skills/') && mapped) {
+        changed = true; subs++
+        let relp = path.posix.relative(path.posix.dirname(outRel), mapped)
+        if (!relp.startsWith('.')) relp = './' + relp
+        return '`' + relp + '`'
+      }
       if (mapped && mapped !== t) { changed = true; subs++; return '`' + mapped + '`' }
-      if (mapped) return whole                       // 已在包内同位置，不动
+      if (mapped) return whole                       // 已在包内同位置，不动（agent 等包根基准件）
+      // skill 内引用补改写（不走 srcToOut 映射的那批，如 `references/protocols/*.md`——
+      // 协议源在 preset-starter/protocols/，引用却写成包根坐标）：包根下存在、skill 目录
+      // 下不存在的 → 改写成 skill 相对。包根坐标在 WB 运行时同样全是死链。
+      if (outRel.startsWith('skills/') && !TYPED.test(t)) {
+        const ownOutDir = path.posix.dirname(outRel)
+        if (fsSync.existsSync(path.join(OUT, t)) && !fsSync.existsSync(path.join(OUT, ownOutDir, t))) {
+          let relp = path.posix.relative(ownOutDir, t)
+          if (!relp.startsWith('.')) relp = './' + relp
+          changed = true; subs++
+          return '`' + relp + '`'
+        }
+      }
       // 源仓里解得到、但**没有进包**（如 `preset-starter/agent.cordis.yml`、装配器自身）：
       // 对**包的读者**而言它在包外。这里给包副本补类型，源件保持仓根相对的干净写法——
       // 两边各自正确，源件那份检查也不丢。解都解不到的**不动**，交给 7d 报出来逼人判。

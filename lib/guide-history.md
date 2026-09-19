@@ -20,3 +20,10 @@ novelist-guide 机制沿革正文（下含 v6.0 → v7.13 逐版增量）。**�
 2. **随附文档同步**：`dsh-native/vault-template/editorial/protocols/书名简介工位.md`〔私有〕（3 处）、`dsh-native/vault-template/editorial/orders/README.md`〔私有〕（2 处 写手→主笔）、`dsh-native/vault-template/editorial/reports/弧审模板.md`〔私有〕（八类→**九类**、撤"策划按需"、档位 出轨→**待定**）。
 3. **`reports/`、`orders/`、`board/` 三件模板纳入守卫视野**（此前完全在 CURATED 之外——改了不派生、坏了没人报；纳入时当场发现两份实例副本已陈旧分叉）。
 4. 前条【2】的"档位"更正带一个实测教训：`弧审模板` 教人填"出轨"，而 `novel_ledger op=arc_review` 的 verdict 走**白名单硬校验**（在轨/漂移/待定）——**照文档填必被 `BAD_ARG` 拒收**。文档与代码各说各的，受害者是照做的人。
+
+**〔2026-09-19 第三方审计修正批（v7.13 内更正，非新机制）〕** WorkBuddy 侧主编对专家包+连接器深度审计（报告留痕：私有仓 `docs/audit/2026-09-19/WB专家包审计-2026-09-19.md`〔仓外〕），逐条复现后四类工具面更正：
+
+1. **novel_chapter 的 title 诚实化**——title 曾列 required 但 execute 从未读它（schema 不诚实）。现改**可选＋章纲交叉核对**：给了就与章纲登记标题比对，不一致**记门警示不拦稿**（与符号门"只记账不判好坏"口径一致——章纲标题后改属合法演进，硬拒会拦住正当改稿；交错章信号交主编裁），省略则跳过核对。
+2. **仪器"没检查成"三修**——`structure-check` / `instrument-aggregate` 对不存在的书目录此前 EXIT 0 并产出"全 0 空报告"（aggregate 还会凭空建目录写文件）；现一律 exit 2 且零写入。`style-check` 无参调用此前炸在 `path.resolve(undefined)`（用法提示成了不可达代码），现判空前置 exit 2。
+3. **style-check 均值不把"未测"当 0**——`f(u) || 0` 曾把 null（0 汉字单元的密度＝未测）摊进均值冒充"0 命中"；现均值只对测到的单元求、全未测报 null，并随数报出 measured_units 分母。
+4. **build-blind-pool 种子接线 + corpus-falsify 锚书单源化**——前者 seed 只进 key 不进洗牌（可复算性承诺失效），现 `mulberry32(SEED)`；后者锚书作者靠第二份硬编码名单（4 人 vs ANCHORS 5 本，ANCHORS 成死代码），现从 ANCHORS 书名反查作者，名单只此一份。

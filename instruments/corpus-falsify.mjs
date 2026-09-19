@@ -46,9 +46,16 @@ for (const line of lines.slice(1)) {
   const prev = byAuthor.get(author)
   if (!prev || Number(bytes) > prev.bytes) byAuthor.set(author, { author, book, bytes: Number(bytes), enc })
 }
-// 锚书作者强制入选（他们的最大一本即锚书本体或同量级作品）
+// 锚书作者强制入选（他们的最大一本即锚书本体或同量级作品）。
+// 〔2026-09-19 第三方审计修〕作者名单从 ANCHORS 书名**反查**得出——旧实现另持一份硬编码
+// 作者名单（4 人，漏 1 本），ANCHORS 成死代码；两份名单漂移时锚书静默漏抽，谁也不会报。
+const anchorAuthors = new Set()
+for (const line of lines.slice(1)) {
+  const m = line.match(/^"([^"]*)","([^"]*)","(\d+)","(\w+)"/)
+  if (m && ANCHORS.includes(m[2])) anchorAuthors.add(m[1])
+}
 const anchorEntries = []
-for (const a of ['三天两觉', '南派三叔', '天下霸唱', '九灯和善']) {
+for (const a of [...anchorAuthors].sort()) {
   const e = byAuthor.get(a)
   if (e) { anchorEntries.push(e); byAuthor.delete(a) }
 }

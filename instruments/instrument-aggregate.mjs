@@ -15,10 +15,17 @@
  */
 import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises'
 import { stat as fstat } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
 import path from 'node:path'
 
 const args = process.argv.slice(2)
 const opt = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d }
+// 书目录不存在＝**没检查成**：不建目录、不写文件、不报 0 条判词（把"书不存在"产出成
+// "0 判词的空报告 + 凭空造出目录树"是本仪器被审计抓到的唯一磁盘副作用缺陷，2026-09-19）
+if (!args[0] || args[0].startsWith('--') || !existsSync(path.resolve(args[0]))) {
+  console.error('[instrument-aggregate] 没检查成：' + (!args[0] || args[0].startsWith('--') ? '缺 <book_dir> 用法：node instrument-aggregate.mjs <book_dir> [--baseline x.json] [--out dir]' : '书目录不存在 ' + path.resolve(args[0])))
+  process.exit(2)
+}
 const bookDir = path.resolve(args[0])
 const outDir = path.resolve(opt('--out', path.join(bookDir, 'editorial')))
 const lastN = Number(opt('--last', 20)) || 20
