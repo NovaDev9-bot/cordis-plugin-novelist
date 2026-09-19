@@ -46,6 +46,11 @@ try {
     await waitBarrier(opts.startFile)
     const out = await call('novel_chapter', { book_dir: opts.dir, ch: opts.ch, title: '第' + opts.ch + '章', text: opts.text, cast: opts.cast })
     await emit({ event: 'done', ok: out.ok, ch: out.ch, rev: out.rev })
+  } else if (cmd === 'decide') {
+    await emit({ event: 'ready' })
+    await waitBarrier(opts.startFile)
+    const out = await call('novel_decide', opts.args)
+    await emit({ event: 'done', ok: out.ok, id: out.id, deduped: out.deduped === true, applied: out.applied })
   } else if (cmd === 'hold') {
     const lock = await _internals.acquireFileLock(fs, opts.dir, {
       waitMs: opts.waitMs || 5_000,
