@@ -57,7 +57,11 @@ export function createNodeFsAdapter(rootInput) {
   // 注意不能用 startsWith('..') 一刀切——根内目录名 '..foo' 会被误杀。
   const escaped = (p) => !bases.some((b) => within(b, p))
   const guard = (p, what) => {
-    if (escaped(p)) throw new Error('[novelist-mcp] 路径越界被拒（' + what + '；书库根=' + root + '）：' + p)
+    // 候选路径也要过同一套归一化再比：客户端给的可能是短名/链接的字面形（windows runner 的
+    // tmpdir 是 RUNNER~1），而 server 启动时已把根 realpath 成长名（runneradmin）——两形
+    // 同目录。只在字面层比会把"根内的合法路径"误判成越界（2026-09-19 真进程 e2e 在
+    // windows runner 实测抓到；与下方 canonicalize 的注释同族，但那是根侧、这是候选侧）。
+    if (escaped(canonicalize(p))) throw new Error('[novelist-mcp] 路径越界被拒（' + what + '；书库根=' + root + '）：' + p)
   }
   // 已存在路径的真实路径也必须在根内（symlink 逃逸防线）；不存在则仅词法校验。
   const guardReal = async (p, what) => {
