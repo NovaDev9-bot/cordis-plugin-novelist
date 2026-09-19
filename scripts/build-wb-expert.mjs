@@ -469,7 +469,7 @@ if (argv.includes('--prune')) {
     const ownSrcDir = srcAbs ? path.dirname(srcAbs) : path.dirname(outAbs)
     const text = fsSync.readFileSync(outAbs, 'utf8')
     let changed = false
-    const next = text.split('\n').map((line) => line.replace(TICK, (whole, raw) => {
+    const next = text.split('\n').map((line) => line.replace(TICK, (whole, raw, off, str) => {
       const t = raw.trim()
       if (!ANYFILE.test(t)) return whole
       if (/[\s>|，。；：]/.test(t)) return whole
@@ -509,7 +509,9 @@ if (argv.includes('--prune')) {
       // 对**包的读者**而言它在包外。这里给包副本补类型，源件保持仓根相对的干净写法——
       // 两边各自正确，源件那份检查也不丢。解都解不到的**不动**，交给 7d 报出来逼人判。
       const inRepo = ROOTS.some((b) => fsSync.existsSync(path.resolve(b, t)) || (stripPrefix(t) && fsSync.existsSync(path.resolve(b, stripPrefix(t)))))
-      if (inRepo) { changed = true; typed++; return whole + '〔仓外〕' }
+      // 已有类型标记的（〔私有〕/〔模板〕…）不再叠〔仓外〕——否则 mono/flat 两种根解析下
+      // 一个叠一个不叠，同一份源装出两种字节（2026-09-19 实测：WB 门禁首跑红就是它）
+      if (inRepo && str.slice(off + whole.length, off + whole.length + 1) !== '〔') { changed = true; typed++; return whole + '〔仓外〕' }
       return whole
     })).join('\n')
     if (changed) await fsp.writeFile(outAbs, next)
