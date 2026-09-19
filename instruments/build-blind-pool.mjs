@@ -16,7 +16,10 @@ const ARM_B_DIR = argv[1] || 'lab/p-exp/b-arm/4-正文'
 const POOL_NAME = argv[2] || 'blind-pool'
 const KEY_NAME = argv[3] || 'blind-key'
 const SEED = Number(argv[4]) || 20260912
-const OUT = path.join(ROOT, POOL_NAME)
+// 绝对路径直用、相对路径落 ROOT（默认值是仓内 lab 坐标；测试与跨仓复跑需要绝对路径）
+const atRoot = (p) => path.isAbsolute(p) ? path.resolve(p) : path.join(ROOT, p)
+const OUT = atRoot(POOL_NAME)
+const KEY_PATH = atRoot(KEY_NAME.endsWith('.json') ? KEY_NAME : KEY_NAME + '.json')
 
 function mulberry32(a) {
   return function () {
@@ -48,13 +51,13 @@ function stripIdent(text) {
 const sources = []
 // 通用收集器：chapter_NNN.md 或 第N章*.md 两种命名都认
 async function collect(dir, arm) {
-  const files = (await readdir(path.join(ROOT, dir)).catch(() => []))
+  const files = (await readdir(atRoot(dir)).catch(() => []))
   const picked = []
   for (const f of files.sort()) {
     let ch = null
     if (/^chapter_\d+\.md$/.test(f)) ch = Number(f.match(/\d+/)[0])
     else { const m = f.match(/^第([123])章/); if (m) ch = Number(m[1]) }
-    if (ch && ch <= 3) picked.push({ arm, ch, file: path.join(ROOT, dir, f) })
+    if (ch && ch <= 3) picked.push({ arm, ch, file: path.join(atRoot(dir), f) })
   }
   return picked.slice(0, 3)
 }
@@ -62,9 +65,11 @@ sources.push(...(await collect(ARM_A_DIR, 'A')), ...(await collect(ARM_B_DIR, 'B
 if (sources.length !== 6) { console.error(`✗ 期望 6 章，实得 ${sources.length}（A=${sources.filter(s=>s.arm==='A').length} B=${sources.filter(s=>s.arm==='B').length}）——两臂齐件后再跑`); process.exit(1) }
 
 const slots = sources.map((_, i) => `slot-${i + 1}`)
-// 洗 slot 顺序（不动来源数组，映射可复算）
+// 洗 slot 顺序（不动来源数组，映射可复算）。
+// 〔2026-09-19 第三方审计修〕种子必须真进洗牌：旧代码 `mulberry32(20260912)` 硬编码，
+// 用户传的 seed 只进 key 不进洗牌——按 key 复算不出同一盲池，可复算性承诺失效。
 const order = sources.map((_, i) => i)
-const rnd = mulberry32(20260912)
+const rnd = mulberry32(SEED)
 for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [order[i], order[j]] = [order[j], order[i]] }
 
 await mkdir(OUT, { recursive: true })
@@ -75,6 +80,6 @@ for (let i = 0; i < slots.length; i++) {
   await writeFile(path.join(OUT, `${slots[i]}.md`), text + '\n', 'utf8')
   key[slots[i]] = { arm: src.arm, ch: src.ch, source_file: path.relative(ROOT, src.file).replace(/\\/g, '/') }
 }
-await writeFile(path.join(ROOT, `${KEY_NAME}.json`), JSON.stringify({ seed: SEED, built_at: new Date().toISOString(), key }, null, 2), 'utf8')
-console.log(`[blind-pool] 6 章入池 → ${path.relative(ROOT, OUT)}（种子 ${SEED}；key 落 lab/p-exp/${KEY_NAME}.json，判官永不可见）`)
+await writeFile(KEY_PATH, JSON.stringify({ seed: SEED, built_at: new Date().toISOString(), key }, null, 2), 'utf8')
+console.log(`[blind-pool] 6 章入池 → ${path.relative(ROOT, OUT)}（种子 ${SEED}；key 落 ${KEY_PATH}，判官永不可见）`)
 for (const [slot, info] of Object.entries(key)) console.log(`  ${slot} ← ${info.arm} ch${info.ch}`)

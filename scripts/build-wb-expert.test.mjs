@@ -70,8 +70,12 @@ test('专家自带连接器：mcpServers 指向包内 + vendor 资产齐全 + �
   assert.match(arg, /\$\{[A-Z_]*PLUGIN_ROOT\}\//, 'server 路径必须走 PLUGIN_ROOT 变量（否则换机即失效）')
   const rel = arg.replace(/^\$\{[A-Z_]*PLUGIN_ROOT\}\//, '')
   assert.ok(fsSync.existsSync(path.join(out, rel)), 'mcpServers 指向的 server 不在包内：' + rel)
-  assert.ok(cfg.env && cfg.env.NOVELIST_ROOT, '缺 NOVELIST_ROOT（server 启动硬前置，没有它直接 exit 2）')
-  assert.ok(fsSync.existsSync(cfg.env.NOVELIST_ROOT), 'NOVELIST_ROOT 指向的目录不存在：' + cfg.env.NOVELIST_ROOT)
+  // 〔2026-09-19 审计 P0-1 修〕书库根走 args `--root`（可见、单一来源）；env 不再写——
+  // "两处都写"必然只改一处，没改到的那处就是下一次事故的埋点。
+  const ri = cfg.args.indexOf('--root')
+  assert.ok(ri !== -1 && cfg.args[ri + 1], '缺 args --root（server 启动硬前置，没有它直接 exit 2）')
+  assert.ok(fsSync.existsSync(cfg.args[ri + 1]), '--root 指向的目录不存在：' + cfg.args[ri + 1])
+  assert.ok(!cfg.env || !cfg.env.NOVELIST_ROOT, 'env NOVELIST_ROOT 应已移除（根的声明只此一处）')
 
   // server.mjs 会 require('../package.json') 取版本号；少了它启动即崩
   for (const must of [
@@ -107,6 +111,44 @@ test('机制手册是现导的，且版本号取文中最高 v7.N（不是沿革
   const src = readFileSync(path.join(REPO_ROOT, 'lib', 'novelist.js'), 'utf8')
   const maxV = 'v7.' + Math.max(...[...src.matchAll(/v7\.(\d+)/g)].map((m) => Number(m[1])))
   assert.equal(guides[0], 'novelist-guide-' + maxV + '.md', '文件名版本号不是文中最高版本（源=' + maxV + '）')
+})
+
+test('skill 内引用按 **skill 自身目录**解析可达（2026-09-19 审计 P0-2：宿主基准=skill 目录）', () => {
+  const out = path.join(tmp('nf-wb-'), 'plugins', 'novel-forge-editorial')
+  build(out)
+  const skillsDir = path.join(out, 'skills')
+  const PLACEHOLDER = /(YYYY|MM-DD|NN|XXX|卷N|第N|模型名_轮次|issue-NNN|弧X-弧Y|卷X-弧Y)/
+  let refs = 0
+  for (const s of readdirSync(skillsDir)) {
+    const base = path.join(skillsDir, s)
+    const md = readFileSync(path.join(base, 'SKILL.md'), 'utf8')
+    for (const m of md.matchAll(/`([^`\n]{2,140}?)`/g)) {
+      const t = m[1].trim()
+      if (!/\.(md|mjs|json)$/i.test(t)) continue
+      if (/^(https?:|mailto:|~\/|[A-Za-z]:[\\/]|\/|<|\$\{)/.test(t)) continue
+      if (/[\s>|，。；：]/.test(t)) continue
+      if (PLACEHOLDER.test(t)) continue                  // 书工程内模板坐标（reports/弧审-卷X-弧Y.md 等）
+      if (/〔/.test(m[0])) continue                      // 带类型标注的（〔模板〕/〔包内〕等）不查
+      refs++
+      assert.ok(fsSync.existsSync(path.join(base, t)), 'skill 内引用按 skill 目录解析不到（运行时就是死链）：' + s + ' → ' + t)
+    }
+  }
+  assert.ok(refs >= 5, 'skill 引用条数异常少（模式失配？）：' + refs)
+})
+
+test('静态机制手册零机器绝对路径，且包内坐标真实存在（2026-09-19 审计 P1-4）', () => {
+  const out = path.join(tmp('nf-wb-'), 'plugins', 'novel-forge-editorial')
+  build(out)
+  const guides = readdirSync(path.join(out, 'references')).filter((f) => /^novelist-guide/.test(f))
+  const text = readFileSync(path.join(out, 'references', guides[0]), 'utf8')
+  // "机器路径"＝盘符/家目录形状；`/editorial/...` 这类是 <book_dir>/ 坐标（abs-path 正则
+  // 会把反引号里的 `…>/editorial/arcs.jsonl` 误配成 POSIX 绝对路径），不算机器路径
+  const machine = absPaths(text).filter((p) => /^[A-Za-z]:[\\/]/.test(p) || /^\/(home|Users)\//.test(p))
+  assert.equal(machine.length, 0, '静态手册残留机器绝对路径（离线兜底那份谁也读不到）：' + JSON.stringify(machine))
+  // 改写目标不是"更漂亮的死路径"——包内坐标必须真实存在
+  for (const p of ['vendor/novelist/lib/guide-history.md', 'vendor/novelist/craft/author-cards', 'vendor/novelist/instruments/style-lexicon.json']) {
+    assert.ok(fsSync.existsSync(path.join(out, p)), '手册改写后的包内坐标不存在：' + p)
+  }
 })
 
 test('--prune 只清上一版清单里的残留，且确实清掉', () => {

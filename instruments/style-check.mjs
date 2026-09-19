@@ -16,8 +16,10 @@ import path from 'node:path'
 
 const args = process.argv.slice(2)
 const opt = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d }
+// 判空必须在 path.resolve 之前：resolve(undefined) 直接抛 TypeError，下面的用法提示
+// 变成不可达代码（2026-09-19 第三方审计实测：无参调用炸在 resolve 上，exit 1 而非约定的 2）
+if (!args[0] || args[0].startsWith('--')) { console.error('用法：node style-check.mjs <file> [--enc auto|utf8|gbk] [--sample N] [--json out] [--label X] [--lexicon my.json]'); process.exit(2) }
 const file = path.resolve(args[0])
-if (!file) { console.error('用法：node style-check.mjs <file> [--enc auto|utf8|gbk] [--sample N] [--json out] [--label X] [--lexicon my.json]'); process.exit(2) }
 
 // 词库叠加语义：内置为底，--lexicon 提供的顶层键覆盖之（典型用法=只给 negative_lexicon）
 const LEX = JSON.parse(await readFile(path.join(import.meta.dirname, 'style-lexicon.json'), 'utf8'))
@@ -174,7 +176,14 @@ function checkUnit(u) {
 
 const unitReports = units.map(checkUnit)
 const n = unitReports.length || 1
-const avg = (f) => Math.round(unitReports.reduce((a, u) => a + (f(u) || 0), 0) / n * 1000) / 1000
+// 均值只对**测到的**单元求：null＝该单元此项未测（如 0 汉字单元的密度指标）。
+// 旧写法 `f(u) || 0` 把"未测"摊进均值冒充"0 命中"——与"把没测当没有"撒谎同族
+// （2026-09-19 第三方审计）。全未测给 null 不给 0；测了几件随数报出，均值才有分母可查。
+const avg = (f) => {
+  const vs = unitReports.map(f).filter((v) => v != null)
+  return vs.length ? Math.round(vs.reduce((a, v) => a + v, 0) / vs.length * 1000) / 1000 : null
+}
+const measuredCount = (f) => unitReports.map(f).filter((v) => v != null).length
 const agg = {
   label: opt('--label', path.basename(file)), file, enc_used: encUsed,
   units: units.length, chapters_detected: chapters.length, sampled: units.length !== chapters.length,
@@ -188,8 +197,8 @@ const agg = {
     simile_strict_per_chapter: avg((u) => u.simile.strict), simile_loose_per_chapter: avg((u) => u.simile.loose_像),
     formula_flag_rate: avg((u) => (u.formula.flag ? 1 : 0)),
     chapter_opening_template_hit_rate: avg((u) => (u.formula.chapter_opening_template_hit ? 1 : 0)),
-    neglex_per_10k: avg((u) => u.negative_lexicon.per_10k),
-    L1_per_10k: avg((u) => u.L1_hard.per_10k),
+    neglex_per_10k: avg((u) => u.negative_lexicon.per_10k), neglex_measured_units: measuredCount((u) => u.negative_lexicon.per_10k),
+    L1_per_10k: avg((u) => u.L1_hard.per_10k), L1_measured_units: measuredCount((u) => u.L1_hard.per_10k),
     punct_per_kchar: avg((u) => u.punctuation.per_kchar),
     quote_mix_units: unitReports.filter((u) => u.punctuation.quote_mix).length,
   },
@@ -199,9 +208,12 @@ const out = opt('--json')
 if (out) await writeFile(out, JSON.stringify({ aggregate: agg, units: unitReports }, null, 2), 'utf8')
 
 const A = agg.avg
+// 展示层对 null（＝全单元未测）免疫：报"未测"，不报 0 也不报 NaN
+const pct = (v) => v == null ? '未测' : (v * 100).toFixed(1) + '%'
+const num = (v, unit) => v == null ? '未测' : v + unit
 console.log(`[style-check] ${agg.label}（enc=${encUsed}, 章=${chapters.length}, 抽=${units.length}）`)
-console.log(`  段落: 中位 ${A.para_median} 字 / p90 ${A.para_p90} / ≤两行 ${(A.para_share_le_2line * 100).toFixed(1)}% / >150字 ${(A.para_share_gt_150 * 100).toFixed(1)}%`)
-console.log(`  句长>40字占比 ${(A.sent_share_gt_40 * 100).toFixed(1)}% ｜ 对话段占比 ${(A.dialogue_para_share * 100).toFixed(1)}%`)
-console.log(`  感叹号 ${A.excl_per_kchar}/千字 ｜ 比喻(strict) ${A.simile_strict_per_chapter}/章 ｜ 负向词(L2 观测) ${lexiconWordCount() > 0 ? A.neglex_per_10k + '/万字' : '未测（词表为空槽——用 --lexicon 注入全量词表后再跑）'}`)
-console.log(`  L1 硬规则 ${A.L1_per_10k}/万字 ｜ 标点(冒号/破折号·观测) ${A.punct_per_kchar}/千字${A.quote_mix_units ? ' ｜ ⚠ 引号混用的章 ' + A.quote_mix_units + '/' + unitReports.length : ''}`)
-console.log(`  公式化旗标率 ${(A.formula_flag_rate * 100).toFixed(1)}% ｜ 章首模板开场命中率 ${(A.chapter_opening_template_hit_rate * 100).toFixed(1)}%`)
+console.log(`  段落: 中位 ${A.para_median} 字 / p90 ${A.para_p90} / ≤两行 ${pct(A.para_share_le_2line)} / >150字 ${pct(A.para_share_gt_150)}`)
+console.log(`  句长>40字占比 ${pct(A.sent_share_gt_40)} ｜ 对话段占比 ${pct(A.dialogue_para_share)}`)
+console.log(`  感叹号 ${num(A.excl_per_kchar, '/千字')} ｜ 比喻(strict) ${A.simile_strict_per_chapter}/章 ｜ 负向词(L2 观测) ${lexiconWordCount() > 0 ? num(A.neglex_per_10k, '/万字') + `（测 ${A.neglex_measured_units}/${unitReports.length} 单元）` : '未测（词表为空槽——用 --lexicon 注入全量词表后再跑）'}`)
+console.log(`  L1 硬规则 ${num(A.L1_per_10k, '/万字')}（测 ${A.L1_measured_units}/${unitReports.length} 单元） ｜ 标点(冒号/破折号·观测) ${num(A.punct_per_kchar, '/千字')}${A.quote_mix_units ? ' ｜ ⚠ 引号混用的章 ' + A.quote_mix_units + '/' + unitReports.length : ''}`)
+console.log(`  公式化旗标率 ${pct(A.formula_flag_rate)} ｜ 章首模板开场命中率 ${pct(A.chapter_opening_template_hit_rate)}`)

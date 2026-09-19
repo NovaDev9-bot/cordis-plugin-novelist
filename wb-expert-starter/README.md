@@ -47,15 +47,16 @@ novel-forge-editorial/
 ├─ references/
 │  ├─ novelist-guide-v7.NN.md      # ★ 机制手册全文（= novel_guide 工具同版）
 │  │                               #   `NN` 是**占位符**：装配时由 build-wb-expert.mjs 按
-│  │                               #   guide 实际版本改写（现为 v7.13）。**不要在这里写死版本号**——
+│  │                               #   guide 实际版本现算改写。**任何地方都不要写死版本号**——
 │  │                               #   写死了每次 guide 升版都会静默断链，2026-09-18 审计实测踩过。
 │  ├─ protocols/                   # 九份协议模板（盲读/A-B/批审/事件带/选题/画像卡…）
-│  ├─ handbooks/                   # 主编手册 / 写手施工须知 / 策划手册
+│  ├─ handbooks/                   # 主编手册 / 主笔手册（策划职能已并入主笔，见 v7.2）
 │  └─ roles/                       # 五个按需工种的派工提示词全文
 │                                  # （试读员/结构校准员/校对员/拆书员/档案员）
 ├─ scripts/                        # 零 LLM 仪器（Node，直接可跑）
 │  ├─ style-check.mjs + style-lexicon.json    # 文体机检：L1 硬规则 / L2 密度观测 / L3 正向锚
-│  ├─ structure-check.mjs                     # 结构检查：伏笔曝光曲线 / 爽点间隔
+│  ├─ structure-check.mjs                     # 结构检查：伏笔曝光曲线 / 爽点间隔（仪器新算）
+│  │                                          #   + 承重章/钩子占窗（呈现账本既有量）+ 显式"测不了"清单
 │  ├─ batch-report.mjs                        # 批末日报
 │  ├─ instrument-aggregate.mjs                # 判据聚合
 │  ├─ corpus-falsify.mjs                      # 语料证伪 runner

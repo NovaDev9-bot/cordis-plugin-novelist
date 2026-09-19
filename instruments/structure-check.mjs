@@ -20,6 +20,7 @@
  * 只读：不写 book_dir 里任何文件（--json 写你指定的路径，默认不写）。
  */
 import { readFile, writeFile, readdir } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
 import { createHash } from 'node:crypto'
 import path from 'node:path'
 
@@ -36,6 +37,12 @@ if (!bookDir) {
   process.exit(2)
 }
 const BOOK = path.resolve(bookDir)
+// 书目录不存在＝**没检查成**，不是"全部为 0"——路径配错或账本丢失时静默产出空报告并 EXIT 0，
+// CI 与人都无法发现"书丢了"，且 null 会直接进用户报告（2026-09-19 第三方审计实测）。
+if (!existsSync(BOOK)) {
+  console.error('[structure-check] 没检查成：书目录不存在 ' + BOOK + '（"书不存在"不许报成"0 章 0 条"——那是把没测当没有）')
+  process.exit(2)
+}
 const PRAISE_MIN = Number(opt('--praise-min', 3))
 const ONLY_CH = opt('--ch') ? Number(opt('--ch')) : null
 
@@ -226,7 +233,7 @@ L.push('账本覆盖：正文 ' + written.length + ' 章（至第 ' + maxCh + ' 
 L.push('')
 L.push('① 伏笔曝光曲线（每章挂着多少条未收的线）')
 L.push('  埋下 ' + foreshadow.stats.planted_total + '／已收 ' + foreshadow.stats.closed_total + '／当前未收 ' + foreshadow.stats.open_at_end + '（其中已过 due ' + foreshadow.stats.overdue_at_end + '）')
-L.push('  峰值 未收 ' + foreshadow.stats.max_open + ' 条 @第 ' + foreshadow.stats.max_open_ch + ' 章；全程均值 ' + foreshadow.stats.mean_open + ' 条')
+L.push('  峰值 未收 ' + foreshadow.stats.max_open + ' 条 @第 ' + (foreshadow.stats.max_open_ch == null ? '—（账本无章可算＝未测，不是 0）' : foreshadow.stats.max_open_ch) + ' 章；全程均值 ' + foreshadow.stats.mean_open + ' 条')
 L.push('  埋→收间隔：中位 ' + (foreshadow.stats.payoff_distance_median ?? '—') + ' 章／最长 ' + (foreshadow.stats.payoff_distance_max ?? '—') + ' 章（样本 ' + foreshadow.stats.payoff_samples + '）')
 L.push('  零未收伏笔的章：' + (zeroOpen.length ? zeroOpen.slice(0, 12).join('/') + (zeroOpen.length > 12 ? ' 等共 ' + zeroOpen.length + ' 章' : '') : '无'))
 if (curve.length) {

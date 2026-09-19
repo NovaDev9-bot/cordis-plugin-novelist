@@ -99,7 +99,32 @@ if (pj.expertType === 'team') {
       if (cfg.env && cfg.env.NOVELIST_ROOT && !existsSync(cfg.env.NOVELIST_ROOT)) {
         findings.push('mcpServers.' + name + ' 的 NOVELIST_ROOT 指向不存在的目录：' + cfg.env.NOVELIST_ROOT)
       }
+      // 书库根解析（装配器 2026-09-19 起只写 args --root，env 不再写——根的声明只此一处）。
+      // 缺根＝server.mjs 启动即退出；根不存在＝所有 book_dir 都会被路径守卫拒。
+      const ri = (cfg.args || []).indexOf('--root')
+      const bookRootCfg = ri !== -1 && cfg.args[ri + 1] ? cfg.args[ri + 1] : (cfg.env && cfg.env.NOVELIST_ROOT)
+      if (!bookRootCfg) findings.push('mcpServers.' + name + ' 没有书库根（args --root 或 env NOVELIST_ROOT）——server.mjs 启动即退出，全部 novel_* 不可用')
+      else if (!existsSync(bookRootCfg)) findings.push('mcpServers.' + name + ' 的书库根指向不存在的目录：' + bookRootCfg)
+      else say('· 书库根：' + bookRootCfg)
       say('· 内置连接器：' + name + ' → ' + paths.join(', '))
+    }
+    // 连接器冒烟：按 plugin.json 声明的 command/args **真起一次** server 并走 initialize 握手。
+    // 配置烂（路径错/参数错/vendor 缺件）在这里现形——"schema 能加载 + novel_guide 能跑"
+    // 不等于"连接器能用"（2026-09-19 审计实测：路径守卫拒掉一切 book_dir 时，前面两样照样正常）。
+    for (const [name, cfg] of Object.entries(mcp)) {
+      if (cfg.command !== 'node') continue
+      const sargs = (cfg.args || []).map((s) => String(s).replace(/\$\{CODEBUDDY_PLUGIN_ROOT\}/g, root))
+      const r = spawnSync(process.execPath, sargs, {
+        input: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'selfcheck-smoke', version: '0.0.0' } } }) + '\n',
+        encoding: 'utf8', timeout: 20000,
+      })
+      let ok = false, info = ''
+      for (const line of String(r.stdout || '').split('\n')) {
+        const t = line.trim(); if (!t) continue
+        try { const j = JSON.parse(t); if (j.id === 1 && j.result && j.result.serverInfo) { ok = true; info = j.result.serverInfo.name + ' v' + j.result.serverInfo.version; break } } catch { /* 混入的非 JSON 行忽略 */ }
+      }
+      if (!ok) findings.push('连接器冒烟失败（initialize 无应答）：mcpServers.' + name + ' —— ' + String(r.stderr || '').split('\n')[0] + (r.status == null ? '（超时）' : ''))
+      else say('· 连接器冒烟：initialize 应答正常（' + info + '）')
     }
     if (!isFile('vendor/novelist/package.json')) findings.push('缺 vendor/novelist/package.json（server.mjs require 它取版本号，少了会启动即崩）')
     for (const f of ['vendor/novelist/mcp/server.mjs', 'vendor/novelist/lib/novelist.js', 'vendor/novelist/lib/book-access.mjs']) {
@@ -127,6 +152,9 @@ for (const [label, fn, min] of assets) {
 // ── 5. 内容级：机制手册非空且是真中文（防导出截断/乱码） ─────────────────────
 {
   const g = listDir('references').filter((f) => /^novelist-guide-.*\.md$/.test(f))
+  // 恰好一份：多份＝旧版残留没清（升级/重装没跟上），读者无法知道哪份是现行口径
+  // （2026-09-19 审计实测：缓存里 v7.12 与真源 v7.13 并存，人格与 skill 各说各话）
+  if (g.length > 1) findings.push('机制手册有 ' + g.length + ' 份（' + g.join('、') + '）——旧版残留没清，"唯一真源"有了两个互斥的化身')
   for (const f of g) {
     const t = readFileSync(rel('references/' + f), 'utf8')
     if (t.length < 8000) findings.push('机制手册疑似截断：' + f + ' 仅 ' + t.length + ' 字符')
@@ -167,6 +195,37 @@ for (const [label, fn, min] of assets) {
   }
   if (scanned === 0) { console.error('[selfcheck] 自证失败：扫到 0 个文本文件'); process.exit(2) }
   say('· 乱码扫描：' + scanned + ' 个文本文件')
+}
+
+// ── 7b. 引用可达性：md 里的反引号包内路径，在**这份包里**必须真的存在 ────────
+// 与装配器 7d 同源（那边守装配时刻，这边守**已装状态**——缓存拷贝/手工改动/半截升级
+// 都会让"装配时可达"的包在磁盘上烂掉）。skill 内引用按 skill 自身目录解析（宿主语义基准）。
+{
+  const TICK = /`([^`\n]{2,140}?)`/g
+  const ANYFILE = /\.(md|mjs|js|json|yml|yaml|txt|jsonl|csv)$/i
+  const MARK = /^〔(已撤|模板|示例|私有|仓外|包内)〕/
+  const TYPED = /^(https?:|mailto:|~\/|[A-Za-z]:[\\/]|\/|<|\$\{)/
+  const PLACEHOLDER = /(YYYY|MM-DD|NN|XXX|卷N|第N|模型名_轮次|issue-NNN|弧X-弧Y|卷X-弧Y|book_dir)/
+  const walkMd = (d) => readdirSync(rel(d), { withFileTypes: true }).flatMap((e) => e.isDirectory() ? walkMd(path.join(d, e.name)) : (e.name.endsWith('.md') ? [path.join(d, e.name)] : []))
+  let refs = 0, okRefs = 0
+  for (const f of walkMd('.')) {
+    const own = path.dirname(rel(f))
+    readFileSync(rel(f), 'utf8').split(/\r?\n/).forEach((line, i) => {
+      for (const m of line.matchAll(TICK)) {
+        const t = m[1].trim()
+        if (!ANYFILE.test(t)) continue
+        if (/[\s>|，。；：]/.test(t)) continue
+        if (/^\.[a-z]+$/i.test(t)) continue
+        if (TYPED.test(t) || PLACEHOLDER.test(t)) continue
+        if (MARK.test(line.slice(m.index + m[0].length, m.index + m[0].length + 6))) continue
+        refs++
+        if (existsSync(path.join(root, t)) || existsSync(path.join(own, t))) okRefs++
+        else findings.push('引用不可达（包根与文件自身目录都解析不到）：' + f + ':' + (i + 1) + ' → ' + t)
+      }
+    })
+  }
+  if (refs === 0) findings.push('自证失败：引用可达性扫到 0 条引用——模式失配还是正则写坏？0 条不等于没问题')
+  say('· 引用可达性：' + okRefs + '/' + refs + ' 条解析得到（包根或自身目录基准）')
 }
 
 // ── 8. 仪器可跑（语法级） ───────────────────────────────────────────────────
