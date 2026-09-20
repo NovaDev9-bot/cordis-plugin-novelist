@@ -1,0 +1,216 @@
+{
+  "schema": 1,
+  "updated": "2026-09-20",
+  "_note": [
+    "角色工具面的**单一真源**：能力（宿主无关）× 角色（宿主无关），宿主差异只活在每个能力条目的 dsh / codebuddy 两列里。",
+    "为什么要有它：六份 deny 名单此前手写在同一仓的两份预设里（生产预设 + 公开 preset-starter），另有散文版散在 WB 派工文本里——同一事实三处各活一次，改一处漏两处。",
+    "三条生成规则（生成器 roles/build-tool-face.mjs 实现，缺一即失败）：",
+    "① 能力条目必须对**每个**宿主都有取值（数组 / {\"status\":\"none\"} / {\"status\":\"unverified\"}）——键缺失＝失败，不许沉默：缺失没有类型，正是本项目最贵的缺陷形状。",
+    "② 角色 deny 只能写能力 id，不许写工具名（写了工具名＝把宿主差异搬回宿主无关层，等价于没拆）。",
+    "③ 反向核对：预设里挂了一个未登记的插件、或插件里多出一个没进任何能力的工具、或名单里出现一个表上没有的名字——一律报红（工具名拼错在 DSH 侧会让 restrict() 抛错，在 CodeBuddy 侧是静默空转）。"
+  ],
+  "hosts": {
+    "dsh": {
+      "enforcement": "enforced",
+      "enforcement_note": "子代理面＝dsh-tool-subagent 实例的 toolFilter.deny；名字必须是**已挂载**的全局工具（tools.restrict() 对未知名字直接抛错），且过滤作用于**继承面**（global + 祖先层，含 agent 平面挂的工具），子代理自己层注册的结构化输出工具不受影响。",
+      "mechanism": {
+        "face": "toolFilter.deny（名单制）",
+        "spawn_lock": "maxDepth: 0（结构性：不是靠名字，provider 声称 depthLimit 才允许写数字，写不了直接挂载失败）"
+      },
+      "evidence": [
+        "@deepseek-ai/dsh-tools/lib/types/index.js · restrict() 参数校验：`Empty filters, unknown names, scope-local names, and reserved transport names fail`，并抛 `tools.restrict() names unknown global tool ...; known global tools: ...`",
+        "@deepseek-ai/dsh-tools/lib/types/index.js · view()：`A restriction filters what a scope inherits — the global layer and every ancestor layer on its chain — and never what its OWN layer registers`",
+        "@deepseek-ai/dsh-tool-subagent/lib/index.js · `maxDepth` 默认 3；数值 maxDepth 而 provider 无 depthLimit 能力 ⇒ 抛 `cannot enforce maxDepth`（挂载期失败，不是首次派工时失败）",
+        "@deepseek-ai/dsh-subagent-spawn-in-process/lib/index.js · capabilities = { agentOptions, outputSchema, depthLimit, toolFilter, persona } 全支持",
+        "以上四条 2026-09-20 读自本机装机（%APPDATA%/npm/node_modules/@deepseek-ai/dsh/…），不是记忆、不是转述"
+      ],
+      "presets": [
+        "dsh-native/preset-writer/agent.cordis.yml",
+        "dsh-native/plugin-novelist/preset-starter/agent.cordis.yml"
+      ],
+      "presets_note": "两份都要派生：生产预设（私有仓）与公开 preset-starter（公开仓）。两份的六份名单此前逐字相同但各写一次——只有一份真源、两处派生，才谈得上不漂移。flat（公开仓 clone）布局下第一份不存在，生成器要求至少命中一份。",
+      "packages": {
+        "@deepseek-ai/dsh-persona": { "tools": [], "note": "挂载点，不注册模型可见工具" },
+        "@deepseek-ai/dsh-agent-instructions": { "tools": [], "note": "同上" },
+        "@deepseek-ai/dsh-tool-pwsh": { "tools": ["pwsh"], "note": "win32 侧 shell；job_* 由 dsh-tool-jobs 提供" },
+        "@deepseek-ai/dsh-tool-fs": { "tools": ["read", "write", "edit", "read_image"], "note": "读写改 + 图像读取" },
+        "@deepseek-ai/dsh-tool-fs-search": { "tools": ["glob", "grep"], "note": "文件发现与内容搜索" },
+        "@deepseek-ai/dsh-tool-jobs": { "tools": ["job_output", "job_kill", "job_list"], "note": "后台作业面" },
+        "@deepseek-ai/dsh-skill-filesystem": { "tools": [], "note": "技能来源，不注册模型可见工具" },
+        "@deepseek-ai/dsh-tool-skill": { "tools": ["skill"], "note": "技能目录与加载（给的是流程说明，不是账本内容——故不列入任何角色 deny）" },
+        "@deepseek-ai/dsh-tool-goal": { "tools": ["create_goal", "get_goal", "update_goal"], "note": "长跑目标面" },
+        "@deepseek-ai/dsh-tool-todo": { "tools": ["todo_write"], "note": "任务清单面" },
+        "@deepseek-ai/dsh-tool-web": { "tools": ["web_search", "web_fetch"], "note": "检索与抓取" },
+        "@deepseek-ai/dsh-tool-ask-user": { "tools": ["ask_user_question"], "note": "卷级门 + 异常挂起走它" },
+        "@deepseek-ai/dsh-tool-subagent-control": { "tools": ["send_message", "interrupt_agent", "list_agents"], "note": "continuable 子代理的控制面；list_agents 来自可单独加载的 list-agents 插件" },
+        "@deepseek-ai/dsh-tool-subagent": { "tools": ["nf_author", "nf_archivist", "nf_reader", "nf_calibrator", "nf_proof", "nf_dissector"], "note": "六个实例各注册一个 spawn 工具，名字取自配置里的 toolName" },
+        "@deepseek-ai/dsh-compaction-basic": { "tools": [], "note": "上下文压缩，无模型可见工具" },
+        "@deepseek-ai/dsh-command-compact": { "tools": [], "note": "用户命令" },
+        "@deepseek-ai/dsh-compaction-tool-result-pruner": { "tools": [], "note": "工具结果裁剪" },
+        "cordis:group": { "tools": [], "note": "分组容器" },
+        "__NOVELIST_TOOLS_PATH__": { "tools": "@novelist-tools", "note": "本插件自己的领域工具；工具名**不在这里手写**，装配期从 lib/novelist.js 的 TOOLS 现读核对（手写一份＝制造第二个真源）" },
+        "cordis-plugin-novelist": { "tools": "@novelist-tools", "note": "公开 preset-starter 里的挂法（用 npm 包名，私有生产预调用 __NOVELIST_TOOLS_PATH__ 占位符，由 install-preset.mjs 改写成装机路径）——两个键指同一个东西，故共享同一份现读工具名" }
+      }
+    },
+    "codebuddy": {
+      "enforcement": "declared-unverified",
+      "enforcement_note": "WorkBuddy/CodeBuddy 形态：插件 agent 的 disallowedTools 按官方文档受支持，但**运行时是否真的生效尚未实测**（三项运行时红测在 WB 侧待做）。故本形态下角色工具面只作为**声明**产出（生成一份角色工具面文档），不写进随包发布的 agent 定义——把没验的写成生效的，是本项目最贵的缺陷形状。实测回来翻转 hosts.codebuddy.enforcement 一处即可。",
+      "artifact": "dsh-native/plugin-novelist/wb-expert-starter/references/宿主工具面.md",
+      "evidence": [
+        "官方 tools-reference（2026-09-20 复核由 WB 侧提供 docId=0218529670178036e200025d1c13158e）：内置工具真名含 Agent / Bash / Edit / Glob / Grep / PowerShell / Read / Write / WebFetch / WebSearch / NotebookEdit / TaskCreate·TaskGet·TaskList·TaskOutput·TaskStop·TaskUpdate / TeamCreate·TeamDelete / Workflow / ToolSearch / DeferExecuteTool",
+        "同页核实**不存在**的工具名（照抄 DSH 名单会出现静默空转）：`Task`（只有 Task* 六件）、`read_image`（图像并入 Read）、`pwsh`（真名是 PowerShell，Windows 专属）",
+        "插件 agent 的 tools / disallowedTools 受支持、permissionMode 与 hooks 与 mcpServers 被静默忽略——WB 侧静态证据，运行时未验"
+      ],
+      "nonexistent_tools_verified": ["Task", "read_image", "pwsh"]
+    }
+  },
+  "capabilities": {
+    "ledger.write": {
+      "zh": "写书工程账本（落账权唯一在主编）",
+      "dsh": { "tools": ["novel_chapter", "novel_ledger", "novel_init", "novel_assemble", "novel_outline"], "note": "章正文/账本总入口/开书/汇编/章纲" },
+      "codebuddy": { "status": "unverified", "why": "连接器工具在宿主 deny 名单里的写法（MCP 前缀/命名规则）未核实——写错即静默空转" }
+    },
+    "ledger.read": {
+      "zh": "读设定与一致性账（含字数工具口径）",
+      "dsh": { "tools": ["novel_bible", "novel_verify", "novel_count"], "note": "" },
+      "codebuddy": { "status": "unverified", "why": "同上" }
+    },
+    "tape.write": {
+      "zh": "写事件带",
+      "dsh": { "tools": ["novel_event"], "note": "档案员保留它（对账要记痕），其余角色封" },
+      "codebuddy": { "status": "unverified", "why": "同上" }
+    },
+    "ledger.ask": {
+      "zh": "一次查账（novel_ask 汇总视图）",
+      "dsh": { "tools": ["novel_ask"], "note": "" },
+      "codebuddy": { "status": "unverified", "why": "同上" }
+    },
+    "decision.write": {
+      "zh": "留痕决定与判据账",
+      "dsh": { "tools": ["novel_decide", "novel_score"], "note": "判词只由主编落账——盲角色产读感、不产判词" },
+      "codebuddy": { "status": "unverified", "why": "同上" }
+    },
+    "retrieval": {
+      "zh": "正文/账本检索与机制手册",
+      "dsh": { "tools": ["novel_context", "novel_search", "novel_guide"], "note": "盲角色连 novel_guide 也封：手册里写着流程与账本结构，读到就等于知道作者想干什么" },
+      "codebuddy": { "status": "unverified", "why": "同上" }
+    },
+    "fs.read": {
+      "zh": "读文件",
+      "dsh": { "tools": ["read"], "note": "" },
+      "codebuddy": { "tools": ["Read"], "note": "" }
+    },
+    "fs.write": {
+      "zh": "写文件",
+      "dsh": { "tools": ["write"], "note": "" },
+      "codebuddy": { "tools": ["Write"], "note": "" }
+    },
+    "fs.edit": {
+      "zh": "改文件",
+      "dsh": { "tools": ["edit"], "note": "" },
+      "codebuddy": { "tools": ["Edit", "NotebookEdit"], "note": "NotebookEdit 是同一能力的另一面（写单元格）" }
+    },
+    "fs.search": {
+      "zh": "文件发现与内容搜索",
+      "dsh": { "tools": ["glob", "grep"], "note": "" },
+      "codebuddy": { "tools": ["Glob", "Grep"], "note": "" }
+    },
+    "shell.exec": {
+      "zh": "执行命令",
+      "dsh": { "tools": ["pwsh"], "note": "本机 win32 无 bash 工具（dsh-base 按平台禁用），名单只能点名实存工具" },
+      "codebuddy": { "tools": ["Bash", "PowerShell"], "note": "两个都要写：只封 Bash 会在 Windows 上留一条命令通道" }
+    },
+    "image.read": {
+      "zh": "读图像",
+      "dsh": { "tools": ["read_image"], "note": "" },
+      "codebuddy": { "status": "none", "why": "CodeBuddy 无独立图像读工具（图像并入 Read）——照抄 DSH 名单里的 read_image 是静默空转" }
+    },
+    "spawn": {
+      "zh": "派生子代理",
+      "dsh": { "tools": ["nf_author", "nf_archivist", "nf_reader", "nf_calibrator", "nf_proof", "nf_dissector"], "note": "六个 dsh-tool-subagent 实例注册的 spawn 工具；另设 maxDepth: 0 做结构性锁（名字锁 + 深度锁双保险）" },
+      "codebuddy": { "tools": ["Agent"], "note": "官方真名是 Agent；`Task` 不存在（只有 Task* 六件），照抄会静默空转" }
+    },
+    "fanout": {
+      "zh": "多代理编排脚本",
+      "dsh": { "status": "none", "why": "本预设未挂 dsh-tool-workflow / dsh-tool-ralph；挂了才算这个能力存在（挂了而没登记＝反向红测报红）" },
+      "codebuddy": { "tools": ["Workflow"], "note": "" }
+    },
+    "team.admin": {
+      "zh": "建/删队友",
+      "dsh": { "status": "none", "why": "DSH 没有「队友」这一层：子代理是即用即弃的派工对象，没有建/删概念" },
+      "codebuddy": { "tools": ["TeamCreate", "TeamDelete"], "note": "" }
+    },
+    "tool.discovery": {
+      "zh": "工具发现与延迟执行",
+      "dsh": { "status": "none", "why": "本预设未挂 dsh-tool-cordis（运行期动态包＝比工具发现更强的通道），也没有 ToolSearch 等价物" },
+      "codebuddy": { "tools": ["ToolSearch", "DeferExecuteTool"], "note": "两个都封：只封 ToolSearch 还能用 DeferExecuteTool 直接把延迟工具调起来" }
+    },
+    "agent.message": {
+      "zh": "跨代理发消息",
+      "dsh": { "tools": ["send_message"], "note": "" },
+      "codebuddy": { "status": "unverified", "why": "跨成员发消息的工具真名未核实" }
+    }
+  },
+  "roles": {
+    "chief-editor": {
+      "zh": "主编",
+      "kind": "seat",
+      "dsh": { "entry": null, "why": "主编＝主智能体：人格由 preset 的 persona 条目给，没有 toolFilter 派生面（他持有全部派发权）" },
+      "codebuddy": { "file": "agents/chief-editor.md", "seat": "lead" },
+      "deny": [],
+      "why": "派发权与落账权唯一在此——其余角色的面都是从他这里减出去的"
+    },
+    "author": {
+      "zh": "主笔",
+      "kind": "seat",
+      "dsh": { "entry": "nf-role-author", "toolName": "nf_author", "backgroundMode": "continuable" },
+      "codebuddy": { "file": "agents/author.md", "seat": "member" },
+      "deny": ["ledger.write", "tape.write", "decision.write", "fs.edit", "fs.search", "shell.exec", "image.read"],
+      "why": "防自提自存：提案未经 Owner 门不得入账；保留 read（重读纪律）+ write（分段落盘）+ novel_bible/novel_count/novel_ask"
+    },
+    "archivist": {
+      "zh": "档案员",
+      "kind": "duty",
+      "dsh": { "entry": "nf-role-archivist", "toolName": "nf_archivist", "backgroundMode": "one-shot" },
+      "codebuddy": { "file": "references/roles/archivist.md", "seat": null },
+      "deny": ["ledger.write", "decision.write"],
+      "why": "只读对账，保留事件带（对账要记痕）"
+    },
+    "reader": {
+      "zh": "试读员",
+      "kind": "duty",
+      "blind": true,
+      "dsh": { "entry": "nf-role-reader", "toolName": "nf_reader", "backgroundMode": "one-shot" },
+      "codebuddy": { "file": "references/roles/reader.md", "seat": null },
+      "deny": ["ledger.write", "ledger.read", "tape.write", "ledger.ask", "decision.write", "retrieval", "fs.read", "fs.write", "fs.edit", "fs.search", "shell.exec", "image.read", "spawn", "tool.discovery", "agent.message"],
+      "why": "纯盲仪器：一切输入只来自派工包文本；封扇出与工具发现（@2026-09-20 Owner 批①），封跨代理发消息（同上：盲仪器不该有对外通道）"
+    },
+    "calibrator": {
+      "zh": "结构校准员",
+      "kind": "duty",
+      "blind": true,
+      "dsh": { "entry": "nf-role-calibrator", "toolName": "nf_calibrator", "backgroundMode": "one-shot" },
+      "codebuddy": { "file": "references/roles/calibrator.md", "seat": null },
+      "deny": ["ledger.write", "ledger.read", "tape.write", "ledger.ask", "decision.write", "retrieval", "fs.read", "fs.write", "fs.edit", "fs.search", "shell.exec", "image.read", "spawn", "tool.discovery", "agent.message"],
+      "why": "同试读员：九类结构病只看正文本身，多一条取数通道就等于多一个污染源"
+    },
+    "proofer": {
+      "zh": "校对员",
+      "kind": "duty",
+      "blind": true,
+      "dsh": { "entry": "nf-role-proofer", "toolName": "nf_proof", "backgroundMode": "one-shot" },
+      "codebuddy": { "file": "references/roles/proofer.md", "seat": null },
+      "deny": ["ledger.write", "ledger.read", "tape.write", "ledger.ask", "decision.write", "retrieval", "fs.write", "fs.edit", "fs.search", "shell.exec", "image.read", "spawn", "tool.discovery", "agent.message"],
+      "why": "保留 read 作受控单文件通道（主编指哪读哪），其余同盲角色"
+    },
+    "dissector": {
+      "zh": "拆书员",
+      "kind": "duty",
+      "blind": true,
+      "dsh": { "entry": "nf-role-dissector", "toolName": "nf_dissector", "backgroundMode": "one-shot" },
+      "codebuddy": { "file": "references/roles/dissector.md", "seat": null },
+      "deny": ["ledger.write", "ledger.read", "tape.write", "ledger.ask", "decision.write", "retrieval", "fs.edit", "fs.search", "shell.exec", "image.read", "spawn", "tool.discovery", "agent.message"],
+      "why": "保留 read+write（读章文件、写批次记录）；同属派工包边界角色，故与盲角色同列（Owner 批①的字面集合是试读/校准/校对三个，拆书员与 agent.message 为同族加固，撤只需删这两个位置）"
+    }
+  }
+}

@@ -55,9 +55,19 @@ test('预设：主笔 deny 写类与事件带，但保留查设定、自核字�
 })
 
 test('预设：每个 deny 名单里的工具名都是真存在或已知宿主工具（防拼写笔误静默失效）', () => {
-  // 已知宿主工具名（非 novel_*）：一旦拼错，deny 静默失效=红线纸面化，所以这里点名核对
-  const HOST_TOOLS = new Set(['read', 'write', 'edit', 'glob', 'grep', 'pwsh', 'read_image'])
-  const REGISTERED = new Set(_internals.TOOLS.map((t) => t.name))
+  // 已知宿主工具名**不再在本文件里手写一份**（2026-09-20）：原先这里有一张 HOST_TOOLS 常量表，
+  // 与 roles/tool-face.json 是同一事实的第二处。名单加了派工工具（nf_*）之后这张表当场过期，
+  // 报出来的句子是"拼写错误"——真正过期的却是这张副本。现在统一从能力表取（宿主工具名的唯一真源），
+  // 再加 lib 注册表里的 novel_*；两边都取不到的名字才叫笔误。
+  const TABLE = JSON.parse(readFileSync(new URL('../roles/tool-face.json', import.meta.url), 'utf8'))
+  const KNOWN = new Set(_internals.TOOLS.map((t) => t.name))
+  for (const cap of Object.values(TABLE.capabilities)) {
+    if (cap.dsh && Array.isArray(cap.dsh.tools)) for (const n of cap.dsh.tools) KNOWN.add(n)
+  }
+  for (const v of Object.values(TABLE.hosts.dsh.packages || {})) {
+    if (Array.isArray(v.tools)) for (const n of v.tools) KNOWN.add(n)
+  }
+  assert.ok(KNOWN.size >= 20, '已知工具名集合过小（能力表没读到？）：' + KNOWN.size)
   const roles = [...YML.matchAll(/^- id: (nf-role-[a-z]+)/gm)].map((m) => m[1])
   assert.ok(roles.length >= 6, '应解析出全部角色块，实得 ' + roles.length)
   for (const role of roles) {
@@ -66,7 +76,32 @@ test('预设：每个 deny 名单里的工具名都是真存在或已知宿主�
       assert.ok(denyOf(role).includes('novel_search'), role + ' 必须隔离正文检索（盲读只见派工包）')
     }
     for (const t of denyOf(role)) {
-      assert.ok(REGISTERED.has(t) || HOST_TOOLS.has(t), role + ' 的 deny 含未知工具名（拼写错误会让 deny 静默失效）：' + t)
+      assert.ok(KNOWN.has(t), role + ' 的 deny 含未知工具名（拼写错误会让 deny 静默失效）：' + t)
     }
+  }
+})
+
+test('预设：盲角色另封扇出与工具发现，并带结构性深度锁（2026-09-20 Owner 批①）', () => {
+  // 为什么单列一条：这不是"多封几个名字"，是**能力层**的缺口——盲角色若能派生子代理，
+  // 就等于开了一条绕过派工包的取数通道（子代理去读账本再回报），名单封得再全也白封。
+  // 名字锁与深度锁两件都要有：前者管当下，后者管"将来多挂一个派工工具"（名字锁不会报，深度锁照锁）。
+  const lines = YML.split('\n')
+  for (const role of ['nf-role-reader', 'nf-role-calibrator', 'nf-role-proofer', 'nf-role-dissector']) {
+    const deny = denyOf(role)
+    for (const t of ['nf_author', 'nf_archivist', 'nf_reader', 'nf_calibrator', 'nf_proof', 'nf_dissector']) {
+      assert.ok(deny.includes(t), role + ' 必须封派工工具 ' + t)
+    }
+    assert.ok(deny.includes('send_message'), role + ' 必须封跨代理发消息（盲仪器的对外通道）')
+    const start = lines.findIndex((l) => l === '- id: ' + role)
+    const end = lines.findIndex((l, i) => i > start && /^- id: /.test(l))
+    const body = lines.slice(start, end === -1 ? lines.length : end)
+    assert.ok(body.some((l) => /^\s*maxDepth: 0\s*$/.test(l)), role + ' 缺 maxDepth: 0（深度锁）')
+  }
+  // 非盲角色不许带这把锁：多出来的锁同样是漂移，且会静默掐掉它们的正常工作流
+  for (const role of ['nf-role-author', 'nf-role-archivist']) {
+    const start = lines.findIndex((l) => l === '- id: ' + role)
+    const end = lines.findIndex((l, i) => i > start && /^- id: /.test(l))
+    const body = lines.slice(start, end === -1 ? lines.length : end)
+    assert.equal(body.some((l) => /^\s*maxDepth:/.test(l)), false, role + ' 不该有 maxDepth')
   }
 })

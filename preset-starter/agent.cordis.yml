@@ -131,6 +131,12 @@
 # glob/grep/pwsh 全封，一切输入来自任务书文本）；校对员保留 read（主编指定单文件=
 # 受控通道）；主笔保留 read+write（重读纪律+分段落盘），封 shell/搜索/编辑器；
 # 档案员同事线可信保留全量。deny 名单只能点名实存工具，跨机迁移时按当机工具面重核。
+#
+# ★ 下面六份 deny 名单与四行 maxDepth 是**生成的**（2026-09-20）：真源＝
+# roles/tool-face.json（能力 × 角色，宿主无关），生成器＝roles/build-tool-face.mjs
+# （DSH 宿主一次生成两份：本文件 + 私有仓的生产预设）。手改这几行会在下次生成时
+# 被覆盖——要改就改能力表。盲角色自 2026-09-20 起另封 spawn（六件 nf_* 派工工具）
+# 与 tool.discovery 两项能力，并加 maxDepth: 0 作结构性锁。
 - id: tool-subagent-control
   name: '@deepseek-ai/dsh-tool-subagent-control'
 
@@ -202,6 +208,7 @@
     provider: spawn
     toolName: nf_reader
     backgroundMode: one-shot
+    maxDepth: 0
     agentOptions:
       provider: deepseek-official
       model: deepseek-v4-flash
@@ -243,7 +250,7 @@
       也不查别人的判词（独立读感是盲读的全部价值）。
       **只读派工包**：只读你拿到的这些页，不调用任何工具去查账本/大纲/伏笔/事件带——你是仪器不是帮手，读到"作者想干什么"就会对读者看不懂的地方说"清楚"（被污染的盲读不会报错，它交回一份通顺但没用的数据）。派工包给少了就报"输入不足"，别自己去取。
     toolFilter:
-      deny: [novel_chapter, novel_ledger, novel_init, novel_assemble, novel_outline, novel_bible, novel_verify, novel_count, novel_event, novel_ask, novel_decide, novel_score, novel_context, novel_search, novel_guide, read, write, edit, glob, grep, pwsh, read_image]
+      deny: [novel_chapter, novel_ledger, novel_init, novel_assemble, novel_outline, novel_bible, novel_verify, novel_count, novel_event, novel_ask, novel_decide, novel_score, novel_context, novel_search, novel_guide, read, write, edit, glob, grep, pwsh, read_image, nf_author, nf_archivist, nf_reader, nf_calibrator, nf_proof, nf_dissector, send_message]
 
 # 结构校准员（one-shot·纯盲只见正文）：九类结构病证据制检查。只读。
 - id: nf-role-calibrator
@@ -252,6 +259,7 @@
     provider: spawn
     toolName: nf_calibrator
     backgroundMode: one-shot
+    maxDepth: 0
     agentOptions:
       provider: deepseek-official
       model: deepseek-v4-flash
@@ -283,7 +291,7 @@
       主编采纳/缩小/不采纳（采纳权在主编），跨章规律挂 orders/arc-卷X-弧Y/。
       **只读派工包**：只读你拿到的这些页，不调用任何工具去查账本/大纲/伏笔/事件带——你是仪器不是帮手，读到"作者想干什么"就会对读者看不懂的地方说"清楚"（被污染的盲读不会报错，它交回一份通顺但没用的数据）。派工包给少了就报"输入不足"，别自己去取。
     toolFilter:
-      deny: [novel_chapter, novel_ledger, novel_init, novel_assemble, novel_outline, novel_bible, novel_verify, novel_count, novel_event, novel_ask, novel_decide, novel_score, novel_context, novel_search, novel_guide, read, write, edit, glob, grep, pwsh, read_image]
+      deny: [novel_chapter, novel_ledger, novel_init, novel_assemble, novel_outline, novel_bible, novel_verify, novel_count, novel_event, novel_ask, novel_decide, novel_score, novel_context, novel_search, novel_guide, read, write, edit, glob, grep, pwsh, read_image, nf_author, nf_archivist, nf_reader, nf_calibrator, nf_proof, nf_dissector, send_message]
 
 # 校对员（one-shot；帮稿子以最专业的面貌见读者）：文字把关。只读。
 # maxTokens 30K + 交付预算纪律（实测教训：continuable 续投继承污染上下文反复不收敛，
@@ -294,6 +302,7 @@
     provider: spawn
     toolName: nf_proof
     backgroundMode: one-shot
+    maxDepth: 0
     agentOptions:
       provider: deepseek-official
       model: deepseek-v4-flash
@@ -309,7 +318,7 @@
       novel_chapter 与 novel_ledger。
       **只读派工包**：只读你拿到的这些页，不调用任何工具去查账本/大纲/伏笔/事件带——你是仪器不是帮手，读到"作者想干什么"就会对读者看不懂的地方说"清楚"（被污染的盲读不会报错，它交回一份通顺但没用的数据）。派工包给少了就报"输入不足"，别自己去取。
     toolFilter:
-      deny: [novel_chapter, novel_ledger, novel_init, novel_assemble, novel_outline, novel_bible, novel_verify, novel_count, novel_event, novel_ask, novel_decide, novel_score, novel_context, novel_search, novel_guide, write, edit, glob, grep, pwsh, read_image]
+      deny: [novel_chapter, novel_ledger, novel_init, novel_assemble, novel_outline, novel_bible, novel_verify, novel_count, novel_event, novel_ask, novel_decide, novel_score, novel_context, novel_search, novel_guide, write, edit, glob, grep, pwsh, read_image, nf_author, nf_archivist, nf_reader, nf_calibrator, nf_proof, nf_dissector, send_message]
 
 # 拆书员（one-shot 批处理）：锚书逐章解剖→结构元数据记录（beats jsonl）。
 # 只留 read+write：读章文件、写批次记录；禁 novel_* 全家（不碰书工程账本）与 shell/搜索/编辑器。
@@ -320,6 +329,7 @@
     provider: spawn
     toolName: nf_dissector
     backgroundMode: one-shot
+    maxDepth: 0
     agentOptions:
       provider: deepseek-official
       model: deepseek-v4-flash
@@ -336,7 +346,7 @@
       即交付，不自行扩读任务书清单外的章。
       **只读派工包**：只读你拿到的这些页，不调用任何工具去查账本/大纲/伏笔/事件带——你是仪器不是帮手，读到"作者想干什么"就会对读者看不懂的地方说"清楚"（被污染的盲读不会报错，它交回一份通顺但没用的数据）。派工包给少了就报"输入不足"，别自己去取。
     toolFilter:
-      deny: [novel_chapter, novel_ledger, novel_init, novel_assemble, novel_outline, novel_bible, novel_verify, novel_count, novel_event, novel_ask, novel_decide, novel_score, novel_context, novel_search, novel_guide, edit, glob, grep, pwsh, read_image]
+      deny: [novel_chapter, novel_ledger, novel_init, novel_assemble, novel_outline, novel_bible, novel_verify, novel_count, novel_event, novel_ask, novel_decide, novel_score, novel_context, novel_search, novel_guide, edit, glob, grep, pwsh, read_image, nf_author, nf_archivist, nf_reader, nf_calibrator, nf_proof, nf_dissector, send_message]
 
 # ── NF 领域工具（按 npm 包名挂载；前提=已装本插件包） ───────────────────────
 # 装法：dsh plugin --profile <你的profile> add cordis-plugin-novelist
