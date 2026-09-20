@@ -91,3 +91,56 @@ test('corpus-falsify：锚书作者从 ANCHORS 反查强制入选（名单单源
   assert.match(r.stdout, /✓ .*惊悚乐园/, '锚书本体应出现在抽样明细里')
   await rm(d, { recursive: true, force: true })
 })
+
+// ── 输入哈希清单（2026-09-20 复核 REC-05）：软隔离的第一条机器可查段 ──────────
+const MANIFEST = path.join(DIR, 'blind-manifest.mjs')
+
+test('blind-manifest：确定性清单——同内容同 root_hash，改一字节即变；0 件/坏路径 exit 2', async () => {
+  const d = await mkdtemp(path.join(tmpdir(), 'bm-'))
+  const dir = path.join(d, 'pkg')
+  await mkdir(dir, { recursive: true })
+  await writeFile(path.join(dir, 'a.md'), '第一章 正文甲\n', 'utf8')
+  await writeFile(path.join(dir, 'b.md'), '第二章 正文乙\n', 'utf8')
+  const run = (args) => spawnSync(process.execPath, [MANIFEST, ...args], { encoding: 'utf8' })
+  // 无参 → 用法 exit 2（判空前置纪律）
+  const noArg = run([])
+  assert.equal(noArg.status, 2, '无参应 exit 2，实得 ' + noArg.status)
+  assert.match(noArg.stderr, /用法/)
+  // 坏路径 → 没检查成 exit 2（0 件不是干净）
+  const ghost = run([path.join(d, 'no-such-dir')])
+  assert.equal(ghost.status, 2, '坏路径应 exit 2，实得 ' + ghost.status)
+  assert.match(ghost.stderr, /没检查成/)
+  // 确定性：两次同内容 → root_hash 相同
+  const out1 = path.join(d, 'm1.json'), out2 = path.join(d, 'm2.json')
+  assert.equal(run([dir, '--out', out1]).status, 0)
+  assert.equal(run([dir, '--out', out2]).status, 0)
+  const m1 = JSON.parse(await readFile(out1, 'utf8')), m2 = JSON.parse(await readFile(out2, 'utf8'))
+  assert.equal(m1.count, 2)
+  assert.equal(m1.root_hash, m2.root_hash, '同内容两次产清单必须同 root_hash（可复算）')
+  // 改一字节 → root_hash 必变（这是"读了包外的东西哈希对不上"的底层保证）
+  await writeFile(path.join(dir, 'b.md'), '第二章 正文丙\n', 'utf8')
+  const out3 = path.join(d, 'm3.json')
+  run([dir, '--out', out3])
+  const m3 = JSON.parse(await readFile(out3, 'utf8'))
+  assert.notEqual(m1.root_hash, m3.root_hash, '内容变了 root_hash 必须变')
+  await rm(d, { recursive: true, force: true })
+})
+
+test('build-blind-pool 自动产输入清单：blind-manifest.json 在位且 key.manifest_root 对上（REC-05）', async () => {
+  const d = await mkdtemp(path.join(tmpdir(), 'pool-mf-'))
+  const armA = path.join(d, 'a'), armB = path.join(d, 'b'), pool = path.join(d, 'pool')
+  await mkdir(armA, { recursive: true }); await mkdir(armB, { recursive: true })
+  const body = '他推开那扇门，里面空无一人，只有一张落满灰的桌子。'.repeat(6)
+  for (let i = 1; i <= 3; i++) {
+    await writeFile(path.join(armA, `第${i}章.md`), `第${i}章 试写\n` + body, 'utf8')
+    await writeFile(path.join(armB, `chapter_00${i}.md`), `chapter 00${i}\n` + body, 'utf8')
+  }
+  execFileSync(process.execPath, [POOL, armA, armB, pool, path.join(d, 'key.json'), '20260920'], { stdio: 'pipe' })
+  const mf = JSON.parse(await readFile(path.join(pool, 'blind-manifest.json'), 'utf8'))
+  const key = JSON.parse(await readFile(path.join(d, 'key.json'), 'utf8'))
+  assert.equal(mf.pool_files.length, 6, '清单必须覆盖本次入池的 6 件')
+  assert.equal(key.manifest_root, mf.pool_root_hash, 'key 记的 root 必须与清单一致（单一真值）')
+  for (const f of mf.pool_files) assert.match(f.sha256, /^[0-9a-f]{64}$/, '每件都要有 sha256：' + f.path)
+  assert.ok(mf.source_files.length >= 6, '来源文件哈希也要记（两臂各 3 章）')
+  await rm(d, { recursive: true, force: true })
+})

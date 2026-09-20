@@ -1,7 +1,7 @@
 {
   "name": "novel-forge-editorial",
-  "version": "0.1.2",
-  "description": "NarrativeForge 编剧部：两座位制（主编+主笔）长篇网文生产线，配 novelist 文件账本连接器使用——章状态机、事件带、伏笔收支、盲读三角、四个零 LLM 仪器。",
+  "version": "0.1.3",
+  "description": "NarrativeForge 编剧部：两座位制（主编+主笔）长篇网文生产线，配 novelist 文件账本连接器使用——章状态机、事件带、伏笔收支、盲读三角、四个零 LLM 仪器。能力差异声明：本形态下落账隔离与盲读隔离为纪律约束（宿主无工具级 deny），证据力低于 DSH 形态；日常写作不受影响，引用盲读结论做重要判断时请带上这条限定。",
   "expertType": "team",
   "agentName": "chief-editor",
   "teamInfo": {

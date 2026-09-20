@@ -8,6 +8,7 @@
  */
 import { readdir, readFile, writeFile, mkdir } from 'node:fs/promises'
 import path from 'node:path'
+import { manifestOf } from './blind-manifest.mjs'
 
 const ROOT = path.resolve(import.meta.dirname, '..')
 const argv = process.argv.slice(2)
@@ -80,6 +81,25 @@ for (let i = 0; i < slots.length; i++) {
   await writeFile(path.join(OUT, `${slots[i]}.md`), text + '\n', 'utf8')
   key[slots[i]] = { arm: src.arm, ch: src.ch, source_file: path.relative(ROOT, src.file).replace(/\\/g, '/') }
 }
-await writeFile(KEY_PATH, JSON.stringify({ seed: SEED, built_at: new Date().toISOString(), key }, null, 2), 'utf8')
+// 输入哈希清单（2026-09-20 复核 REC-05）：池文件与两臂来源文件的哈希一次记清——
+// "这份盲池依据了什么"从此可复算；判官交付件回填 root_hash，对不上＝读了池外的东西
+// （非 DSH 宿主没有工具级 deny，软隔离的第一条机器可查段就落在这份清单上）。
+// 清单写在池目录里，但**不含自身**（先算后写，避免自指哈希）。
+// 清单只覆盖**本次入池的 6 件**（不扫目录全量——池目录有历史残留时，
+// "依据清单"必须等于本次交付，而不是"目录里碰巧有什么"）
+const poolM = manifestOf(slots.map((s) => path.join(OUT, s + '.md')), ROOT)
+const srcM = manifestOf(sources.map((s) => s.file), ROOT)
+const manifest = {
+  generated_at: new Date().toISOString(), seed: SEED,
+  pool_root_hash: poolM.root_hash, pool_files: poolM.files,
+  source_root_hash: srcM.root_hash, source_files: srcM.files,
+}
+await writeFile(path.join(OUT, 'blind-manifest.json'), JSON.stringify(manifest, null, 2) + '\n', 'utf8')
+for (const [slot, info] of Object.entries(key)) {
+  const f = poolM.files.find((x) => x.path.endsWith(slot + '.md'))
+  if (f) info.pool_sha256 = f.sha256
+}
+await writeFile(KEY_PATH, JSON.stringify({ seed: SEED, built_at: new Date().toISOString(), manifest_root: poolM.root_hash, key }, null, 2), 'utf8')
 console.log(`[blind-pool] 6 章入池 → ${path.relative(ROOT, OUT)}（种子 ${SEED}；key 落 ${KEY_PATH}，判官永不可见）`)
+console.log(`[blind-pool] 输入清单：blind-manifest.json（池 root_hash=${poolM.root_hash.slice(0, 16)}… · 来源 ${srcM.files.length} 件）——交付件回填它，对不上＝判输入污染`)
 for (const [slot, info] of Object.entries(key)) console.log(`  ${slot} ← ${info.arm} ch${info.ch}`)
