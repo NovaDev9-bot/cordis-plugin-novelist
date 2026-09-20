@@ -126,6 +126,32 @@ test('blind-manifest：确定性清单——同内容同 root_hash，改一字�
   await rm(d, { recursive: true, force: true })
 })
 
+test('blind-manifest：跨 cwd / 换绝对位置——同相对结构 root_hash 不变（复核 N-2 修正）', async () => {
+  // 为什么这条要在：清单存在的理由是"可复算比对"，而旧实现 base 取 cwd ⇒ 换个目录跑 root_hash 就变
+  // （2026-09-20 本机实跑复现）。这两条断言把"与 cwd 无关""跨机同结构同哈希"从承诺变成回归。
+  const d = await mkdtemp(path.join(tmpdir(), 'bm-port-'))
+  const mkPkg = async (loc) => {
+    await mkdir(path.join(loc, 'pkg', 'a'), { recursive: true })
+    await mkdir(path.join(loc, 'pkg', 'b'), { recursive: true })
+    await writeFile(path.join(loc, 'pkg', 'a', 'x.md'), '甲\n', 'utf8')
+    await writeFile(path.join(loc, 'pkg', 'b', 'y.md'), '乙\n', 'utf8')
+    return path.join(loc, 'pkg')
+  }
+  const p1 = await mkPkg(path.join(d, 'one'))
+  const p2 = await mkPkg(path.join(d, 'two'))
+  const run = (pkg, cwd, out) => spawnSync(process.execPath, [MANIFEST, pkg, '--out', out], { encoding: 'utf8', cwd })
+  const o1 = path.join(d, 'p1.json'), o2 = path.join(d, 'p2.json'), o3 = path.join(d, 'p3.json')
+  assert.equal(run(p1, d, o1).status, 0)
+  assert.equal(run(p1, tmpdir(), o2).status, 0, '换 cwd 也要能跑')
+  assert.equal(run(p2, d, o3).status, 0, '换绝对位置也要能跑')
+  const b1 = await readFile(o1, 'utf8'), b2 = await readFile(o2, 'utf8')
+  assert.equal(b1, b2, '同一输入换 cwd 必须逐字节相同（旧实现 base 取 cwd → root_hash 会变）')
+  const m1 = JSON.parse(b1), m3 = JSON.parse(await readFile(o3, 'utf8'))
+  assert.equal(m1.root_hash, m3.root_hash, '相对结构相同 ⇒ root_hash 相同（这就是跨机比对量）')
+  assert.equal(m1.files.map((f) => f.path).join(','), 'a/x.md,b/y.md', 'paths 必须是相对公共基准的形式：' + JSON.stringify(m1.files.map((f) => f.path)))
+  await rm(d, { recursive: true, force: true })
+})
+
 test('build-blind-pool 自动产输入清单：blind-manifest.json 在位且 key.manifest_root 对上（REC-05）', async () => {
   const d = await mkdtemp(path.join(tmpdir(), 'pool-mf-'))
   const armA = path.join(d, 'a'), armB = path.join(d, 'b'), pool = path.join(d, 'pool')

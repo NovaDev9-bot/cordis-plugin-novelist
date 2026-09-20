@@ -23,6 +23,7 @@ import { createNodeFsAdapter } from './fs-adapter.mjs'
 import { createMcpHandler } from './handler.mjs'
 import { _internals } from '../lib/novelist.js'
 import { createRequire } from 'node:module'
+import { fileURLToPath } from 'node:url'
 
 const require_ = createRequire(import.meta.url)
 const PKG = require_('../package.json')
@@ -59,8 +60,21 @@ const handler = createMcpHandler({
   SECTION: _internals.SECTION,
   serverInfo: { name: 'novelist', title: 'Novelist 文件账本', version: PKG.version },
   rootInfo: root + '（来源：' + rootSource + '）',
+  connectorInfo: fileURLToPath(import.meta.url) + ' · v' + PKG.version,
 })
 stderr('ready · root=' + root + '（' + rootSource + '） · tools=' + _internals.TOOLS.length + ' · v' + PKG.version)
+
+// 〔2026-09-20 复核 REC-04 的判据，固定在这一行〕"账本能不能记谁落的账"取决于宿主是否把
+// 会话/任务身份交给**连接器进程**——宿主自己知道（它的审计日志按 sessionId 记每次工具调用），
+// 但 MCP 只规定 clientInfo（＝宿主名），不传调用方身份。这行让"收到没收到"成为每次启动都
+// 可见的事实，而不是一次性探针的结论：**absent 就说明该形态下归属没有可机器验证的来源**，
+// 谁都不必再猜、也不必去编一个"自报名字"的假机制。
+{
+  const idKeys = Object.keys(process.env).filter((k) => /SESSION|AGENT|EXPERT|CONVERSATION|TOOL_CALL/i.test(k)).sort()
+  stderr(idKeys.length
+    ? 'identity-env=present(' + idKeys.length + ') · ' + idKeys.slice(0, 6).join(',')
+    : 'identity-env=absent · 宿主未向连接器下发身份键（本形态下落账归属无机器可验来源）')
+}
 
 const rl = readline.createInterface({ input: process.stdin, terminal: false })
 // 串行队列：逐行 await 前一行完成再处理——响应顺序与请求顺序一致（JSON-RPC 按 id 匹配

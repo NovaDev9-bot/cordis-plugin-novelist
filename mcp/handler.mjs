@@ -102,7 +102,7 @@ function validateArgs(schema, args) {
   return errs
 }
 
-export function createMcpHandler({ adapter, TOOLS, SECTION, serverInfo, rootInfo }) {
+export function createMcpHandler({ adapter, TOOLS, SECTION, serverInfo, rootInfo, connectorInfo }) {
   if (!adapter) throw new Error('createMcpHandler: adapter 必填')
   if (!Array.isArray(TOOLS) || !TOOLS.length) throw new Error('createMcpHandler: TOOLS 必填')
   if (!SECTION || typeof SECTION.text !== 'string' || !SECTION.text) throw new Error('createMcpHandler: SECTION 必填（lib 侧 text 为 join 后的完整字符串）')
@@ -155,6 +155,11 @@ export function createMcpHandler({ adapter, TOOLS, SECTION, serverInfo, rootInfo
         // novel_guide 是"我在哪儿"的工具：附一行**本次生效书库根＋来源**（REC-03.2）。
         // 意义在于把"根对不对"变成一眼可见，而不是必须故意触发一次越界才知道。
         if (name === 'novel_guide' && rootInfo) content.push({ type: 'text', text: '〔本次生效书库根〕' + rootInfo })
+        // 〔2026-09-20 复核 N-1〕"跑的是哪份连接器"也必须可查：宿主用户级配置里的**同名 server 会盖掉
+        // 包内声明**，而两方都不报错（第三方实测本机实际跑的是源仓工作树、不是包内 vendor 副本——
+        // 对上架是陷阱：用户手工加过一次同名 server，包内那份就永远不被使用）。附一行执行文件位置，
+        // 任何人在会话里就能看出自己接的是哪一份，不必去翻宿主配置。
+        if (name === 'novel_guide' && connectorInfo) content.push({ type: 'text', text: '〔连接器〕' + connectorInfo })
         return { content, isError: false }
       } catch (e) {
         return { content: [{ type: 'text', text: String((e && e.message) || e) }], isError: true }
