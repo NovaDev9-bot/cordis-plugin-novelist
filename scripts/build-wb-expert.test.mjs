@@ -37,6 +37,17 @@ const run = (args) => {
   return spawnSync(process.execPath, [SCRIPT, '--book-root', BOOK_ROOT, ...argv], { encoding: 'utf8' })
 }
 
+// 装配器的第 0 步会调角色工具面生成器的 --check（fail-closed）。假仓里放一个"永远通过"的
+// 桩：本组用例要测的是"源被掏空"，不该被前置检查的缺失抢答——两条都是 exit 2，
+// 但报错说的不是同一件事，混在一起就没人再看得懂红的是哪一层。
+const stubRoleFaceGenerator = (repo) => {
+  // 位置跟 PLUGIN 走：flat 下是仓根，mono 下是 dsh-native/plugin-novelist。
+  const base = fsSync.existsSync(path.join(repo, 'dsh-native')) ? path.join(repo, 'dsh-native', 'plugin-novelist') : repo
+  const dir = path.join(base, 'roles')
+  mkdirSync(dir, { recursive: true })
+  writeFileSync(path.join(dir, 'build-tool-face.mjs'), 'process.exit(0)\n')
+}
+
 const build = (dir) => {
   const r = run(['--out', dir])
   assert.equal(r.status, 0, '装配应成功：' + r.stdout + r.stderr)
@@ -178,6 +189,29 @@ test('断链命令行必须让装配红（自证的覆盖面回归——此前�
   assert.match(String(r.stdout) + String(r.stderr), /no-such-tool\.mjs/, '报错要点名那条断链命令')
 })
 
+test('角色工具面随包发布，且装配时与能力表核对（fail-closed）', () => {
+  const out = path.join(tmp('nf-wb-'), 'plugins', 'novel-forge-editorial')
+  build(out)
+  const doc = path.join(out, 'references', '宿主工具面.md')
+  assert.ok(fsSync.existsSync(doc), '包内缺宿主工具面文档（角色工具面的声明面）')
+  const text = readFileSync(doc, 'utf8')
+  // 盲角色的扇出/工具发现必须写进随包声明——2026-09-20 Owner 批① 的 WB 侧落点
+  for (const s of ['Agent', 'ToolSearch', 'DeferExecuteTool', '试读员', 'disallowedTools']) {
+    assert.ok(text.includes(s), '宿主工具面文档缺关键内容：' + s)
+  }
+  // 反向：装配前会调生成器的 --check，派生件过期必须装配失败（不是装完再报）
+  const preset = path.join(REPO_ROOT, 'preset-starter', 'agent.cordis.yml')
+  const orig = readFileSync(preset, 'utf8')
+  try {
+    writeFileSync(preset, orig.replace(/^(\s*deny: \[)(.*?)(\])$/m, '$1$2, ghost_tool$3'))
+    const r = run(['--out', path.join(tmp('nf-wb-'), 'plugins', 'x')])
+    assert.equal(r.status, 2, '派生件与能力表不一致时装配必须失败，实得 ' + r.status + '：' + r.stdout + r.stderr)
+    assert.match(String(r.stderr), /角色工具面|不一致/, '报错要说清是角色工具面的问题')
+  } finally {
+    writeFileSync(preset, orig)     // 无论断言成败都还原，别把坏文件留在树上
+  }
+})
+
 test('--prune 只清上一版清单里的残留，且确实清掉', () => {
   const out = path.join(tmp('nf-wb-'), 'plugins', 'novel-forge-editorial')
   build(out)
@@ -206,11 +240,13 @@ test('自证：仓库根找不到 / 源为空 时必须 exit 2，不许假装成
     ['flat', (d) => {
       mkdirSync(path.join(d, 'wb-expert-starter'), { recursive: true })
       mkdirSync(path.join(d, 'lib'), { recursive: true })
+      stubRoleFaceGenerator(d)
     }],
     ['mono', (d) => {
       mkdirSync(path.join(d, 'dsh-native', 'vault'), { recursive: true })
       mkdirSync(path.join(d, 'vault'), { recursive: true })
       mkdirSync(path.join(d, 'dsh-native', 'plugin-novelist', 'wb-expert-starter'), { recursive: true })
+      stubRoleFaceGenerator(d)
     }],
   ]) {
     const fake = tmp('nf-fake-')

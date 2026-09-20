@@ -1,7 +1,7 @@
 {
   "name": "novel-forge-editorial",
-  "version": "0.1.4",
-  "description": "NarrativeForge 编剧部：两座位制（主编+主笔）长篇网文生产线，配 novelist 文件账本连接器使用——章状态机、事件带、伏笔收支、盲读三角、四个零 LLM 仪器。能力差异声明：本形态下落账隔离与盲读隔离为纪律约束（宿主无工具级 deny），证据力低于 DSH 形态；日常写作不受影响，引用盲读结论做重要判断时请带上这条限定。",
+  "version": "0.1.5",
+  "description": "NarrativeForge 编剧部：两座位制（主编+主笔）长篇网文生产线，配 novelist 文件账本连接器使用——章状态机、事件带、伏笔收支、盲读三角、四个零 LLM 仪器。能力差异声明：本形态下落账隔离与盲读隔离为纪律约束（宿主无工具级 deny），证据力低于 DSH 形态；日常写作不受影响，引用盲读结论做重要判断时请带上这条限定。角色工具面（哪些约束是宿主强制的、哪些只是声明）见 references/宿主工具面.md（生成件）。",
   "expertType": "team",
   "agentName": "chief-editor",
   "teamInfo": {
@@ -13,15 +13,27 @@
   "members": [
     {
       "id": "chief-editor",
-      "name": { "en": "Chief Editor", "zh": "主编" },
-      "profession": { "en": "Responsible Editor", "zh": "责任编辑" },
+      "name": {
+        "en": "Chief Editor",
+        "zh": "主编"
+      },
+      "profession": {
+        "en": "Responsible Editor",
+        "zh": "责任编辑"
+      },
       "avatar": "avatars/chief-editor.png",
       "role": "lead"
     },
     {
       "id": "author",
-      "name": { "en": "Author", "zh": "主笔" },
-      "profession": { "en": "Author & Writer", "zh": "作者兼执笔" },
+      "name": {
+        "en": "Author",
+        "zh": "主笔"
+      },
+      "profession": {
+        "en": "Author & Writer",
+        "zh": "作者兼执笔"
+      },
       "avatar": "avatars/author.png",
       "role": "member"
     }
@@ -45,10 +57,22 @@
     "zh": "开一本新的连载网文：先扫榜做选题，再建书工程账本。"
   },
   "tags": [
-    { "en": "Web Novel", "zh": "网文连载" },
-    { "en": "Editorial Workflow", "zh": "编辑部流程" },
-    { "en": "Continuity Ledger", "zh": "连续性账本" },
-    { "en": "Blind Read", "zh": "盲读校准" }
+    {
+      "en": "Web Novel",
+      "zh": "网文连载"
+    },
+    {
+      "en": "Editorial Workflow",
+      "zh": "编辑部流程"
+    },
+    {
+      "en": "Continuity Ledger",
+      "zh": "连续性账本"
+    },
+    {
+      "en": "Blind Read",
+      "zh": "盲读校准"
+    }
   ],
   "quickPrompts": [
     {

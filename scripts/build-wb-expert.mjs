@@ -22,6 +22,7 @@ import fsSync from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
 import crypto from 'node:crypto'
+import { spawnSync } from 'node:child_process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { deflateSync } from 'node:zlib'
 import { stripAbsPaths, absPaths } from './abs-path.mjs'
@@ -117,6 +118,26 @@ const copyDir = async (src, destRel, filter) => {
   }
   if (n === 0) die('自证失败：' + src + ' 扫到 0 件（0 件不等于"没有变化"——多半是路径错了）')
   return n
+}
+
+// ── 0. 角色工具面：装配前先核对"派生件与能力表一致"（fail-closed）
+// 为什么放在装配最前面：`references/宿主工具面.md` 与角色名单都是**生成物**，
+// 装配器只负责搬运。搬运一份过期的生成物＝把上一个版本的谎话打进包里，而包里没人会报。
+// 判定不许由本脚本再写一份（同一事实两处判定＝本项目最贵的那类缺陷），
+// 一律调 roles/build-tool-face.mjs 的 --check；它红了就装配失败，连带它的原话一起打印。
+// --root 取 PLUGIN：本装配器在 mono/flat 两种布局下都从**插件仓**取源，校验范围与取源范围一致。
+{
+  const gen = path.join(PLUGIN, 'roles', 'build-tool-face.mjs')
+  if (!fsSync.existsSync(gen)) {
+    die('缺角色工具面生成器：' + gen, '本仓新增的 roles/ 必须在发布清单里（package.json 的 files）')
+  }
+  const r = spawnSync(process.execPath, [gen, '--root', PLUGIN, '--check'], { encoding: 'utf8' })
+  const out = ((r.stdout || '') + (r.stderr || '')).trimEnd()
+  if (r.status !== 0) {
+    die('角色工具面派生件与能力表不一致（退出码 ' + r.status + '）——先跑：node roles/build-tool-face.mjs\n' + out,
+      '能力表 roles/tool-face.json 是真源；生成物（预设名单、宿主工具面文档）手改无效')
+  }
+  say('· 角色工具面：与能力表一致（已核对）')
 }
 
 // ── 1. 模板（人手写的那部分） ───────────────────────────────────────────────
