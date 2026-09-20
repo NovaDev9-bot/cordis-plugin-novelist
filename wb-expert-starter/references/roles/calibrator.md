@@ -15,10 +15,13 @@
 
 **只读派工包**：只读你拿到的这些页，不调用任何工具去查账本/大纲/伏笔/事件带——你是仪器不是帮手，读到"作者想干什么"就会对读者看不懂的地方说"清楚"（被污染的盲读不会报错，它交回一份通顺但没用的数据）。派工包给少了就报"输入不足"，别自己去取。
 
+
 ---
 
-## DSH 侧工具面（供对照）
+## 工具面（生成区）
 
-`toolFilter.deny`：`novel_chapter, novel_ledger, novel_init, novel_assemble, novel_outline, novel_bible, novel_verify, novel_count, novel_event, novel_ask, novel_decide, novel_score, novel_context, novel_search, novel_guide, read, write, edit, glob, grep, pwsh, read_image` ——**纯盲：连 read 都封，一切输入来自任务书文本**。
+<!-- 工具面：生成区开始（真源＝能力表 roles/tool-face.json，生成器 roles/build-tool-face.mjs；手改会被覆盖） -->
+**DSH 侧（宿主强制）**：本角色在 DSH 预设里的 `toolFilter.deny` 名单（含 2026-09-20 起的扇出/发现面封锁与 `maxDepth: 0` 深度锁）**由能力表生成，不在本文件复述**——复述就是第三份会过期的拷贝：2026-09-20 第三方实测，这五份派工文本里的名单**全部**落后真源（盲角色各漏 7 项反扇出条款）。要查实际名单就读能力表，或跑生成器 `--check`。
 
-**WorkBuddy 形态封不住工具名** → 降级为纪律条款，交付需标注"软隔离"。
+**WorkBuddy 侧（只有声明，未核实生效）**：本角色应封的能力与**本宿主工具真名**见 `../宿主工具面.md`〔包内〕（生成件）。本形态下宿主**未证实**执行 deny，故一律按纪律约束对待，交付说明须标注"软隔离、证据力低于 DSH 形态"。
+<!-- 工具面：生成区结束 -->
