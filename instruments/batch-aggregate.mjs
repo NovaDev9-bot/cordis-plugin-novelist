@@ -1,6 +1,6 @@
 /**
  * batch-aggregate.mjs —— R2 批处理器聚合引擎（零 LLM；总蓝图 R2 施工 2026-09-16）
- * 用法：node instruments/batch-aggregate.mjs <chapter_file> <samples_dir> [--k=2] [--write <out_dir>]
+ * 用法：node batch-aggregate.mjs <chapter_file> <samples_dir> [--k=2] [--write <out_dir>]（在本脚本所在目录内执行）
  *          [--gate <anchors.jsonl>]   迁移回归门：与串行审已知 P0 集合一致率 ≥0.8（锚点 ≥10 才判）
  * 详见仓库 README 与批审协议；输入=N 份 {sampler, opinions:[{evidence, issue, p0, kind}]}，
  * 引擎=引文规范化定位（伪引文拒收）→段落坐标聚类→k 票投票升级→单报盲存（审计件）→近全票加采建议。

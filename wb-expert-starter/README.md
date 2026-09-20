@@ -45,10 +45,10 @@ novel-forge-editorial/
 │  ├─ arc-review/                  # 弧审（三问 + 报告与结构化账单双落）
 │  └─ dissect/                     # 拆书（三红线 + beats jsonl）
 ├─ references/
-│  ├─ novelist-guide-v7.NN.md      # ★ 机制手册全文（= novel_guide 工具同版）
-│  │                               #   `NN` 是**占位符**：装配时由 build-wb-expert.mjs 按
-│  │                               #   guide 实际版本现算改写。**任何地方都不要写死版本号**——
-│  │                               #   写死了每次 guide 升版都会静默断链，2026-09-18 审计实测踩过。
+│  ├─ novelist-guide.md            # ★ 机制手册全文（= novel_guide 工具同版）
+│  │                               #   文件名**不带版本号**（2026-09-20 起）：版本只活在连接器的
+│  │                               #   GUIDE_VERSION 常量与本文件首行，引用永不需要改——此前带
+│  │                               #   版本号时每次升版都会静默断一次链（2026-09-18 审计实测踩过）。
 │  ├─ protocols/                   # 九份协议模板（盲读/A-B/批审/事件带/选题/画像卡…）
 │  ├─ handbooks/                   # 主编手册 / 主笔手册（策划职能已并入主笔，见 v7.2）
 │  └─ roles/                       # 五个按需工种的派工提示词全文
@@ -71,7 +71,8 @@ novel-forge-editorial/
 ## 三、使用前提（必读）
 
 1. **连接器已装**：`~/.workbuddy/mcp.json` 里要有 `novelist`，且书库根 `--root` 指向你的书库目录。
-2. **接活第一件事**：调一次 `novel_guide` 取机制手册——**宿主不保证把连接器的 `initialize.instructions` 交给模型**（MCP 规范把这条留给了客户端）。本包 `references/novelist-guide-v7.NN.md`〔模板〕 是同版全文，可作离线兜底。
+2. **接活第一件事**：调一次 `novel_guide` 取机制手册——**宿主不保证把连接器的 `initialize.instructions` 交给模型**（MCP 规范把这条留给了客户端）。本包 `references/novelist-guide.md` 是同版全文，可作离线兜底。它的末行还带着**本次生效书库根＋来源**——想知道"根配对了没有"，看这一行，不必故意触发一次越界。
+3. **改了书库根要重开会话**（2026-09-20 实测教训）：MCP server 是**会话启动时按当时配置拉起的**，改 `.codebuddy-plugin/plugin.json` 里的 `--root` 不会热生效——表现是"配置明明改了、工具还是按旧根拒绝书目录"，最容易被误判成"工具坏了"。换根的两条路：改宿主配置，或设 `NF_BOOK_ROOT` 环境变量（优先级：`--root` > `NF_BOOK_ROOT` > `NOVELIST_ROOT`），**两条都要重开会话**。
 
 ---
 

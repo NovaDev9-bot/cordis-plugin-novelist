@@ -29,7 +29,9 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync, statSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 
-const USAGE = '用法：node instruments/platform-export.mjs --book <书目录> --platform=tomato|qidian [--out <文件>] [--header] [--dry-run] [--json <报告>]'
+// 用法串里的目录名**按自身位置现算**：同一份脚本在 DSH 形态住在 instruments/、专家包住在 scripts/，
+// 写死任何一个都会在另一种形态里指向不存在的路径（2026-09-20 复核 ISS-01 的同族）
+const USAGE = '用法：node ' + path.basename(import.meta.dirname) + '/platform-export.mjs --book <书目录> --platform=tomato|qidian [--out <文件>] [--header] [--dry-run] [--json <报告>]'
 const argv = process.argv.slice(2)
 
 /** 收 --k=v 与 --k v 两种写法；缺值或后跟另一个 flag 时返回空串（视为缺参）。 */

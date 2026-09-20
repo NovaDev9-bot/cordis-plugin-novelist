@@ -120,9 +120,9 @@ const foreshadow = {
     closed_total: closedPairs.length,
     open_at_end: curve.length ? curve[curve.length - 1].open : 0,
     overdue_at_end: curve.length ? curve[curve.length - 1].overdue : 0,
-    max_open: maxOpen.open,
+    max_open: curve.length ? maxOpen.open : null,
     max_open_ch: maxOpen.ch,
-    mean_open: curve.length ? Number((curve.reduce((s, r) => s + r.open, 0) / curve.length).toFixed(2)) : 0,
+    mean_open: curve.length ? Number((curve.reduce((s, r) => s + r.open, 0) / curve.length).toFixed(2)) : null,
     zero_open_chapters: zeroOpen,
     payoff_distance_median: median(payoffDistances),
     payoff_distance_max: payoffDistances.length ? payoffDistances[payoffDistances.length - 1] : null,
@@ -233,7 +233,11 @@ L.push('账本覆盖：正文 ' + written.length + ' 章（至第 ' + maxCh + ' 
 L.push('')
 L.push('① 伏笔曝光曲线（每章挂着多少条未收的线）')
 L.push('  埋下 ' + foreshadow.stats.planted_total + '／已收 ' + foreshadow.stats.closed_total + '／当前未收 ' + foreshadow.stats.open_at_end + '（其中已过 due ' + foreshadow.stats.overdue_at_end + '）')
-L.push('  峰值 未收 ' + foreshadow.stats.max_open + ' 条 @第 ' + (foreshadow.stats.max_open_ch == null ? '—（账本无章可算＝未测，不是 0）' : foreshadow.stats.max_open_ch) + ' 章；全程均值 ' + foreshadow.stats.mean_open + ' 条')
+// 全未测（无章可算）时整句报"未测"，不打印 0——数字 0 与"没测"必须是两种输出
+// （2026-09-20 复核：旧写法括号里声明未测、数字仍打 0 与"全程均值 0 条"，自相矛盾）
+L.push(foreshadow.stats.max_open == null
+  ? '  峰值与均值：未测（账本无章可算——"没测"不等于"测到 0 条"）'
+  : '  峰值 未收 ' + foreshadow.stats.max_open + ' 条 @第 ' + (foreshadow.stats.max_open_ch == null ? '—' : foreshadow.stats.max_open_ch) + ' 章；全程均值 ' + foreshadow.stats.mean_open + ' 条')
 L.push('  埋→收间隔：中位 ' + (foreshadow.stats.payoff_distance_median ?? '—') + ' 章／最长 ' + (foreshadow.stats.payoff_distance_max ?? '—') + ' 章（样本 ' + foreshadow.stats.payoff_samples + '）')
 L.push('  零未收伏笔的章：' + (zeroOpen.length ? zeroOpen.slice(0, 12).join('/') + (zeroOpen.length > 12 ? ' 等共 ' + zeroOpen.length + ' 章' : '') : '无'))
 if (curve.length) {

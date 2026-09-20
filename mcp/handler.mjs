@@ -102,7 +102,7 @@ function validateArgs(schema, args) {
   return errs
 }
 
-export function createMcpHandler({ adapter, TOOLS, SECTION, serverInfo }) {
+export function createMcpHandler({ adapter, TOOLS, SECTION, serverInfo, rootInfo }) {
   if (!adapter) throw new Error('createMcpHandler: adapter 必填')
   if (!Array.isArray(TOOLS) || !TOOLS.length) throw new Error('createMcpHandler: TOOLS 必填')
   if (!SECTION || typeof SECTION.text !== 'string' || !SECTION.text) throw new Error('createMcpHandler: SECTION 必填（lib 侧 text 为 join 后的完整字符串）')
@@ -125,7 +125,11 @@ export function createMcpHandler({ adapter, TOOLS, SECTION, serverInfo }) {
         serverInfo,
         // 与 DSH 插件 systemPrompt 同源同版：机制细则全文随 initialize 下发，
         // 客户端无需主动拉 prompts/get 即拿到全部纪律（状态机/事件带/批审/派工）。
-        instructions: '长篇小说文件账本工具集（确定性代码做壳，语义判断归模型）。工具一律显式传 book_dir 绝对路径，且必须落在书库根（--root）内。机制细则全文如下：\n\n' + guideText,
+        // 〔2026-09-20 复核 REC-03.2〕末尾带上**本次生效的书库根＋来源**：根错配时
+        // 此前只能靠"故意触发一次越界"才知道，成本太高（实测使用者会以为工具坏了）。
+        instructions: '长篇小说文件账本工具集（确定性代码做壳，语义判断归模型）。工具一律显式传 book_dir 绝对路径，且必须落在书库根（--root）内。'
+          + (rootInfo ? '本次生效书库根＝' + rootInfo + '。' : '')
+          + '机制细则全文如下：\n\n' + guideText,
       }
     }
     if (m === 'ping') return {}
@@ -148,6 +152,9 @@ export function createMcpHandler({ adapter, TOOLS, SECTION, serverInfo }) {
         const content = def.output && typeof def.output.render === 'function'
           ? def.output.render(args, value)
           : [{ type: 'text', text: JSON.stringify(value, null, 2) }]
+        // novel_guide 是"我在哪儿"的工具：附一行**本次生效书库根＋来源**（REC-03.2）。
+        // 意义在于把"根对不对"变成一眼可见，而不是必须故意触发一次越界才知道。
+        if (name === 'novel_guide' && rootInfo) content.push({ type: 'text', text: '〔本次生效书库根〕' + rootInfo })
         return { content, isError: false }
       } catch (e) {
         return { content: [{ type: 'text', text: String((e && e.message) || e) }], isError: true }

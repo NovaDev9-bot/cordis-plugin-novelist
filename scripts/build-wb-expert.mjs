@@ -195,29 +195,30 @@ let guideText = '', guideName = '', guideVer = ''
     const tail = /[\\/]$/.test(raw) ? '/' : ''
     staticGuide = staticGuide.split(raw).join(hit[1] + tail)
   }
-  await write('references/' + guideName + '-' + ver + '.md', head + staticGuide + '\n')
-  say('· 机制手册：现导 ' + guideText.length + ' 字符（' + ver + '）')
+  // 文件名**不带版本号**（2026-09-20 复核 REC-07）：版本只活在 GUIDE_VERSION 常量与本文件首行。
+  // 带版本号时每次升版都要全包重对齐引用——那是"每版都可能漏一处"的复现装置；
+  // 稳定文件名把这类断链从根上删掉（本批同时保留对历史 vX.Y 形态引用的改写，供存量模板过渡）。
+  await write('references/' + guideName + '.md', head + staticGuide + '\n')
+  say('· 机制手册：现导 ' + guideText.length + ' 字符（' + ver + '，文件名 novelist-guide.md 不带版本号）')
 }
 
-// ── 2b. 落盘模板件，并把对 guide 文件名的引用改写成实际生成名 ─────────────────
-// 为什么要改写：启动包把版本号**抄了一份**（5 处），而本装配器按 SECTION 里的最高版本**现算**文件名——
-// 每次 guide 升版，包内这 5 处路径就静默断一次（2026-09-18 审计实测：包里写 v7.12，实际生成 v7.13，
-// 而这两个文件名的差别对读者不可见，只有点进去才发现文件不存在）。
-// 抄写这件事本身不该存在：让装配器改写，则"抄的那份"永远不会漂。零命中也要报——静默零命中＝模式失配。
+// ── 2b. 落盘模板件，并把历史版本的 guide 文件名引用收敛到稳定名 ───────────────
+// 2026-09-18：启动包把版本号抄了 5 处，装配器按现算版本改文件名——每次升版都可能漏一处（实测漏过）。
+// 2026-09-20（REC-07）：文件名去版本号后，引用永不需要改；本段降级为**过渡改写**——
+// 存量模板里若还写着 `novelist-guide-v7.12.md` / `-v7.NN.md` 占位符，一律收敛到稳定名。
+// 零命中是**正常**（新形态），但必须报数：跳过的每一类都要看得见，不静默。
 {
-  // 匹配两种写法：具体版本（历史遗留）与占位符 `v7.NN`（推荐——占位符永远不会陈旧）
   const GUIDE_REF = /novelist-guide-v7(?:\.\d+|\.NN)\.md/g
-  const guideFile = guideName + '-' + guideVer + '.md'
+  const guideFile = guideName + '.md'
   let subs = 0
   for (const [rel, text] of tplBuf) {
     subs += (text.match(GUIDE_REF) || []).length
-    // 改写成实际文件名后，顺手摘掉占位符标记〔模板〕——此刻它已是包内实件，
+    // 收敛后顺手摘掉占位符标记〔模板〕——此刻它已是包内实件，
     // 留着标记会让 7d 的引用自证把它当"占位符不查"放过去（自证就该查它）
     const out = text.replace(GUIDE_REF, guideFile).split('`' + guideFile + '`〔模板〕').join('`' + guideFile + '`')
     await write(rel, out, tplSrc.get(rel))
   }
-  if (subs === 0) say('· ⚠ 启动包里 0 处引用 guide 文件名——要么确实不引用了，要么模式已失配（2026-09-18 基线＝5 处）')
-  else say('· 启动包 guide 引用改写：' + subs + ' 处 → ' + guideFile)
+  say('· 启动包 guide 引用：' + (subs ? subs + ' 处历史版本名 → 收敛到 ' + guideFile : '0 处历史版本名（常规——文件名已稳定）'))
 }
 
 // ── 3. 协议与作业手册 ───────────────────────────────────────────────────────
@@ -403,10 +404,19 @@ say('· 作家卡：' + await copyDir(path.join(PLUGIN, 'craft', 'author-cards')
     const missing = paths.filter((p) => !fsSync.existsSync(p))
     if (missing.length) die('内置手册指向的路径不存在（静默降级成假路径，写手照找不到）：\n  ' + missing.join('\n  '),
       '把对应资产也装进 vendor/novelist/（见本脚本"内置连接器资产"一节）')
+    // 〔2026-09-20 复核 REC-01〕判据从"在本机存在"加严为"**在包内**"——
+    // 存在性只管装配机，跨机器安装时唯一有意义的不变量是"这些路径都在包里"。
+    // 比较必须**先归一化**：同一目录可有两种字面（junction `F:\c-moved\…` vs `C:\Users\…`、
+    // Windows 8.3 短名）——本仓在 fs 适配层栽过同款，这里是同一族的第三处。
+    const canon = (p) => { try { return fsSync.realpathSync.native(p).toLowerCase() } catch { return path.resolve(p).toLowerCase() } }
+    const outCanon = canon(OUT)
+    const outside = paths.filter((p) => { const a = canon(p); return a !== outCanon && !a.startsWith(outCanon + path.sep) })
+    if (outside.length) die('内置手册的绝对路径指向**包外**（换台机器即死路径）：\n  ' + outside.join('\n  '),
+      'vendor 资产必须随包（见"内置连接器资产"一节）；包外引用对读者不存在')
     const vtools = (vendored._internals.TOOLS || []).length
     const stools = ((SRC_MOD._internals || {}).TOOLS || []).length
     if (vtools !== stools) die('内置连接器工具数 ' + vtools + ' ≠ 真源 ' + stools)
-    say('· 等价性自证：去路径后与真源逐字一致（' + vt.length + ' 字符）· 工具数 ' + vtools + ' · 内嵌绝对路径 ' + paths.length + ' 条全部存在')
+    say('· 等价性自证：去路径后与真源逐字一致（' + vt.length + ' 字符）· 工具数 ' + vtools + ' · 内嵌绝对路径 ' + paths.length + ' 条全部存在且**全在包内**')
   }
 }
 
@@ -517,6 +527,39 @@ if (argv.includes('--prune')) {
     if (changed) await fsp.writeFile(outAbs, next)
   }
   say('· 包内引用改写：' + subs + ' 条源坐标 → 包坐标 · ' + typed + ' 条只存在于源仓 → 包副本补 〔仓外〕')
+
+  // ── 7c2b. 命令行形态：`node <路径>.mjs …` 里的**路径 token** 单独改写 ──────────
+  // 为什么另开一条通道：上面的判定以"反引号整段就是一个路径"为前提，**含空格即整条跳过**——
+  // 而读者真正会照抄的恰恰是命令。2026-09-20 第三方复核实测：`node instruments/batch-aggregate.mjs`
+  // 等命令行照抄即 MODULE_NOT_FOUND，且 7d 与 selfcheck 同源跳过、双双报绿（盲区是镜像的）。
+  {
+    const CMD = /(\bnode\s+)([^\s`"'<>|]+\.(?:mjs|js))/g
+    let csubs = 0
+    const cmdTargets = []
+    for (const outRel of written.filter((r) => r.endsWith('.md'))) {
+      const outAbs = path.join(OUT, outRel)
+      const srcAbs = srcOf.get(outRel)
+      const ownSrcDir = srcAbs ? path.dirname(srcAbs) : path.dirname(outAbs)
+      const text = fsSync.readFileSync(outAbs, 'utf8')
+      const next = text.split('\n').map((line) => line.replace(CMD, (whole, pre, t) => {
+        if (TYPED.test(t) || PLACEHOLDER.test(t)) return whole
+        const mapped = resolveSrc(t, ownSrcDir)
+        const target = mapped || (fsSync.existsSync(path.join(OUT, t)) ? t : null)
+        if (!target) { cmdTargets.push({ rel: outRel, t, mapped: null }); return whole }
+        let out = target
+        if (outRel.startsWith('skills/')) {
+          let relp = path.posix.relative(path.posix.dirname(outRel), target)
+          if (!relp.startsWith('.')) relp = './' + relp
+          out = relp
+        }
+        if (out === t) return whole
+        csubs++
+        return pre + out
+      })).join('\n')
+      if (next !== text) await fsp.writeFile(outAbs, next)
+    }
+    say('· 命令行改写：' + csubs + ' 处 node <路径> → 包坐标' + (cmdTargets.length ? ' · ' + cmdTargets.length + ' 处解析不到（交给 7d 核算）' : ''))
+  }
 }
 
 // ── 7d. 包内引用自证：模板里的反引号路径，在**装出来的包**里必须真的存在 ──────
@@ -533,18 +576,21 @@ if (argv.includes('--prune')) {
   const mdFiles = written.filter((r) => r.endsWith('.md'))
   let refs = 0, checked = 0
   const dead = []
+  // 跳过理由逐类计数（2026-09-20 第三方复核 REC-08）：静默跳过不可接受——
+  // 报"44/44 绿"却不告诉人它没检查什么，读者会当成全覆盖（而命令行走的正是跳过那条路）。
+  const skipped = { 含空格: 0, 类型化: 0, 已标记: 0, 非文件: 0, 扩展名: 0 }
   for (const r of mdFiles) {
     const abs = path.join(OUT, r)
     const own = path.dirname(abs)
     fsSync.readFileSync(abs, 'utf8').split(/\r?\n/).forEach((line, i) => {
       for (const m of line.matchAll(TICK)) {
         const t = m[1].trim()
-        if (!ANYFILE.test(t)) continue
-        if (/[\s>|，。；：]/.test(t)) continue     // 命令行/表格/句子片段
-        if (/^\.[a-z]+$/i.test(t)) continue        // 光秃秃的扩展名＝在说"文件后缀"
-        if (TYPED.test(t) || PLACEHOLDER.test(t)) continue
+        if (!ANYFILE.test(t)) { skipped.非文件++; continue }
+        if (/[\s>|，。；：]/.test(t)) { skipped.含空格++; continue }   // 命令行/表格/句子片段（命令行另有专道，见下）
+        if (/^\.[a-z]+$/i.test(t)) { skipped.扩展名++; continue }    // 光秃秃的扩展名＝在说"文件后缀"
+        if (TYPED.test(t) || PLACEHOLDER.test(t)) { skipped.类型化++; continue }
         const after = line.slice(m.index + m[0].length, m.index + m[0].length + 6)
-        if (MARK.test(after)) continue
+        if (MARK.test(after)) { skipped.已标记++; continue }
         refs++
         if (fsSync.existsSync(path.join(OUT, t)) || fsSync.existsSync(path.join(own, t))) { checked++; continue }
         dead.push(r + ':' + (i + 1) + '  ' + t)
@@ -555,12 +601,69 @@ if (argv.includes('--prune')) {
   // 〔2026-09-19 对抗复核补〕**0 条引用也是失败**：本仓元纪律"空集不等于干净"。
   // 此前只挡了"0 个 md"，把规则写坏到 0 条匹配时会打印"0/0 条解析得到"并放行。
   if (refs === 0) die('自证失败：包内引用自证扫到 0 条引用（' + mdFiles.length + ' 个 md）——模式失配还是正则写坏？0 条不等于没问题')
+
+  // ── 命令行形态：`node <路径>.mjs` 的路径必须可达（2026-09-20 复核 ISS-02）
+  // 与 7c2b 同源但独立核验：只信改写结果，不复用它的判定，免得同一个 bug 两边一起绿。
+  {
+    const CMD = /(\bnode\s+)([^\s`"'<>|]+\.(?:mjs|js))/g
+    let crefs = 0, cok = 0
+    const cdead = []
+    for (const r of mdFiles) {
+      const abs = path.join(OUT, r)
+      const own = path.dirname(abs)
+      fsSync.readFileSync(abs, 'utf8').split(/\r?\n/).forEach((line, i) => {
+        for (const m of line.matchAll(CMD)) {
+          const t = m[2]
+          if (TYPED.test(t) || PLACEHOLDER.test(t)) continue
+          crefs++
+          if (fsSync.existsSync(path.join(OUT, t)) || fsSync.existsSync(path.join(own, t))) { cok++; continue }
+          cdead.push(r + ':' + (i + 1) + '  ' + t)
+        }
+      })
+    }
+    if (crefs === 0) die('自证失败：命令行形态自证扫到 0 条 node <路径> 引用——模式失配？0 条不等于没问题')
+    if (cdead.length) {
+      die('命令行引用的脚本在包里不存在（照抄即 MODULE_NOT_FOUND）' + cdead.length + ' 处：\n  ' + cdead.slice(0, 15).join('\n  '),
+        '命令行形态必须写成包内真实位置（如 scripts/xxx.mjs）；在 skills/ 里用 skill 相对形')
+    }
+    say('· 命令行自证：' + cok + '/' + crefs + ' 条 node <路径> 可达')
+  }
+
   if (dead.length) {
     die('包内引用解析不到 ' + dead.length + ' 条（引用的位置在包里不存在）：\n  ' + dead.slice(0, 15).join('\n  ') +
       (dead.length > 15 ? '\n  …… 另有 ' + (dead.length - 15) + ' 条' : ''),
       '要么补上那个文件，要么按文法给它一个类型（〔模板〕/〔包内〕/绝对或符号基底）——不要靠"反正没人查"')
   }
-  say('· 包内引用自证：' + checked + '/' + refs + ' 条解析得到（' + mdFiles.length + ' 个 md）')
+  say('· 包内引用自证：' + checked + '/' + refs + ' 条解析得到（' + mdFiles.length + ' 个 md）· 跳过 ' +
+    (Object.entries(skipped).filter(([, v]) => v).map(([k, v]) => k + ' ' + v).join('／') || '0') + '（命令行形态另列，不再跳过）')
+}
+
+// ── 7d2. 机器路径硬门（2026-09-20 复核 REC-01）：**文档里**零机器绝对路径 ──────
+// 判据从"这条路径在装配机上存在"改成"包内文档不该有机器路径"——前者在 A 机器装配、
+// B 机器安装时给不出任何保证（2026-09-19 的 P1-4 就是这么漏的：路径确实存在，只是不存在于别人的机器上）。
+// 扫描面只收 `.md`（读者照着做的那些）：`.mjs` 里的 `C:/x` 是正则与示例常量（首跑 7 处命中里 6 处是它），
+// `.codebuddy-plugin/plugin.json` 的 `--root` 按契约**就该**是本机值——两处都不是"文档在指路"。
+// 例外＝行内带类型标记（〔示例〕/〔模板〕/〔仓外〕/〔私有〕：在讲"路径长什么样"，不是指路）。
+{
+  const MACHINE = /(?:[A-Za-z]:[\\/][^\s`"'）)】」>]*|(?<![\w.@-])\/(?:home|Users)\/[^\s`"'）)】」>]*)/g
+  const MARKED = /〔(示例|模板|仓外|已撤|私有)〕/
+  let scanned = 0
+  const hits = []
+  for (const r of written.filter((x) => x.endsWith('.md'))) {
+    const lines = fsSync.readFileSync(path.join(OUT, r), 'utf8').split(/\r?\n/)
+    lines.forEach((line, i) => {
+      scanned++
+      if (MARKED.test(line)) return
+      for (const m of line.matchAll(MACHINE)) hits.push(r + ':' + (i + 1) + '  ' + m[0])
+    })
+  }
+  if (scanned === 0) die('自证失败：机器路径扫描扫到 0 行')
+  if (hits.length) {
+    die('包内文档残留机器绝对路径 ' + hits.length + ' 处（换台机器就是死路径——判据是"零机器路径"，不是"在我这存在"）：\n  ' +
+      hits.slice(0, 12).join('\n  ') + (hits.length > 12 ? '\n  …… 另有 ' + (hits.length - 12) + ' 处' : ''),
+      '改成包内坐标/占位符；确实在讲"路径长什么样"的行，给它一个 〔示例〕 标记')
+  }
+  say('· 机器路径硬门：' + scanned + ' 行文档零命中（判据＝包内文档零机器路径，不看它在不在本机）')
 }
 
 // ── 7e. 清单（供人工核对与二次复算） ────────────────────────────────────────
