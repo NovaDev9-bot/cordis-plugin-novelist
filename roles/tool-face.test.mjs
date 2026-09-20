@@ -76,7 +76,52 @@ test('能力条目缺宿主列 ⇒ 拒绝生成（缺失没有类型）', () => 
   const d = fakeRepo({ table: t })
   const r = run(d, ['--host', 'dsh', '--check'])
   assert.equal(r.status, 2, '缺列必须 exit 2（不是"少封一条"地跑过去）：' + both(r))
-  assert.match(both(r), /缺 `dsh` 列/, '报错要点名缺的是哪一列')
+  assert.match(both(r), /缺取值/, '报错要说清是"这一列没答"（缺失没有类型）')
+  assert.match(both(r), /能力 spawn\.dsh/, '要点名缺的是哪个能力的哪一列')
+  rmSync(d, { recursive: true, force: true })
+})
+
+test('CodeBuddy 列缺形态 ⇒ 拒绝生成（形态是映射的键）', () => {
+  const t = realTable()
+  // 只给 seat 一条、去掉 `*` 兜底：另两个形态就"没答"——它们是没答，不是"不用封"
+  t.capabilities['fs.read'].codebuddy = { seat: { tools: ['Read'] } }
+  const d = fakeRepo({ table: t })
+  const r = run(d, ['--host', 'codebuddy', '--check'])
+  assert.equal(r.status, 2, '形态解析不到取值必须 exit 2：' + both(r))
+  assert.match(both(r), /上没有任何取值/)
+  assert.match(both(r), /fs\.read/)
+  rmSync(d, { recursive: true, force: true })
+})
+
+test('CodeBuddy 列出现官方清单外的名字 ⇒ 拒绝生成（R-c：不许静默空转）', () => {
+  const t = realTable()
+  t.capabilities['fs.search'].codebuddy['*'].tools.push('Greb')     // 拼错一个字母
+  const d = fakeRepo({ table: t })
+  const r = run(d, ['--host', 'codebuddy', '--check'])
+  assert.equal(r.status, 2, both(r))
+  assert.match(both(r), /不在 hosts\.codebuddy\.known_tools/)
+  assert.match(both(r), /Greb/)
+  rmSync(d, { recursive: true, force: true })
+})
+
+test('CodeBuddy 列出现已核实不存在的名字 ⇒ 拒绝生成（照抄 DSH 名单的静默失效）', () => {
+  const t = realTable()
+  t.capabilities['fs.search'].codebuddy['*'].tools.push('read_image')   // DSH 有、CodeBuddy 没有
+  const d = fakeRepo({ table: t })
+  const r = run(d, ['--host', 'codebuddy', '--check'])
+  assert.equal(r.status, 2, both(r))
+  assert.match(both(r), /CodeBuddy \*\*不存在\*\*的工具名/)
+  assert.match(both(r), /read_image/)
+  rmSync(d, { recursive: true, force: true })
+})
+
+test('角色声明了未知形态 ⇒ 拒绝生成（形态写错就查不出这个角色的面）', () => {
+  const t = realTable()
+  t.roles.author.codebuddy.form = 'teammate2'
+  const d = fakeRepo({ table: t })
+  const r = run(d, ['--host', 'codebuddy', '--check'])
+  assert.equal(r.status, 2, both(r))
+  assert.match(both(r), /不是已知形态/)
   rmSync(d, { recursive: true, force: true })
 })
 
@@ -96,7 +141,7 @@ test('同一宿主列里一个工具名进了两个能力 ⇒ 拒绝生成（否
   const d = fakeRepo({ table: t })
   const r = run(d, ['--host', 'dsh', '--check'])
   assert.equal(r.status, 2, both(r))
-  assert.match(both(r), /同时属于能力/, '要指出重复登记的工具名')
+  assert.match(both(r), /两个能力同时登记/, '要指出重复登记的工具名')
   rmSync(d, { recursive: true, force: true })
 })
 
@@ -174,12 +219,15 @@ test('派生件漂移 ⇒ --check exit 1（源改了、派生件没跟上）', (
 })
 
 // ── ② 章程加严（2026-09-20 Owner 批①）：盲角色不得扇出、不得发现工具
-test('① 盲角色在**两份**预设里都封了 spawn/tool.discovery，且带 maxDepth: 0', () => {
+test('① 盲角色在**两份**预设里都封了扇出与工具发现面，且带 maxDepth: 0', () => {
   const t = realTable()
   const blind = Object.entries(t.roles).filter(([, r]) => r.blind).map(([id]) => id)
   assert.deepEqual(blind.sort(), ['calibrator', 'dissector', 'proofer', 'reader'], '盲角色集合变了？先改本断言再改表')
+  for (const rid of blind) {
+    for (const c of ['spawn', 'tool.search', 'tool.invoke']) assert.ok(t.roles[rid].deny.includes(c), rid + ' 必须 deny ' + c)
+  }
   const spawnNames = t.capabilities.spawn.dsh.tools
-  const discNames = Array.isArray(t.capabilities['tool.discovery'].dsh.tools) ? t.capabilities['tool.discovery'].dsh.tools : []
+  const discNames = ['tool.search', 'tool.invoke'].flatMap((k) => (Array.isArray(t.capabilities[k].dsh.tools) ? t.capabilities[k].dsh.tools : []))
   assert.equal(discNames.length, 0, '本轮 DSH 侧 tool.discovery 尚无工具名（status: none）——若它有了名字，本测试与预设都要跟着动')
 
   const files = [
@@ -233,11 +281,15 @@ test('WB 角色工具面文档：零机器路径、点明三个不存在的名�
 // ── 能力表本身的最低不变量（挂在测试里，读表即红，不必跑生成器）
 test('能力表：每个能力两列齐全，且 domain 工具名与 lib 注册表一致', async () => {
   const t = realTable()
+  const forms = Object.keys(t.hosts.codebuddy.forms)
+  const leafOk = (v) => Array.isArray(v.tools) ? v.tools.length > 0 : (v.status === 'none' || v.status === 'unverified')
   for (const [cid, cap] of Object.entries(t.capabilities)) {
-    for (const h of ['dsh', 'codebuddy']) {
-      const v = cap[h]
-      assert.ok(v, cid + ' 缺 ' + h + ' 列')
-      assert.ok(Array.isArray(v.tools) ? v.tools.length > 0 : (v.status === 'none' || v.status === 'unverified'), cid + '.' + h + ' 取值非法：' + JSON.stringify(v))
+    assert.ok(cap.dsh, cid + ' 缺 dsh 列')
+    assert.ok(leafOk(cap.dsh), cid + '.dsh 取值非法：' + JSON.stringify(cap.dsh))
+    for (const f of forms) {
+      const v = cap.codebuddy[f] !== undefined ? cap.codebuddy[f] : cap.codebuddy['*']
+      assert.ok(v, cid + ' 在形态 ' + f + ' 上解析不到取值（既没写该形态，也没有 * 兜底）')
+      assert.ok(leafOk(v), cid + '.codebuddy.' + f + ' 取值非法：' + JSON.stringify(v))
     }
   }
   const mod = await import(new URL('../lib/novelist.js', import.meta.url).href)
