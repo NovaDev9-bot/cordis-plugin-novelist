@@ -329,23 +329,42 @@ test('改写只在 deny / maxDepth 两类行上发生（写坏文件的回归）
 // ── 派工文本里的工具面也归生成管（第三份拷贝的回归）
 // 背景：references/roles/*.md 原本各手写一段 DSH 名单，2026-09-20 第三方实测**五份全部落后真源**
 // （盲角色各漏 7 项反扇出条款）。这条测试锁的是"它再也不能手写回去"。
-test('派工文本的工具面生成区：手改即红，且五件都在管', () => {
-  const f = path.join(PLUGIN, 'wb-expert-starter', 'references', 'roles', 'reader.md')
-  const orig = readFileSync(f, 'utf8')
-  assert.match(orig, /工具面：生成区开始/, '派工文本缺生成区标记（这段必须由生成器接管）')
-  // 硬编码名单的形态不许回来：出现 `deny`：`novel_chapter, ...` 这种整串即视为回潮
-  assert.doesNotMatch(orig, /`toolFilter\.deny`：`novel_/, '派工文本里又出现了手写名单（第三份拷贝回潮）')
-  try {
-    writeFileSync(f, orig.replace('<!-- 工具面：生成区结束 -->', '手写补一句：22 项全封\n<!-- 工具面：生成区结束 -->'))
-    const r = run(PLUGIN, ['--host', 'codebuddy', '--check'])
-    assert.equal(r.status, 1, '生成区被手改后 --check 必须报漂移：' + both(r))
-    assert.match(both(r), /工具面生成区内容与能力表不一致/)
-    // 标记被整个删掉也要红——fail-closed：程序化判不出，不许静默放行
-    writeFileSync(f, orig.replace('<!-- 工具面：生成区结束 -->', ''))
-    const r2 = run(PLUGIN, ['--host', 'codebuddy', '--check'])
-    assert.equal(r2.status, 2, '缺标记必须拒绝执行（exit 2），实得 ' + r2.status)
-    assert.match(both(r2), /缺工具面生成区标记/)
-  } finally {
-    writeFileSync(f, orig)     // 无论成败都还原，别把坏文件留在树上
+test('派工文本的工具面生成区：手改即红；缺标记即拒（第三份拷贝的回归）', () => {
+  // 为什么在**假仓**里测：这条用例要改派工文本，而 build-wb-expert.test.mjs 会在另一个进程里
+  // 同时读真树（node --test 并行跑文件）——先前直接改真仓那份，单独跑全绿、一起跑就红。
+  // 测试之间通过共享文件互相影响，就是"同一事实多处各活一次"在测试层的同款。
+  const d = fakeRepo()
+  const rolesDir = path.join(d, 'wb-expert-starter', 'references', 'roles')
+  mkdirSync(rolesDir, { recursive: true })
+  const srcDir = path.join(PLUGIN, 'wb-expert-starter', 'references', 'roles')
+  for (const f of readdirSync(srcDir).filter((x) => x.endsWith('.md'))) {
+    writeFileSync(path.join(rolesDir, f), readFileSync(path.join(srcDir, f), 'utf8'))
   }
+  const target = path.join(rolesDir, 'reader.md')
+  const orig = readFileSync(target, 'utf8')
+
+  // ①真仓那份必须已经在生成区里、且不再有手写名单（回潮即红）
+  assert.match(orig, /工具面：生成区开始/, '真仓派工文本缺生成区标记（这段必须由生成器接管）')
+  assert.doesNotMatch(orig, /\`toolFilter\\.deny\`：\`novel_/, '派工文本里又出现手写名单（第三份拷贝回潮）')
+
+  // ②生成区被手改 ⇒ 漂移（exit 1）
+  writeFileSync(target, orig.replace('<!-- 工具面：生成区结束 -->', '手写补一句：22 项全封\n<!-- 工具面：生成区结束 -->'))
+  const r = run(d, ['--host', 'codebuddy', '--check'])
+  assert.equal(r.status, 1, '生成区被手改后 --check 必须报漂移：' + both(r))
+  assert.match(both(r), /工具面生成区内容与能力表不一致/)
+
+  // ③标记被整个删掉 ⇒ 拒绝执行（exit 2）：程序化判不出就不许静默放行
+  writeFileSync(target, orig.replace('<!-- 工具面：生成区结束 -->', ''))
+  const r2 = run(d, ['--host', 'codebuddy', '--check'])
+  assert.equal(r2.status, 2, '缺标记必须拒绝执行（exit 2），实得 ' + r2.status)
+  assert.match(both(r2), /缺工具面生成区标记/)
+
+  // ④五件都在管：一次干净跑里，五份派工文本都应出现在结果里
+  writeFileSync(target, orig)
+  const ok = run(d, ['--host', 'codebuddy', '--check'])
+  for (const f of ['reader', 'calibrator', 'proofer', 'dissector']) {
+    assert.ok(readFileSync(path.join(rolesDir, f + '.md'), 'utf8').includes('工具面：生成区开始'), f + '.md 未被生成器纳入（缺标记）')
+  }
+  assert.match(both(ok), /references[\/\\]roles[\/\\]reader\.md/, '结果里应点名派工文本')
+  rmSync(d, { recursive: true, force: true })
 })
