@@ -524,6 +524,43 @@ if (wants('codebuddy')) {
   if (cur === doc.text) results.push({ rel: doc.rel, status: 'ok', note: '与能力表一致' })
   else if (CHECK) results.push({ rel: doc.rel, status: 'drift', note: cur === null ? '文件不存在' : '内容与能力表不一致' })
   else { await fsp.writeFile(abs, doc.text); results.push({ rel: doc.rel, status: 'written', note: cur === null ? '新建' : '内容已按能力表重写' }) }
+
+  // ── 4b. 派工文本里的"工具面"区也归生成管
+  // 为什么：`references/roles/*.md` 里原本各手写一段 DSH 名单——那是同一事实的**第三份拷贝**，
+  // 而且 2026-09-20 第三方实测**五份全部落后真源**（盲角色各漏 7 项反扇出条款）。
+  // 治法不是"这次改对"，是把这一段也变成生成区：名单只活在能力表里，派工文本只留指针。
+  {
+    const BEGIN = '<!-- 工具面：生成区开始'
+    const END = '<!-- 工具面：生成区结束 -->'
+    const block = [
+      '<!-- 工具面：生成区开始（真源＝能力表 ' + REL_TABLE + '，生成器 ' +
+        path.relative(PLUGIN, path.join(PLUGIN, 'roles', 'build-tool-face.mjs')).split(path.sep).join('/') + '；手改会被覆盖） -->',
+      '**DSH 侧（宿主强制）**：本角色在 DSH 预设里的 `toolFilter.deny` 名单（含 2026-09-20 起的扇出/发现面封锁与 `maxDepth: 0` 深度锁）**由能力表生成，不在本文件复述**——复述就是第三份会过期的拷贝：2026-09-20 第三方实测，这五份派工文本里的名单**全部**落后真源（盲角色各漏 7 项反扇出条款）。要查实际名单就读能力表，或跑生成器 `--check`。',
+      '',
+      '**WorkBuddy 侧（只有声明，未核实生效）**：本角色应封的能力与**本宿主工具真名**见 `../宿主工具面.md`〔包内〕（生成件）。本形态下宿主**未证实**执行 deny，故一律按纪律约束对待，交付说明须标注"软隔离、证据力低于 DSH 形态"。',
+      END,
+    ].join('\n')
+    const names = roleIds
+      .filter((r) => TABLE.roles[r].codebuddy && TABLE.roles[r].codebuddy.file &&
+        TABLE.roles[r].codebuddy.file.startsWith('references/roles/'))
+      .map((r) => ({ rid: r, rel: TABLE.roles[r].codebuddy.file }))
+    for (const { rel: fileRel } of names) {
+      const stripPrefix2 = (t) => { const m = t.match(/^dsh-native\/[^/]+\/(.+)$/); return m ? m[1] : null }
+      const full = [path.resolve(PLUGIN, 'wb-expert-starter', fileRel), path.resolve(PLUGIN, 'wb-expert-starter', stripPrefix2(fileRel) || fileRel)]
+        .find((c) => fsSync.existsSync(c))
+      if (!full) die('派工文本不存在：' + fileRel + '（能力表里登记的路径要能在包模板下解析到）')
+      const src = fsSync.readFileSync(full, 'utf8')
+      const bi = src.indexOf(BEGIN)
+      const ei = src.indexOf(END)
+      if (bi === -1 || ei === -1 || ei < bi) die(fileRel + ' 缺工具面生成区标记（`' + BEGIN + '` … `' + END + '`）——本文件该段必须由生成器接管')
+      const next = src.slice(0, bi) + block + src.slice(ei + END.length)
+      const shortRel = path.relative(ROOT, full).split(path.sep).join('/')
+      if (next === src) results.push({ rel: shortRel, status: 'ok', note: '工具面生成区与能力表一致' })
+      else if (CHECK) results.push({ rel: shortRel, status: 'drift', note: '工具面生成区内容与能力表不一致' })
+      else { await fsp.writeFile(full, next); results.push({ rel: shortRel, status: 'written', note: '工具面生成区已刷新' }) }
+    }
+    if (!names.length) die('能力表里没有任何 references/roles/ 派工文本登记——0 件不等于没问题（这段扫描等于空转）')
+  }
 }
 
 console.log('')
