@@ -68,6 +68,9 @@ test('外部客户端完整会话：握手 → 15 工具 → 真建书 → 坏�
   // ① 握手
   const init = await c.rpc(1, 'initialize', { protocolVersion: PROTO, capabilities: {}, clientInfo: { name: 'e2e-external-client', version: '0' } })
   assert.equal(init.result.serverInfo.name.length > 0, true, JSON.stringify(init).slice(0, 200))
+  // 启动必须留下"身份可见性"这一行（REC-04 的判据要是**事实**、每次可见，不是一次探针的结论）
+  for (let i = 0; i < 50 && !/identity-env=/.test(c.stderrText()); i++) await new Promise((r) => setTimeout(r, 20))
+  assert.match(c.stderrText(), /identity-env=(present|absent)/, '启动应有身份可见性行：' + c.stderrText().slice(0, 200))
   await c.send({ jsonrpc: '2.0', method: 'notifications/initialized' })   // 通知：无响应
   // ② 工具清单（外部客户端看到的面）
   const list = await c.rpc(2, 'tools/list', {})
@@ -78,6 +81,11 @@ test('外部客户端完整会话：握手 → 15 工具 → 真建书 → 坏�
   const call = await c.rpc(3, 'tools/call', { name: 'novel_init', arguments: { book_dir: join(booksRoot, 'e2e书'), title: '外部客户端建的书', genre: 'dushi', logline: 'L' } })
   assert.equal(call.result.isError, false, JSON.stringify(call.result).slice(0, 300))
   assert.match(call.result.content[0].text, /建书成功|project\.json/)
+  // ③b novel_guide 要自报"我在哪儿"：真进程链上也要带连接器执行文件位置（N-1）
+  const guide = await c.rpc(5, 'tools/call', { name: 'novel_guide', arguments: {} })
+  const gtexts = guide.result.content.map((x) => x.text)
+  assert.ok(gtexts.some((s) => s.startsWith('〔连接器〕') && s.includes('server.mjs')), '真进程也要自报连接器位置：' + JSON.stringify(gtexts.slice(-2)))
+  assert.ok(gtexts.some((s) => s.startsWith('〔本次生效书库根〕')), '真进程也要带生效根：' + JSON.stringify(gtexts.slice(-2)))
   // ④ 坏行：服务不许崩，后续请求照答
   c.child.stdin.write('这{{不是 JSON\n')
   const ping = await c.rpc(4, 'tools/list', {})

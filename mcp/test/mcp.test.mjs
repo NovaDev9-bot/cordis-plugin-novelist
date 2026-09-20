@@ -4,7 +4,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync, rmSync, realpathSync, statSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync, rmSync, realpathSync, statSync, existsSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -56,17 +56,22 @@ test('适配层：根外绝对路径被拒；.. 逃逸被拒；根内通过', as
   } finally { rmSync(base, { recursive: true, force: true }) }
 })
 
-test('适配层：symlink 指出根外被拒（realpath 防线）', async () => {
+test('适配层：symlink 指出根外被拒（realpath 防线）', async (t) => {
   const base = mkdtempSync(path.join(tmpdir(), 'nf-mcp-sym-'))
   try {
     const root = path.join(base, 'root')
     mkdirSync(path.join(root, 'books'), { recursive: true })
     const secret = path.join(base, 'secret.txt')
     writeFileSync(secret, 's', 'utf8')
-    try { symlinkSync(secret, path.join(root, 'books', 'link.txt')) } catch { return } // 无符号链接权限的平台跳过
+    const link = path.join(root, 'books', 'link.txt')
+    try { symlinkSync(secret, link) } catch { return } // 无符号链接权限的平台跳过
+    // 〔2026-09-20 第三方复核实测〕有的环境 symlinkSync **既不抛错也不落地**（lstat=false，随后 realpath ENOENT）：
+    // 此时环境里根本没有逃逸路径可拒，而旧用例会继续往下断言 → 把"环境不支持"误报成"防线失效"
+    // （Missing expected rejection）。跳过守卫必须把"没造成"也算进去，否则这条用例本身是 flaky 的。
+    if (!existsSync(link)) { t.diagnostic('文件型 symlink 未落地（平台行为）→ 本子场景跳过；realpath 防线由 junction 子场景保证'); return }
     const fs = createNodeFsAdapter(root)
-    await assert.rejects(() => fs.resolve(path.join(root, 'books', 'link.txt')), /路径越界/)
-    await assert.rejects(() => fs.readText(path.join(root, 'books', 'link.txt')), /路径越界/)
+    await assert.rejects(() => fs.resolve(link), /路径越界/)
+    await assert.rejects(() => fs.readText(link), /路径越界/)
   } finally { rmSync(base, { recursive: true, force: true }) }
 })
 
@@ -112,6 +117,29 @@ test('适配层：根本身经链接/短名指向真实目录时，根内路径�
       await fsShort.writeText(p2, '{"short":true}')
       assert.equal(await fsShort.readText(path.join(short, 'books', 'b.json')), '{"short":true}')
     }
+  } finally { rmSync(base, { recursive: true, force: true }) }
+})
+
+test('适配层：根内目录链接指向根外 → 经它访问必须被拒（realpath 防线，本机稳定可造）', async (t) => {
+  // 与上一条的区别：那条的"链接"在根**外**、且是文件型（本机造不出来）；这条把链接放进根**内**
+  // 指向根外——路径词法上仍在根内，只有 realpath 能看出它跑出去了。这正是"realpath 防线"的
+  // 真正判据，且目录链接（junction）在 Windows 不需管理员、稳定可造（2026-09-20 第三方复核实测）。
+  const base = mkdtempSync(path.join(tmpdir(), 'nf-mcp-jump-'))
+  try {
+    const root = path.join(base, 'root')
+    const outside = path.join(base, 'outside')
+    mkdirSync(path.join(root, 'books'), { recursive: true })
+    mkdirSync(outside, { recursive: true })
+    writeFileSync(path.join(outside, 'secret.txt'), 's', 'utf8')
+    const jump = path.join(root, 'books', 'jump')
+    try { symlinkSync(outside, jump, process.platform === 'win32' ? 'junction' : 'dir') } catch { t.diagnostic('本平台不能建目录链接 → 跳过'); return }
+    if (!existsSync(jump)) { t.diagnostic('目录链接未落地（平台行为）→ 跳过'); return }
+    const fs = createNodeFsAdapter(root)
+    await assert.rejects(() => fs.resolve(path.join(jump, 'secret.txt')), /路径越界/)
+    await assert.rejects(() => fs.readText(path.join(jump, 'secret.txt')), /路径越界/)
+    // 反面对照：根内正常路径不许被这条防线的收紧误杀
+    await fs.writeText(path.join(root, 'books', 'ok.txt'), 'ok')
+    assert.equal(await fs.readText(path.join(root, 'books', 'ok.txt')), 'ok')
   } finally { rmSync(base, { recursive: true, force: true }) }
 })
 
@@ -205,6 +233,22 @@ test('协议：initialize 结构与版本协商（支持清单内回显，清单
     assert.ok(r1.result.instructions.includes('状态机') || r1.result.instructions.includes('账本'), 'instructions 应含机制细则关键内容')
     const r2 = await handler.handleLine(req(2, 'initialize', { protocolVersion: '2099-01-01' }))
     assert.equal(r2.result.protocolVersion, '2025-06-18', '未知版本回退到支持的最新版')
+  } finally { rmSync(base, { recursive: true, force: true }) }
+})
+
+test('协议（REC-03.2/N-1）：novel_guide 答复带「生效根」与「连接器位置」——"我在哪儿"一眼可见', async () => {
+  const base = mkdtempSync(path.join(tmpdir(), 'nf-mcp-guide-'))
+  try {
+    const fs = createNodeFsAdapter(base)
+    const mk = (extra) => createMcpHandler({ adapter: fs, TOOLS, SECTION: _internals.SECTION, serverInfo: { name: 'novelist', version: 'test' }, ...extra })
+    const r = await mk({ rootInfo: base + '（来源：args --root）', connectorInfo: 'H:/x/mcp/server.mjs · v0.0.0' })
+      .handleLine(req(1, 'tools/call', { name: 'novel_guide', arguments: {} }))
+    const texts = r.result.content.map((c) => c.text)
+    assert.ok(texts.some((s) => s.startsWith('〔本次生效书库根〕') && s.includes('args --root')), '带生效根与来源：' + JSON.stringify(texts.slice(-2)))
+    assert.ok(texts.some((s) => s.startsWith('〔连接器〕') && s.includes('server.mjs')), '带连接器执行文件位置（同名覆盖时能看出跑的是哪份）：' + JSON.stringify(texts.slice(-2)))
+    // 不传就不加块——位置信息不许凭空造
+    const bare = await mk({}).handleLine(req(1, 'tools/call', { name: 'novel_guide', arguments: {} }))
+    assert.equal(bare.result.content.length, 1, '未传位置信息时只回正文')
   } finally { rmSync(base, { recursive: true, force: true }) }
 })
 

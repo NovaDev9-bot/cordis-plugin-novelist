@@ -12,6 +12,7 @@
  */
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
 import path from 'node:path'
+import os from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
 
@@ -130,6 +131,40 @@ if (pj.expertType === 'team') {
     for (const f of ['vendor/novelist/mcp/server.mjs', 'vendor/novelist/lib/novelist.js', 'vendor/novelist/lib/book-access.mjs']) {
       if (!isFile(f)) findings.push('内置连接器缺件：' + f)
     }
+  }
+}
+
+// ── 3c. 同名覆盖检测：实际生效的是哪一份连接器（2026-09-20 复核 N-1）────────
+// 宿主的**用户级** MCP 配置里若存在同名 server，它会盖掉包内声明——而两方都不报错。
+// 第三方复核实跑本机就是这个状态：实际跑的是源仓工作树，不是包内 vendor 副本。
+// 对自营开发是有意为之；对"装给别人用"是静默陷阱（用户手工加过一次同名 server，
+// 包内那份就永远不被使用，谁也不知道）。这里把"谁在生效"打出来，让人自己能看见；
+// 它是**环境事实**不是包缺陷，所以只警示、不计 findings。
+{
+  const userCfgs = [
+    path.join(os.homedir(), '.workbuddy', 'mcp.json'),  // WorkBuddy（本包目标宿主）
+    path.join(os.homedir(), '.codebuddy', 'mcp.json'),  // 同族 CodeBuddy
+  ]
+  const pkgNames = Object.keys(pj.mcpServers || {})
+  const overrides = []
+  for (const f of userCfgs) {
+    if (!existsSync(f)) continue
+    let j = null
+    try { j = JSON.parse(readFileSync(f, 'utf8')) } catch (e) { findings.push('用户级 MCP 配置解析失败（' + f + '）：' + e.message); continue }
+    for (const name of Object.keys((j && j.mcpServers) || {})) {
+      if (pkgNames.includes(name)) overrides.push({ file: f, name, cfg: (j.mcpServers || {})[name] })
+    }
+  }
+  if (pkgNames.length) say('· 包内声明的连接器：' + pkgNames.join('、') + '（装配进 plugin.json，随包生效）')
+  for (const o of overrides) {
+    const target = (Array.isArray(o.cfg && o.cfg.args) ? o.cfg.args.find((s) => /server\.mjs$/.test(String(s))) : null)
+      || (o.cfg && o.cfg.command) || '（args 里没有 server.mjs）'
+    say('⚠ 同名覆盖：用户级 ' + o.file + ' 里也有 「' + o.name + '」 → ' + target)
+    say('  ⇒ 实际生效的是这一份（用户级同名优先），包内 vendor 那份不会被使用。自营开发可能是有意为之；')
+    say('    对外安装时让用户二选一（删掉用户级那条 / 或明确知道自己用的是哪份）——这一条不会报错，只会静默生效。')
+  }
+  if (!overrides.length) {
+    say('· 同名覆盖检查：用户级 MCP 配置无同名 server（查过 ' + userCfgs.map((f) => f.replace(os.homedir(), '~')).join('、') + '）')
   }
 }
 
