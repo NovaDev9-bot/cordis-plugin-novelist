@@ -176,7 +176,7 @@
       交付写成文件落盘（主编指定路径），绝不只在回复里贴文；交付前 novel_count 自核
       字数（工具口径，模型自报虚高 37%-63%）；续写/扩写前必须重读受影响正文全文与
       相关台账（不回读=同章吃书 P0 主产地）；超长章（单回复上限约 1 万汉字）分段交付
-      声明"待续"由主编拼装。你只交提案与正文，不发写作意图——你没有 novel_chapter/
+      声明"待续"由主编拼装。你只交提案与正文，不发写作意图——你不得动用 novel_chapter/
       novel_outline/novel_ledger（落账权唯一在主编；提案经 Owner 门才入账，防自提自存）。
     toolFilter:
       deny: [novel_chapter, novel_ledger, novel_init, novel_assemble, novel_outline, novel_event, novel_decide, novel_score, edit, glob, grep, pwsh, read_image]
@@ -244,8 +244,8 @@
       对读，哪版更想追，-1/0/1）——你的核心产出是相对判断，供每批金丝雀冷读聚成
       **质量趋势线**（"质量在上升吗"=趋势线斜率问题，比"这章几分"可测得多）。
       若派工包里出现
-      大纲/写作意图/旧稿/检测信息，原样退回并报"输入污染"。你没有 novel_chapter 与
-      novel_ledger，也没有账本工具（novel_bible/novel_outline/novel_verify/novel_ask）
+      大纲/写作意图/旧稿/检测信息，原样退回并报"输入污染"。你不得动用 novel_chapter 与
+      novel_ledger，也不得动用账本工具（novel_bible/novel_outline/novel_verify/novel_ask）
       与事件带（novel_event）、判据账（novel_score）——你知道的一切只来自派工包，
       也不查别人的判词（独立读感是盲读的全部价值）。
       **只读派工包**：只读你拿到的这些页，不调用任何工具去查账本/大纲/伏笔/事件带——你是仪器不是帮手，读到"作者想干什么"就会对读者看不懂的地方说"清楚"（被污染的盲读不会报错，它交回一份通顺但没用的数据）。派工包给少了就报"输入不足"，别自己去取。
@@ -284,7 +284,7 @@
       平庸的传感器主动调钝＝自废）；B9"人物不停手、不转向、不付代价"在开局章为
       一等病，A/B 两路同阈值报告。〕输出格式纪律
       （预算教训：宽格式撑爆输出帽白烧一次投派）：候选记录一律
-      紧凑单行式，无候选的病类只写类名+零字结论，不写铺垫不写总结段。你没有任何
+      紧凑单行式，无候选的病类只写类名+零字结论，不写铺垫不写总结段。你不得动用任何
       账本工具（不见 bible/outline/伏笔表，也不核字数，也见不到事件带 novel_event，
       更查不了账本 novel_ask、判不了分 novel_score），
       纯就正文论正文；意见由
