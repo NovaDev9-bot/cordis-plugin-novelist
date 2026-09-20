@@ -141,7 +141,10 @@ test('同一宿主列里一个工具名进了两个能力 ⇒ 拒绝生成（否
   const d = fakeRepo({ table: t })
   const r = run(d, ['--host', 'dsh', '--check'])
   assert.equal(r.status, 2, both(r))
-  assert.match(both(r), /两个能力同时登记/, '要指出重复登记的工具名')
+  // 措辞 2026-09-21 收紧：现在按**宿主 × 形态**分格核对（同一名字落在同一形态上才算两处真源；
+  // 三形态工具面本就不同，seat 有 Agent 而 subagent 没有，那是合法的）。断言仍锁必须点名工具名。
+  assert.match(both(r), /同一形态下两处真源/, '要指出这是同一形态下的重复登记')
+  assert.match(both(r), /工具名「read」/, '要点名到具体工具名')
   rmSync(d, { recursive: true, force: true })
 })
 

@@ -80,16 +80,31 @@ const HOSTS = ['dsh', 'codebuddy']
 const FORMS = Object.keys((TABLE.hosts.codebuddy || {}).forms || {})
 const knownTools = new Set(TABLE.hosts.codebuddy ? TABLE.hosts.codebuddy.known_tools || [] : [])
 const ghostTools = new Set(TABLE.hosts.codebuddy ? TABLE.hosts.codebuddy.nonexistent_tools_verified || [] : [])
+// ── 推导的原语（提到校验之前：重复登记核对必须按**宿主 × 形态**做，而形态只有解析后才定得下来）
+const CAP_ORDER = Object.keys(TABLE.capabilities)
+// 解析到"该能力在该宿主该形态下"的那条取值：CodeBuddy 侧键是形态（显式形态优先，`*` 兜底）。
+function leafOf(cap, host, form) {
+  if (host === 'dsh') return cap.dsh
+  const cb = cap.codebuddy
+  return cb[form] !== undefined ? cb[form] : cb['*']
+}
 // ── 1. 表自身的合法性（fail-closed：形状不对就不许往下走）
 const errs = []
-const toolOwners = { dsh: new Map(), codebuddy: new Map() }   // 工具名 → 能力路径（同一宿主列内不许重复）
-function checkLeaf(v, ctx, host) {
+// 工具名 → 能力：**按宿主 × 形态分桶**。同一名字出现在同一能力的不同形态列里是合法的
+// （三形态工具面本就不同：seat 有 Agent、subagent 没有），而落到**同一形态**上的两个能力
+// 同时持有它，就是"两处真源"——deny 一个会静默连坐另一个。
+const toolOwners = {}   // 'host:form' → Map(工具名 → 能力 id)
+const reportedDupe = new Set()   // 'host:form:工具名'——同一格同一名字只报一次（下面两条通道会同时命中同一处）
+const ownerKey = (host, form) => host + ':' + (host === 'dsh' ? '*' : form)
+function checkLeaf(v, ctx, host, form, cid) {
   if (v === undefined) {
     errs.push(ctx + ' 缺取值——缺失没有类型：数组＝这些工具名，{"status":"none"}＝本宿主没有这个能力，{"status":"unverified","why":"…"}＝说不清（必须带 why）')
     return
   }
   if (Array.isArray(v.tools)) {
     if (!v.tools.length) errs.push(ctx + ' 的工具名数组是空的（空数组＝没封任何东西，别用空数组表达"没有"）')
+    const key = ownerKey(host, form)
+    if (!toolOwners[key]) toolOwners[key] = new Map()
     for (const n of v.tools) {
       if (typeof n !== 'string' || !n.trim()) { errs.push(ctx + ' 里有非法工具名：' + JSON.stringify(n)); continue }
       if (host === 'codebuddy') {
@@ -100,10 +115,12 @@ function checkLeaf(v, ctx, host) {
         if (ghostTools.has(n)) errs.push(ctx + ' 里写着 CodeBuddy **不存在**的工具名「' + n + '」——这正是静默空转（看起来封了，其实一条也没封）')
         else if (knownTools.size && !knownTools.has(n)) errs.push(ctx + ' 里的「' + n + '」不在 hosts.codebuddy.known_tools（官方内置工具清单）里——拼错了？还是抄了别的宿主的名字？')
       }
-      const prev = toolOwners[host].get(n)
-      if (prev) errs.push('工具名「' + n + '」在 ' + host + ' 列被 ' + prev.replace(/^能力 /, '') + ' 与 ' + ctx.replace(/^能力 /, '') + ' 两个能力同时登记——重复登记等于两处真源，deny 其中一个会静默连坐另一个')
-      toolOwners[host].set(n, ctx)
-    }
+      const prev = toolOwners[key].get(n)
+      if (prev) {
+        errs.push('工具名「' + n + '」在 ' + key + ' 这一格被能力 ' + prev + ' 与 ' + cid + ' 同时登记——同一形态下两处真源：deny 其中一个会静默连坐另一个')
+        reportedDupe.add(key + ':' + n)
+      }
+      toolOwners[key].set(n, cid)    }
   } else if (v.status === 'none' || v.status === 'unverified') {
     if (!v.why || !String(v.why).trim()) errs.push(ctx + ' 写了 status=' + v.status + ' 却没给 why（"没有这个工具"和"没查清"都必须留一句为什么）')
     // candidates＝给实测用的候选名（如 mcp__novelist__novel_chapter）：它不是名单，故不进
@@ -124,16 +141,28 @@ function checkLeaf(v, ctx, host) {
   if (TABLE.schema !== 1) errs.push('schema 不是 1')
   if (!FORMS.length) errs.push('hosts.codebuddy.forms 为空（CodeBuddy 侧必须按形态分列：实测三形态工具面不同）')
   if (!knownTools.size) errs.push('hosts.codebuddy.known_tools 为空（没有它就无法对 CodeBuddy 列做 fail-closed 核对）')
+  // inert（**存在、但本形态下不可用**）也必须过同一道核：名字要真在官方清单里、形态要存在、why 必填。
+  // 不加这道核，这一格就会变成"把没查清的东西塞进一个看起来更严谨的箱子"——
+  // 而它存在的全部理由恰恰是**别让读者把惰性读成已封**。
+  for (const [i, t] of (TABLE.hosts.codebuddy.inert_tools_verified || []).entries()) {
+    const where = 'hosts.codebuddy.inert_tools_verified[' + i + ']'
+    if (!t || typeof t.tool !== 'string' || !t.tool.trim()) { errs.push(where + ' 缺 tool'); continue }
+    if (knownTools.size && !knownTools.has(t.tool)) errs.push(where + ' 的「' + t.tool + '」不在 known_tools 里——"存在但不可用"的前提是它**存在**')
+    if (ghostTools.has(t.tool)) errs.push(where + ' 的「' + t.tool + '」已被列进 nonexistent_tools_verified——两格互斥（一个名字不可能既存在又不存在）')
+    if (!FORMS.includes(t.form)) errs.push(where + ' 的 form「' + t.form + '」不是已知形态（' + FORMS.join(' / ') + '）')
+    if (!t.why || !String(t.why).trim()) errs.push(where + ' 缺 why（"为什么在你这儿不可用"必须留一句，最好带硬返回原文）')
+    if (!t.consequence || !String(t.consequence).trim()) errs.push(where + ' 缺 consequence（"于是该怎么办"——只写不可用不写后果，读者会自己猜）')
+  }
   for (const [cid, cap] of Object.entries(TABLE.capabilities || {})) {
     if (!cap.zh) errs.push('能力 ' + cid + ' 缺 zh 说明')
-    checkLeaf(cap.dsh, '能力 ' + cid + '.dsh', 'dsh')
+    checkLeaf(cap.dsh, '能力 ' + cid + '.dsh', 'dsh', '*', cid)
     const cb = cap.codebuddy
     if (cb === undefined) { errs.push('能力 ' + cid + ' 缺 codebuddy 列'); continue }
     const keys = Object.keys(cb)
     if (!keys.length) { errs.push('能力 ' + cid + '.codebuddy 是空对象'); continue }
     for (const k of keys) {
       if (k !== '*' && !FORMS.includes(k)) errs.push('能力 ' + cid + '.codebuddy 的键「' + k + '」不是形态（可用 * 兜底，或 ' + FORMS.join(' / ') + '）')
-      checkLeaf(cb[k], '能力 ' + cid + '.codebuddy.' + k, 'codebuddy')
+      checkLeaf(cb[k], '能力 ' + cid + '.codebuddy.' + k, 'codebuddy', k, cid)
     }
     // 每个形态都必须能解析到一条取值（显式写，或由 `*` 兜底）——解析不到＝这个能力在这个
     // 形态上"没答"，而不是"不用封"。
@@ -155,16 +184,33 @@ function checkLeaf(v, ctx, host) {
 }
 if (!Object.keys(TABLE.capabilities || {}).length) errs.push('能力表为空')
 if (!Object.keys(TABLE.roles || {}).length) errs.push('角色表为空')
+// 解析后再核一遍重复登记：上面按**原键**分桶，查不出「`*` 兜底」与「显式形态列」撞在同一形态上的情况。
+// 这里用 leafOf（与生成时同一套解析）逐个 (宿主, 形态) 取解析结果再查——同一形态下两处真源，
+// deny 一个会静默连坐另一个，那种洞在名单里看不出来。
+{
+  const resolved = {}
+  for (const cid of CAP_ORDER) {
+    const cap = TABLE.capabilities[cid]
+    if (!cap) continue
+    for (const [host, form] of [['dsh', '*']].concat(FORMS.map((f) => ['codebuddy', f]))) {
+      const v = leafOf(cap, host, form)
+      if (!v || !Array.isArray(v.tools)) continue
+      const key = ownerKey(host, form)
+      if (!resolved[key]) resolved[key] = new Map()
+      for (const n of v.tools) {
+        const prev = resolved[key].get(n)
+        if (prev && prev !== cid && !reportedDupe.has(key + ':' + n)) {
+          errs.push('工具名「' + n + '」在 ' + key + '（**解析后**）被能力 ' + prev + ' 与 ' + cid + ' 同时持有——' +
+            '`*` 兜底与显式形态列撞在同一形态上，deny 其中一个会连坐另一个')
+        } else resolved[key].set(n, cid)
+      }
+    }
+  }
+}
 if (errs.length) die('能力表不合法（' + errs.length + ' 条）：\n  ' + errs.join('\n  '), '改 ' + REL_TABLE + ' 后重跑')
 
 // ── 2. 推导：角色 → 该宿主的工具名（按能力声明顺序拼接，顺序稳定＝生成结果可逐字比对）
-const CAP_ORDER = Object.keys(TABLE.capabilities)
-// 解析到"该能力在该宿主该形态下"的那条取值：CodeBuddy 侧键是形态（显式形态优先，`*` 兜底）。
-function leafOf(cap, host, form) {
-  if (host === 'dsh') return cap.dsh
-  const cb = cap.codebuddy
-  return cb[form] !== undefined ? cb[form] : cb['*']
-}
+// 原语 CAP_ORDER / leafOf 定义在校验之前（那里的重复登记核对要用它们）——此处不再重复定义。
 function faceOf(roleId, host) {
   const r = TABLE.roles[roleId]
   const form = host === 'codebuddy' ? r.codebuddy.form : null
@@ -192,12 +238,15 @@ for (const cid of CAP_ORDER) {
 }
 // 领域工具名不手写：从 lib/novelist.js 现读，双向核对
 let NOVEL_TOOLS = null
+let GUIDE_TEXT = null
 {
   const lib = path.join(PLUGIN, 'lib', 'novelist.js')
   if (!fsSync.existsSync(lib)) die('缺 lib/novelist.js（领域工具真源）')
   let mod
   try { mod = await import(pathToFileURL(lib).href) } catch (e) { die('导入 lib/novelist.js 失败：' + e.message) }
   NOVEL_TOOLS = ((mod._internals || {}).TOOLS || []).map((t) => t.name)
+  GUIDE_TEXT = ((mod._internals || {}).SECTION || {}).text || ''
+  if (!GUIDE_TEXT) die('lib/novelist.js 的 SECTION.text 取不到（术语对照的坐标来源——术语表必须由手册现读派生，不许手写）')
   if (!NOVEL_TOOLS.length) die('lib/novelist.js 的 _internals.TOOLS 取不到（工具名真源）')
   const inTable = CAP_ORDER.flatMap((cid) => {
     const v = TABLE.capabilities[cid].dsh
@@ -212,6 +261,33 @@ let NOVEL_TOOLS = null
     '\n  （DSH 侧会抛 `tools.restrict() names unknown global tool`：挂载期直接失败；改名后忘了改表就是这条）')
   for (const n of NOVEL_TOOLS) knownByHost.dsh.add(n)
   console.log('· 领域工具真源：lib/novelist.js 现读 ' + NOVEL_TOOLS.length + ' 个，与能力表双向全等')
+}
+
+// ── 术语对照（A2）：术语 → 手册里出现它的那一条 ────────────────────────────────
+// 为什么要有它：派工指令里会出现这些词（主编口头常用），而五份派工文本里此前**一个都没有**——
+// 2026-09-20 第三方实测（`grep -c`：三原语/章状态机 在主编侧 2 处、在派工文本 0 处）。
+// 术语不必背，但要**找得到**：所以坐标（节标题）全部从手册现读，本文件不写一个字面。
+// 选词是编辑决策（哪几个词算"会遇到的"），坐标是派生——选错了改这个数组，抄错了它自己会红。
+const GLOSSARY_TERMS = ['三原语', '章状态机', '事件带', '生效窗', '前情事实卡']
+function glossaryRows() {
+  const lines = GUIDE_TEXT.split('\n').filter((l) => l.trim())
+  const titleOf = (l) => (l.split('（')[0] || '').trim()
+  const rows = []
+  for (const term of GLOSSARY_TERMS) {
+    // 优先"标题里就有这个词"的那一条（那才是它的家），否则退回第一次出现处
+    let idx = lines.findIndex((l) => titleOf(l).includes(term))
+    if (idx === -1) idx = lines.findIndex((l) => l.includes(term))
+    if (idx === -1) {
+      die('术语「' + term + '」在手册里找不到——术语表必须由手册现读派生：这个词要么已不在手册，' +
+        '要么写法变了。改 GLOSSARY_TERMS 或修手册，别在生成物里留一个指不到的手册坐标')
+    }
+    const base = titleOf(lines[idx]) || lines[idx].slice(0, 16)
+    // 同名节不止一条时补条号（手册里有两处「工作流」：卷级开局 / 每章），否则只给标题
+    const sameTitle = lines.filter((l) => titleOf(l) === base).length
+    rows.push('| ' + term + ' | ' + base + (sameTitle > 1 ? '（第 ' + (idx + 1) + ' 条）' : '') + ' |')
+  }
+  if (!rows.length) die('术语对照生成了 0 行——空集不是"没有术语要列"')
+  return rows
 }
 
 // 解析预设：只做行级扫描（不引 YAML 依赖），定位六个角色条目与它们的三行
@@ -448,6 +524,25 @@ function codebuddyDoc() {
   L.push('另有一类**同向**的坑：名字真实存在，但在本形态**缺席**（如团队成员形态的 `Agent`/`TeamCreate`）——')
   L.push('禁它们不是"封住了"，是**空操作**（没有工具可禁）。第三节的「本形态没有/未核实」一列就是为它设的。')
   L.push('')
+  // ── 五b. 第三格：**存在、但本形态下不可用**（与"不存在""已封"都不同类，故单列）
+  // 2026-09-21 第三方实测加的一格。混进第五节＝读者把"惰性"读成"已封"；
+  // 混进"已核实不存在"＝说了一个假话（名字真在官方清单里）。
+  {
+    const inert = host.inert_tools_verified || []
+    L.push('## 五b、存在、但**本形态下不可用**的名字（不许读成"已封"）')
+    L.push('')
+    if (!inert.length) {
+      L.push('（无——本宿主暂无"名字存在但本形态惰性"的实测条目）')
+    } else {
+      L.push('这一类与上一节**后果同类、成因不同**：上一节是名字不存在；这里是名字存在、能发起调用，但会被宿主拒。')
+      L.push('')
+      for (const t of inert) {
+        L.push('- `' + t.tool + '` @ **' + t.form + '**：' + t.why)
+        if (t.consequence) L.push('  - 于是怎么办：' + t.consequence)
+      }
+    }
+    L.push('')
+  }
   L.push('## 六、与 DSH 形态的强度差异（读者需要知道的那部分）')
   L.push('')
   L.push('| 机制 | DSH 形态 | 本形态（现状） |')
@@ -458,15 +553,25 @@ function codebuddyDoc() {
   L.push('')
   L.push('引用本形态的盲读结论做重要判断时，请带上这条限定。日常写作不受影响。')
   L.push('')
-  L.push('## 七、给实测用：只含已核实真名的声明片段')
+  L.push('## 七、给实测用：只含已核实真名的声明片段（★读之前先看"落点"在不在）')
   L.push('')
   L.push('下表这几条**只由已核实的真名组成**（不含任何"未核实"能力），可以直接拿去做运行时红测——例如给某个 agent 加上它，重启后看它还能不能调 `ToolSearch`：')
+  L.push('')
+  L.push('**★ 但先看清落点**：`disallowedTools` 只在 **agent 定义**（`agents/` 下的件、写在前言块里）里生效。')
+  L.push('本节里标「落点待建」的那几行，文件是**派工提示词**（在 `references/roles/` 目录下），不是 agent 定义——')
+  L.push('往它里面加 frontmatter **不会有任何效果**；照抄去测只会得到"加了没反应"，然后误判成"deny 不生效"。')
+  L.push('那几个工种的 agent 定义**尚未建立**（要建就得先回答"宿主接不接受只有 frontmatter + 指针的定义"这个问题）。')
   L.push('')
   for (const rid of roleIds) {
     const r = TABLE.roles[rid]
     const { names } = faceOf(rid, 'codebuddy')
     if (!names.length) continue
-    L.push('- **' + r.zh + '**（' + (r.codebuddy && r.codebuddy.file ? r.codebuddy.file : '—') + '，形态 ' + r.codebuddy.form + '）：`disallowedTools: [' + names.join(', ') + ']`')
+    const f = r.codebuddy && r.codebuddy.file ? r.codebuddy.file : '—'
+    const isAgentDef = f.startsWith('agents/')
+    L.push('- **' + r.zh + '**（' + f + '，形态 ' + r.codebuddy.form + '）：`disallowedTools: [' + names.join(', ') + ']`')
+    L.push('  - 落点：' + (isAgentDef
+      ? '**是 agent 定义**（`agents/` 下的件）。当前**没有 frontmatter**，要先新建块；改完**必须重启**才生效（agent 定义不热加载）'
+      : '**待建**——`' + f + '` 是派工文本、不是 agent 定义，往里加 frontmatter 无效果（见本节开头）'))
   }
   L.push('')
   L.push('预期：加上之后该 agent 调这些工具应当直接失败或被拒。**若照样能调通，说明本形态的 deny 不生效**——那就要如实降级到"纪律约束"，并把这条写进交付说明，而不是当它生效了。')
@@ -532,18 +637,28 @@ if (wants('codebuddy')) {
   {
     const BEGIN = '<!-- 工具面：生成区开始'
     const END = '<!-- 工具面：生成区结束 -->'
-    const block = [
-      '<!-- 工具面：生成区开始（真源＝能力表 ' + REL_TABLE + '，生成器 ' +
-        path.relative(PLUGIN, path.join(PLUGIN, 'roles', 'build-tool-face.mjs')).split(path.sep).join('/') + '；手改会被覆盖） -->',
-      '**DSH 侧（宿主强制）**：本角色在 DSH 预设里的 `toolFilter.deny` 名单（含 2026-09-20 起的扇出/发现面封锁与 `maxDepth: 0` 深度锁）**由能力表生成，不在本文件复述**——复述就是第三份会过期的拷贝：2026-09-20 第三方实测，这五份派工文本里的名单**全部**落后真源（盲角色各漏 7 项反扇出条款）。要查实际名单就读能力表，或跑生成器 `--check`。',
-      '',
-      '**WorkBuddy 侧（只有声明，未核实生效）**：本角色应封的能力与**本宿主工具真名**见 `../宿主工具面.md`〔包内〕（生成件）。本形态下宿主**未证实**执行 deny，故一律按纪律约束对待，交付说明须标注"软隔离、证据力低于 DSH 形态"。',
-      END,
-    ].join('\n')
+    const genRel = path.relative(PLUGIN, path.join(PLUGIN, 'roles', 'build-tool-face.mjs')).split(path.sep).join('/')
     const names = roleIds
       .filter((r) => TABLE.roles[r].codebuddy && TABLE.roles[r].codebuddy.file &&
         TABLE.roles[r].codebuddy.file.startsWith('references/roles/'))
       .map((r) => ({ rid: r, rel: TABLE.roles[r].codebuddy.file }))
+    if (!names.length) die('能力表里没有任何 references/roles/ 派工文本登记——0 件不等于没问题（这段扫描等于空转）')
+    const block = [
+      '<!-- 工具面：生成区开始（真源＝能力表 ' + REL_TABLE + '，生成器 ' + genRel +
+        '；本段由本次生成写入 **' + names.length + '** 份派工文本——份数是现算的，不在文档里手写） -->',
+      '**DSH 侧（宿主强制）**：本角色在 DSH 预设里的 `toolFilter.deny` 名单（含 2026-09-20 起的扇出/发现面封锁与 `maxDepth: 0` 深度锁）**由能力表生成，不在本文件复述**——复述就是第三份会过期的拷贝：2026-09-20 第三方实测，这批派工文本里的名单**全部**落后真源（盲角色各漏 7 项反扇出条款）。要查实际名单就读能力表，或跑生成器 `--check`。',
+      '',
+      '**WorkBuddy 侧（只有声明，未核实生效）**：本角色应封的能力与**本宿主工具真名**见 `../宿主工具面.md`〔包内〕（生成件）。本形态下宿主**未证实**执行 deny，故一律按纪律约束对待，交付说明须标注"软隔离、证据力低于 DSH 形态"。',
+      '',
+      '**术语对照**（派工指令里会遇到这些词；坐标**从机制手册现读**，按同一份手册读细则）：',
+      '',
+      '| 术语 | 手册里出现处 |',
+      '|---|---|',
+      ...glossaryRows(),
+      '',
+      '> 给这一格的理由：术语不必背，但要**找得到**——2026-09-20 第三方实测，这些词此前只活在主编侧与手册里，派工文本里一个都没有（`grep -c` 主编 2 / 派工 0）。',
+      END,
+    ].join('\n')
     for (const { rel: fileRel } of names) {
       const stripPrefix2 = (t) => { const m = t.match(/^dsh-native\/[^/]+\/(.+)$/); return m ? m[1] : null }
       const full = [path.resolve(PLUGIN, 'wb-expert-starter', fileRel), path.resolve(PLUGIN, 'wb-expert-starter', stripPrefix2(fileRel) || fileRel)]
@@ -559,7 +674,6 @@ if (wants('codebuddy')) {
       else if (CHECK) results.push({ rel: shortRel, status: 'drift', note: '工具面生成区内容与能力表不一致' })
       else { await fsp.writeFile(full, next); results.push({ rel: shortRel, status: 'written', note: '工具面生成区已刷新' }) }
     }
-    if (!names.length) die('能力表里没有任何 references/roles/ 派工文本登记——0 件不等于没问题（这段扫描等于空转）')
   }
 }
 

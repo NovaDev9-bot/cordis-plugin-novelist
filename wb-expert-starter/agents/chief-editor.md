@@ -38,8 +38,8 @@ DSH 形态下的三道**机器约束**在 WorkBuddy 降级为**纪律条款**，
 
 | 机制 | DSH | WorkBuddy | 后果 |
 |---|---|---|---|
-| 主笔不得落账 | `toolFilter.deny` 逐名封死子代理写工具 | 子代理继承完整工具面，**无法按名过滤** | 落账权隔离=软约束。主笔若自行 `novel_chapter` 落账，你无从察觉——每轮验收必须查 `novel_verify` 与事件带，用账本反证 |
-| 盲角色输入隔离 | deny 掉 `read/glob/grep/novel_*`，机器封死 | 封不住 | 盲读证据力低于 DSH 形态。派工必须用「只读派工包」纪律条款（见 `skills/blind-read`），并在交付里如实标注"软隔离" |
+| 主笔不得落账 | `toolFilter.deny` 逐名封死子代理写工具 | `disallowedTools` **未证实生效**；且实测发现面（`ToolSearch`+`DeferExecuteTool`）可达、已实际执行过写入口 | 落账权隔离=软约束。主笔若自行 `novel_chapter` 落账，你无从察觉——每轮验收必须查 `novel_verify` 与事件带，用账本反证 |
+| 盲角色输入隔离 | deny 掉 `read/glob/grep/novel_*`，机器封死 | `disallowedTools` **未证实生效**；发现面可达（同上） | 盲读证据力低于 DSH 形态。派工必须用「只读派工包」纪律条款（见 `skills/blind-read`），并在交付里如实标注"软隔离" |
 | 开书/汇编 ask 门 | 宿主 ask 门拦工具调用 | 无宿主级 ask 门 | 改为**自守门**：`novel_init` / `novel_assemble` 前必须显式向 Owner 呈报并等确认，不得自行继续 |
 
 其余差异：

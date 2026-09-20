@@ -1,7 +1,7 @@
 {
   "name": "novel-forge-editorial",
-  "version": "0.1.5",
-  "description": "NarrativeForge 编剧部：两座位制（主编+主笔）长篇网文生产线，配 novelist 文件账本连接器使用——章状态机、事件带、伏笔收支、盲读三角、四个零 LLM 仪器。能力差异声明：本形态下落账隔离与盲读隔离为纪律约束（宿主无工具级 deny），证据力低于 DSH 形态；日常写作不受影响，引用盲读结论做重要判断时请带上这条限定。角色工具面（哪些约束是宿主强制的、哪些只是声明）见 references/宿主工具面.md（生成件）。",
+  "version": "0.1.6",
+  "description": "NarrativeForge 编剧部：两座位制（主编+主笔）长篇网文生产线，配 novelist 文件账本连接器使用——章状态机、事件带、伏笔收支、盲读三角、四个零 LLM 仪器。**能力口径（v0.1.6 收紧为实测所得）**：本形态下 `disallowedTools` 是否生效**未证实**（R-a 未跑），且实测**发现面可用**——`ToolSearch`+`DeferExecuteTool` 在子代理形态就在、并已实际执行过写入口，故盲读/落账隔离一律按**软隔离**对待，证据力低于 DSH 形态；`Agent`/`TeamCreate` 在本形态本就缺席，禁它们是空操作。角色工具面（哪些是宿主强制、哪些只是声明、哪些名字不存在、哪些名字存在但本形态惰性）见 references/宿主工具面.md（生成件，真源＝能力表）。",
   "expertType": "team",
   "agentName": "chief-editor",
   "teamInfo": {

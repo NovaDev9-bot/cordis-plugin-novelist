@@ -11,6 +11,7 @@
  * 所以本守卫**每一条都报扫到了几件**——0 件 = 失败，不是"通过"。
  */
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import path from 'node:path'
 import os from 'node:os'
 import { fileURLToPath } from 'node:url'
@@ -34,6 +35,11 @@ const say = (s) => { report.push(s); console.log(s) }
 const rel = (p) => path.join(root, p)
 const listDir = (p) => { try { return readdirSync(rel(p)) } catch { return [] } }
 const isFile = (p) => { try { return statSync(rel(p)).isFile() } catch { return false } }
+// 递归列件（返回包根相对的路径，Windows 下用 \ 分隔——比较前一律归一成 /）。
+// 原先 §7 与 §10 各自在块内定义了一份，§6b 要用就得再抄一份；那是同一实现的第三份拷贝，
+// 故提到模块层（§10 的那份行为不同——只收 .mjs，保留在原处）。
+const walk = (d) => readdirSync(rel(d), { withFileTypes: true })
+  .flatMap((e) => e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)])
 
 // ── 1. plugin.json ──────────────────────────────────────────────────────────
 const pjPath = rel('.codebuddy-plugin/plugin.json')
@@ -228,12 +234,59 @@ for (const [label, fn, min] of assets) {
     ok++
   }
   if (ok === 0) findings.push('自证失败：agents/ 下没有任何一件通过人格核验')
-  say('· 人格核验：' + ok + '/' + agents.length + ' 通过')
+  say('· 人格核验：' + ok + '/' + agents.length + ' 通过（内容级；逐字节完整性见下节）')
+}
+
+// ── 6b. 全包逐字节可核：读包内 MANIFEST.sha256，对**清单里每一件**重算比对 ────────
+// 2026-09-20 第三方复核 §三.3：上面那节是**抽查**（首句 + 长度），只能说明"文件没被截断"，
+// 说明不了"没被改过一个字"。而包根早就有装配器产出的 `MANIFEST.sha256`（逐件哈希，随包发布）。
+// 在该节里再手写一份"人格文件哈希 × N 件"＝同一事实的第四份拷贝（已有：源仓、包内文件、
+// 装配器清单），故这里只做一件事：**读既有清单 → 重算 → 比对**。零新增真源，
+// 判据从"抽查"升级为"全包逐字节可核"——覆盖缓存拷贝、手工改动、半截升级三种腐烂方式。
+{
+  if (!isFile('MANIFEST.sha256')) {
+    findings.push('缺 MANIFEST.sha256（由装配器产出、随包发布）——没有它就无法回答"这个包有没有被改过"')
+  } else {
+    const entries = readFileSync(rel('MANIFEST.sha256'), 'utf8').split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
+    if (entries.length === 0) findings.push('自证失败：MANIFEST.sha256 是空的（空清单不等于"没有要核的"）')
+    let okHash = 0
+    const listed = new Set()
+    const bad = []
+    for (const line of entries) {
+      const m = line.match(/^([0-9a-f]{64})\s\s(.+)$/)
+      if (!m) { findings.push('MANIFEST.sha256 有无法解析的行：' + line.slice(0, 80)); continue }
+      const want = m[1], f = m[2]
+      if (listed.has(f)) { findings.push('MANIFEST.sha256 里同一文件出现两次：' + f); continue }
+      listed.add(f)
+      if (!existsSync(rel(f))) { bad.push(f + '（清单里有、盘上没有）'); continue }
+      const got = createHash('sha256').update(readFileSync(rel(f))).digest('hex')
+      if (got !== want) bad.push(f + '（哈希不符：清单 ' + want.slice(0, 12) + ' / 实际 ' + got.slice(0, 12) + '）')
+      else okHash++
+    }
+    if (listed.size === 0) findings.push('自证失败：MANIFEST 里一件也没解析出来——模式失配？')
+    if (bad.length) {
+      findings.push('包内文件与 MANIFEST 不符 ' + bad.length + ' 件（包被改过，或装配没跑完）：\n      ' + bad.slice(0, 6).join('\n      ') +
+        (bad.length > 6 ? '\n      …… 另有 ' + (bad.length - 6) + ' 件' : ''))
+    }
+    // 反向：盘上有、清单里没有的（手工塞进来 / 缓存残留）——只在装配器会产出的三个面里扫，
+    // 免得把宿主自己放的东西当异常（隐藏项与 node_modules 一律不算）。
+    const surfaces = ['agents', 'references', 'scripts', 'skills', 'craft', 'avatars', 'vendor', '.codebuddy-plugin']
+    const extras = []
+    for (const s of surfaces) {
+      if (!existsSync(rel(s))) continue
+      for (const f of walk(s)) {
+        if (f.split(/[\\/]/).some((seg) => seg.startsWith('.') && seg !== '.codebuddy-plugin')) continue
+        const norm = f.split(path.sep).join('/')
+        if (!listed.has(norm)) extras.push(norm)
+      }
+    }
+    if (extras.length) findings.push('包内多出 MANIFEST 未登记的文件 ' + extras.length + ' 件（手工塞进来的，或上一次装配的残留）：\n      ' + extras.slice(0, 6).join('\n      '))
+    say('· 逐字节完整性：' + okHash + '/' + listed.size + ' 件与 MANIFEST.sha256 相同' + (extras.length ? '（另有 ' + extras.length + ' 件未登记）' : '，无未登记文件'))
+  }
 }
 
 // ── 7. 全包乱码扫描（U+FFFD = 编码事故指纹） ────────────────────────────────
 {
-  const walk = (d) => readdirSync(rel(d), { withFileTypes: true }).flatMap((e) => e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)])
   let scanned = 0
   for (const f of walk('.')) {
     if (!/\.(md|json|mjs)$/.test(f)) continue

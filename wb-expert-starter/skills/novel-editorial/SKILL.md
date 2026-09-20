@@ -17,7 +17,7 @@ description: "编剧部主流程 SOP——把「写一章」拆成可核对的�
 2. `novel_ask` 一次查账（实体卡 + 伏笔欠线 + 时间线 + 事件带窗口一次拼好）。
 3. 有一个以上未闭欠线时，先看 `novel_verify` 的 `issues`（硬清单）——**P0 未清不许开新章**。
 
-## 1. 每章的五步（主编手工工具调用目标 ≤3 次/章）
+## 1. 每章的五步（主编手工工具调用目标 ≤3 次/章；该指标**不含 §3 验收与批末聚合**——§3 另有 5 步，那几步的工具动作不计入本指标）
 
 | 步 | 动作 | 工具 |
 |---|---|---|
@@ -70,8 +70,8 @@ description: "编剧部主流程 SOP——把「写一章」拆成可核对的�
 
 | 机制 | DSH | WorkBuddy |
 |---|---|---|
-| 主笔落账权隔离 | `toolFilter.deny` 逐名封死 | **封不住** → 靠纪律 + 交付后 `novel_verify` 反证 |
-| 盲角色输入隔离 | deny `read/glob/grep/novel_*` | **封不住** → 「只读派工包」纪律条款（见 `skills/blind-read`） |
+| 主笔落账权隔离 | `toolFilter.deny` 逐名封死（宿主强制） | **未证实生效** → 按纪律对待 + 交付后 `novel_verify` 反证 |
+| 盲角色输入隔离 | deny `read/glob/grep/novel_*`（宿主强制） | **未证实生效**；且实测**发现面（`ToolSearch`+`DeferExecuteTool`）在子代理形态就在、并已实际执行过写入口** → 按**软隔离**对待（细则见 `skills/blind-read`） |
 | 开书/汇编 ask 门 | 宿主 ask 门拦调用 | **无宿主门** → 自守门：`novel_init`/`novel_assemble` 前显式呈报并等 Owner 确认 |
 
 ## 6. 仪器（零 LLM，不许用模型判断冒充读数）

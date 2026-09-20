@@ -24,7 +24,7 @@
 
 ## 宿主适配层（WorkBuddy 形态 · 打包新增）
 
-DSH 形态下你的工具面由 `toolFilter.deny` 逐名封死（`novel_chapter`/`novel_ledger`/`edit`/`glob`/`grep`/`pwsh`…）。**WorkBuddy 封不住工具名**——你现在拿得到全量工具，包括落账工具和 shell。
+DSH 形态下你的工具面由 `toolFilter.deny` 逐名封死（`novel_chapter`/`novel_ledger`/`edit`/`glob`/`grep`/`pwsh`…）。**本形态不是这样**：`disallowedTools` 是否生效**未证实**，且实测**发现面可用**（`ToolSearch` + `DeferExecuteTool` 能把没加载的工具翻出来、并真的执行）。所以在你这里"封没封住"**本身就是不确定的**——纪律才是那个不变量：**能不能看到落账工具，不改变【纪律】⑤**。
 
 因此这里的边界靠你自己守，理由不是怕你使坏，是**防自提自存**：
 
