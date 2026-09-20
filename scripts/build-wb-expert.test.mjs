@@ -9,6 +9,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync, readdirSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import fsSync from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -37,15 +38,17 @@ const run = (args) => {
   return spawnSync(process.execPath, [SCRIPT, '--book-root', BOOK_ROOT, ...argv], { encoding: 'utf8' })
 }
 
-// 装配器的第 0 步会调角色工具面生成器的 --check（fail-closed）。假仓里放一个"永远通过"的
-// 桩：本组用例要测的是"源被掏空"，不该被前置检查的缺失抢答——两条都是 exit 2，
-// 但报错说的不是同一件事，混在一起就没人再看得懂红的是哪一层。
+// 装配器的第 0 步会调 roles/ 下的两个守卫（工具面生成器 --check 与文本层不变量），fail-closed。
+// 假仓里各放一个"永远通过"的桩：本组用例要测的是"源被掏空"，不该被前置检查的缺失抢答——
+// 两条都是 exit 2，但报错说的不是同一件事，混在一起就没人再看得懂红的是哪一层。
+// （2026-09-21：守卫从一个变成两个，这里同步补桩——漏一个就会让所有用例统一死在"缺守卫"上。）
 const stubRoleFaceGenerator = (repo) => {
   // 位置跟 PLUGIN 走：flat 下是仓根，mono 下是 dsh-native/plugin-novelist。
   const base = fsSync.existsSync(path.join(repo, 'dsh-native')) ? path.join(repo, 'dsh-native', 'plugin-novelist') : repo
   const dir = path.join(base, 'roles')
   mkdirSync(dir, { recursive: true })
   writeFileSync(path.join(dir, 'build-tool-face.mjs'), 'process.exit(0)\n')
+  writeFileSync(path.join(dir, 'text-invariants.mjs'), 'process.exit(0)\n')
 }
 
 const build = (dir) => {
@@ -54,8 +57,7 @@ const build = (dir) => {
   return r
 }
 
-test('装配：产出 ≥40 件且关键件齐（含派工角色、协议、仪器、头像）', () => {
-  const out = path.join(tmp('nf-wb-'), 'plugins', 'novel-forge-editorial')
+test('装配：产出 ≥40 件且关键件齐（含派工角色、协议、仪器、头像）', () => {  const out = path.join(tmp('nf-wb-'), 'plugins', 'novel-forge-editorial')
   build(out)
   const files = walk(out).map((f) => path.relative(out, f).split(path.sep).join('/'))
   assert.ok(files.length >= 40, '件数过少：' + files.length)
@@ -68,6 +70,24 @@ test('装配：产出 ≥40 件且关键件齐（含派工角色、协议、仪�
   // 清单行数 = 清单外文件数（MANIFEST 自己不入清单）
   const manifest = readFileSync(path.join(out, 'MANIFEST.sha256'), 'utf8').trim().split('\n')
   assert.equal(manifest.length, files.filter((f) => f !== 'MANIFEST.sha256').length, '清单与实际产出不匹配')
+})
+
+test('参数缺失时**包内零变化**：--book-root 的判定必须在任何写盘之前（2026-09-21 覆核 §六.1）', () => {
+  const out = path.join(tmp('nf-wb-'), 'plugins', 'novel-forge-editorial')
+  build(out)                                   // 先装出一个完好的包，作为"零变化"的基线
+  const snap = () => walk(out).map((f) => path.relative(out, f).split(path.sep).join('/') + ' ' +
+    createHash('sha256').update(readFileSync(f)).digest('hex')).sort()
+  const before = snap()
+  assert.ok(before.length > 30, '基线快照太小：' + before.length)
+
+  // 故意不给 --book-root（并把环境变量置空，免得被环境兜住）
+  const r = spawnSync(process.execPath, [SCRIPT, '--root', REPO_ROOT, '--out', out],
+    { encoding: 'utf8', env: { ...process.env, NF_BOOK_ROOT: '' } })
+  assert.equal(r.status, 2, '缺参数必须 exit 2：' + r.stdout + r.stderr)
+  assert.match(r.stdout + r.stderr, /缺 --book-root/, '要说清缺的是哪个参数')
+  assert.match(r.stdout + r.stderr, /写盘之前/, '要说明这条判定发生在写盘之前（读者据此判断包有没有被动过）')
+  assert.deepEqual(snap(), before, '判定必须在写盘之前：包内必须逐字节零变化' +
+    '（实测事故：旧实现先写了 3 件再 die，退出码 2 被读成"什么都没动"，而包已经脏了）')
 })
 
 test('专家自带连接器：mcpServers 指向包内 + vendor 资产齐全 + 手册与真源同文', async () => {

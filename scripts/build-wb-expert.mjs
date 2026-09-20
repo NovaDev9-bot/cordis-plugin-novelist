@@ -88,6 +88,8 @@ const OUT = CHECK ? fsSync.mkdtempSync(path.join(os.tmpdir(), 'nf-wb-check-')) :
 
 const written = []
 let SRC_MOD = null       // 真源 lib 模块句柄（等价性断言要用它的 TOOLS 数）
+let bookRoot = null      // 书库根（第 0a 步校验并解析，第 6b 步注入 plugin.json）
+
 // 上一版清单必须在写入任何文件**之前**读出来——写在后面会被本次覆盖，
 // 于是 --prune 永远看到"新清单"，残留一件也清不掉（本装配器第一版就栽在这）。
 const prevManifestPath = path.join(OUT, 'MANIFEST.sha256')
@@ -97,6 +99,60 @@ const prevFiles = fsSync.existsSync(prevManifestPath)
 const report = []
 const srcOf = new Map()          // outRel → 源绝对路径（引用改写用；生成件不入表）
 const say = (s) => { report.push(s); console.log(s); }
+
+// ── 0a. 参数校验必须在**任何写盘之前**（2026-09-21 第三方复核 §六.1 修）
+// 实测事故：漏 `--book-root` 时，装配器**先写了一部分包**再 die——而退出码 2 的语义是
+// "没检查成"，最容易被读成"什么都没动"，实际包已经被写脏（plugin.json 丢了书库根、
+// 源仓坐标漏进包、selfcheck 当场红 6 条引用不可达）。判据＝缺参数时目标目录逐字节零变化。
+// 残留风险（如实登记，不假装根治）：这是"校验前移"，不是原子替换——运行中途其它 die
+// （某路源文件缺失等）仍会留下半成品。要根治得改成"临时目录装配 + 校验通过后原子替换"，
+// 那时 --prune/清单读取/市场根推导三处都要跟着改，属另一件事。
+{
+  const bookRaw = opt('--book-root') || process.env.NF_BOOK_ROOT
+  if (!bookRaw) {
+    die('缺 --book-root <书库目录>',
+      '书库根＝你放书稿的目录（MCP server 的 --root 硬前置，所有 book_dir 都圈在它里面）。'
+      + '\n  两种给法：①--book-root <目录>  ②环境变量 NF_BOOK_ROOT。'
+      + '\n  它是安全边界，所以本工具**不猜默认值**——给一个你自己的目录即可。'
+      + '\n  （本判定在写盘之前，缺参数时目标目录零变化）')
+  }
+  bookRoot = path.resolve(bookRaw)
+  if (!fsSync.existsSync(bookRoot)) {
+    die('书库根不存在：' + bookRoot, '换一个已存在的目录，或先把它建出来。（本判定在写盘之前）')
+  }
+}
+
+// ── 0b. 角色工具面 / 文本层不变量：装配前先核对"派生件与真源一致"（fail-closed）
+// 为什么放在装配最前面：`references/宿主工具面.md`、角色名单、人格义务句、画像条款都是
+// **派生或有不变量的文本**，装配器只负责搬运。搬运一份过期的生成物＝把上一个版本的谎话
+// 打进包里，而包里没人会报。
+// 判定不许由本脚本再写一份（同一事实两处判定＝本项目最贵的那类缺陷），一律调 roles/ 下的
+// 守卫脚本；红了就装配失败，连带它的原话一起打印。
+// --root 取 PLUGIN：本装配器在 mono/flat 两种布局下都从**插件仓**取源，校验范围与取源范围一致。
+{
+  const guards = [
+    {
+      rel: 'roles/build-tool-face.mjs', args: ['--check'], label: '角色工具面',
+      what: '能力表 roles/tool-face.json 是真源；生成物（预设名单、宿主工具面文档）手改无效',
+    },
+    {
+      rel: 'roles/text-invariants.mjs', args: [], label: '文本层不变量',
+      what: '人格义务句禁模式 / 画像条款跨化身同句 / SOP 同数——三组都由它守着，改文本时别绕过它',
+    },
+  ]
+  for (const g of guards) {
+    const gen = path.join(PLUGIN, g.rel)
+    if (!fsSync.existsSync(gen)) {
+      die('缺' + g.label + '守卫：' + gen, '本仓新增的 roles/ 必须在发布清单里（package.json 的 files）')
+    }
+    const r = spawnSync(process.execPath, [gen, '--root', PLUGIN].concat(g.args), { encoding: 'utf8' })
+    const out = ((r.stdout || '') + (r.stderr || '')).trimEnd()
+    if (r.status !== 0) {
+      die(g.label + '守卫未通过（退出码 ' + r.status + '）——先跑：node ' + g.rel + '\n' + out, g.what)
+    }
+    say('· ' + g.label + '：与真源一致（已核对）')
+  }
+}
 const sha = (buf) => crypto.createHash('sha256').update(buf).digest('hex')
 const write = async (rel, data, srcAbs) => {
   const norm = rel.split(path.sep).join('/')      // 清单/自证一律用 / 口径（Windows path.join 给的是 \）
@@ -118,26 +174,6 @@ const copyDir = async (src, destRel, filter) => {
   }
   if (n === 0) die('自证失败：' + src + ' 扫到 0 件（0 件不等于"没有变化"——多半是路径错了）')
   return n
-}
-
-// ── 0. 角色工具面：装配前先核对"派生件与能力表一致"（fail-closed）
-// 为什么放在装配最前面：`references/宿主工具面.md` 与角色名单都是**生成物**，
-// 装配器只负责搬运。搬运一份过期的生成物＝把上一个版本的谎话打进包里，而包里没人会报。
-// 判定不许由本脚本再写一份（同一事实两处判定＝本项目最贵的那类缺陷），
-// 一律调 roles/build-tool-face.mjs 的 --check；它红了就装配失败，连带它的原话一起打印。
-// --root 取 PLUGIN：本装配器在 mono/flat 两种布局下都从**插件仓**取源，校验范围与取源范围一致。
-{
-  const gen = path.join(PLUGIN, 'roles', 'build-tool-face.mjs')
-  if (!fsSync.existsSync(gen)) {
-    die('缺角色工具面生成器：' + gen, '本仓新增的 roles/ 必须在发布清单里（package.json 的 files）')
-  }
-  const r = spawnSync(process.execPath, [gen, '--root', PLUGIN, '--check'], { encoding: 'utf8' })
-  const out = ((r.stdout || '') + (r.stderr || '')).trimEnd()
-  if (r.status !== 0) {
-    die('角色工具面派生件与能力表不一致（退出码 ' + r.status + '）——先跑：node roles/build-tool-face.mjs\n' + out,
-      '能力表 roles/tool-face.json 是真源；生成物（预设名单、宿主工具面文档）手改无效')
-  }
-  say('· 角色工具面：与能力表一致（已核对）')
 }
 
 // ── 1. 模板（人手写的那部分） ───────────────────────────────────────────────
@@ -328,19 +364,7 @@ say('· 作家卡：' + await copyDir(path.join(PLUGIN, 'craft', 'author-cards')
 // （官方 sheetagent 等就这么做，用 ${CODEBUDDY_PLUGIN_ROOT} 指包内路径）。
 // 模板里的 plugin.json 保持机器无关，mcpServers 由本装配器按当机书库根注入。
 {
-  // 书库根＝MCP server 的 --root 硬前置（所有 book_dir 都圈在它里面）。
-  // **必须显式给**：它是安全边界，不是可以猜的默认值——也就不该把任何人的本机目录名写进本仓。
-  const bookRaw = opt('--book-root') || process.env.NF_BOOK_ROOT
-  if (!bookRaw) {
-    die('缺 --book-root <书库目录>',
-      '书库根＝你放书稿的目录（MCP server 的 --root 硬前置，所有 book_dir 都圈在它里面）。'
-      + '\n  两种给法：①--book-root <目录>  ②环境变量 NF_BOOK_ROOT。'
-      + '\n  它是安全边界，所以本工具**不猜默认值**——给一个你自己的目录即可。')
-  }
-  const bookRoot = path.resolve(bookRaw)
-  if (!fsSync.existsSync(bookRoot)) {
-    die('书库根不存在：' + bookRoot, '换一个已存在的目录，或先把它建出来。')
-  }
+  // 书库根已在第 0a 步校验并解析（bookRoot）——判定前移到任何写盘之前，此处只用不判。
   const pkgJson = JSON.parse(fsSync.readFileSync(path.join(PLUGIN, 'package.json'), 'utf8'))
 
   const vendorFiles = [
@@ -735,6 +759,32 @@ if (written.length < 30) die('自证失败：只装配了 ' + written.length + '
 // 别写回作者名：公开包出现真名会被去名纪律与公私边界检查双重拦下。
 for (const must of ['agents/chief-editor.md', 'agents/author.md', 'scripts/selfcheck.mjs', 'references/protocols/盲读协议.md', 'craft/author-cards/民俗考据-水怪悬疑.md']) {
   if (!written.includes(must)) die('自证失败：关键件缺失 ' + must)
+}
+
+// ── 8b. 作家卡双份必须逐字节相同（2026-09-20 第三方复核 X3 → fail-closed）
+// 卡在包内**必须有两份**：`craft/author-cards/`（派工取用、读者照着读的那份）与
+// `vendor/novelist/craft/author-cards/`（**连接器运行期资产**——lib/novelist.js 用
+// import.meta.url 相对解析它，删了那一路会让手册里的路径静默降级成"与本插件同目录"的假路径，
+// 写手照着找不到而全程不报错）。所以合并成一份不是选项。
+// 两份都由本脚本从同一源写成，但**7c2 的引用改写是按 .md 逐文件跑的**——"同一源"推不出
+// "同一结果"，所以这里在**全部改写之后**逐文件比 sha256，而不是相信构造。
+// 放第 8 步而不是第 0 步：断言必须在 7c2 之后才有意义（改写会动这些 .md）。
+{
+  const rels = written.filter((r) => /^craft\/author-cards\/.+\.md$/.test(r))
+  if (!rels.length) die('自证失败：包内 craft/author-cards/ 一件 .md 都没有（卡这一层空转）')
+  let same = 0
+  for (const r of rels) {
+    const a = path.join(OUT, r)
+    const b = path.join(OUT, 'vendor', 'novelist', r)
+    if (!fsSync.existsSync(b)) die('自证失败：vendor 侧缺作家卡 ' + r + '（连接器运行期解析不到＝卡层静默降级）')
+    const [ha, hb] = [sha(await fsp.readFile(a)), sha(await fsp.readFile(b))]
+    if (ha !== hb) {
+      die('自证失败：作家卡两份不一致——' + r + '（craft ' + ha.slice(0, 12) + ' vs vendor ' + hb.slice(0, 12) + '）',
+        '两份由同一源写出，不一致只能来自改写通道；对齐来源后再装配（别手改包内任何一份）')
+    }
+    same++
+  }
+  say('· 作家卡双份自证：' + same + ' 件 craft ↔ vendor 逐字节相同')
 }
 console.log('')
 if (CHECK) {

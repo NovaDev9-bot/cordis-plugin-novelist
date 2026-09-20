@@ -64,17 +64,27 @@
       },
       "known_tools": [
         "Agent", "Bash", "Edit", "Glob", "Grep", "PowerShell", "Read", "Write", "WebFetch", "WebSearch",
-        "NotebookEdit", "TaskCreate", "TaskGet", "TaskList", "TaskOutput", "TaskStop", "TaskUpdate",
+        "NotebookEdit", "SendMessage", "TaskCreate", "TaskGet", "TaskList", "TaskOutput", "TaskStop", "TaskUpdate",
         "TeamCreate", "TeamDelete", "Workflow", "ToolSearch", "DeferExecuteTool", "REPL"
       ],
-      "known_tools_note": "官方 tools-reference 的模型可见内置工具真名（2026-09-20 核实）。CodeBuddy 列里出现不在本清单的名字＝拼错了或抄错了宿主，生成器直接拒绝（R-c：不许静默空转）。",
+      "known_tools_note": "官方 tools-reference 的模型可见内置工具真名（2026-09-20 核实；`SendMessage` 由 2026-09-21 运行时硬返回坐实——见 evidence）。CodeBuddy 列里出现不在本清单的名字＝拼错了或抄错了宿主，生成器直接拒绝（R-c：不许静默空转）。",
       "nonexistent_tools_verified": ["Task", "read_image", "pwsh"],
       "nonexistent_tools_note": "从 DSH 名单直抄会**静默空转**的三个名字（官方清单里没有它们）。`Task`：只有 Task* 六件；`read_image`：图像并入 Read；`pwsh`：真名是 PowerShell。",
+      "inert_tools_verified": [
+        {
+          "tool": "SendMessage",
+          "form": "subagent",
+          "why": "**存在、但本形态下不可用**——名字真实，不在团里的普通子代理发起调用会被宿主拒：`Not in a team. SendMessage is only available when you are in a team or have background agents running.`（2026-09-21 WB 侧「强行发起一次调用」实测，硬返回）",
+          "consequence": "对以 subagent 形态跑的五个盲角色，封它是**空操作**（没有可用的通道可封）。它与 nonexistent 那三个**后果同类、成因不同**：那三个是名字不存在，这个是名字存在但本形态下惰性。要防它，只能改用 teammate 形态并另算语义（teammate 里 SendMessage 是向主编回报的**正常通道**，封掉＝断回报——同一格能力在两种形态下语义相反）。"
+        }
+      ],
+      "inert_tools_note": "**存在、本形态不可用**的名字（与「已封」「不存在」都不同类，故单列一格）。混进别的格子会让读者把「惰性」读成「已封」。",
       "evidence": [
         "官方 tools-reference（2026-09-20 由 WB 侧提供 docId=0218529670178036e200025d1c13158e）：内置工具真名清单见 known_tools；插件 agent 的 tools / disallowedTools 受支持，permissionMode 与 hooks 与 mcpServers 被静默忽略",
         "**运行时实测（WB 侧回执 2026-09-20 18:4x，三条已跑完）**：MCP 工具名形如 `mcp__<server>__<tool>`（主编与子代理两处交叉一致，server=novelist）",
         "**运行时实测**：`ToolSearch` 与 `DeferExecuteTool` 在**普通子代理与团队成员两种形态都在**；子代理用 DeferExecuteTool 执行 `mcp__novelist__novel_guide` 成功（返回 v7.14 全文 → 非幻觉），且 ToolSearch 能列出 `mcp__novelist__novel_chapter`（唯一写入口）与 novel_init → **发现面就是绕过面**",
         "**运行时实测**：`Agent` 对子代理缺席（`Tool Agent not found in agent general-purpose.`）、`TeamCreate` 缺席（`Tool \"TeamCreate\" is not available in the current environment or configuration.`）；裸 `Task` 三形态都不存在 ⇒ 把「禁 Agent/TeamCreate」当加固子代理隔离的手段是**空操作**",
+        "**运行时实测（2026-09-21）**：`SendMessage` 真名坐实（强行发起调用拿到宿主硬返回），且**在 subagent 形态下惰性**——见 inert_tools_verified。它是 `agent.message` 那一格从 unverified 翻成已核实名的判据。",
         "**运行时实测**：宿主在配置解析后**追加注入**工具（maybeInjectSendMessage / maybeInjectExitPlanMode）⇒ **白名单不可靠**（会被宿主往上加东西），必须用 deny 形态",
         "**运行时实测**：插件包内**无 hooks/ 目录**，且插件 agent 的 hooks 被加载器忽略——故「用插件级 hooks 做 ask 门」这条路在本形态**不通**，不要再拿它当兜底方案"
       ],
@@ -196,7 +206,9 @@
       "zh": "跨代理发消息",
       "dsh": { "tools": ["send_message"], "note": "" },
       "codebuddy": {
-        "*": { "status": "unverified", "candidates": ["SendMessage"], "why": "宿主会**追加注入**发消息工具（maybeInjectSendMessage），但注入后的真名未核实——这也正是「白名单不可靠」的实证" }
+        "seat": { "tools": ["SendMessage"], "note": "可用（在团里或有后台代理在跑时）" },
+        "teammate": { "tools": ["SendMessage"], "note": "**这是成员向主编回报的正常通道**——成员形态封它＝断回报，故成员形态不封（DSH 侧给盲角色加的反扇出条款**不能照搬到这里**：同一格能力在两种形态下语义相反）" },
+        "subagent": { "tools": ["SendMessage"], "note": "**惰性**：名字真实存在，但不在团里时调用被宿主拒（`Not in a team. …`）⇒ 对以 subagent 形态跑的五个盲角色，封它是**空操作**。名字由 2026-09-21 硬返回坐实（见 hosts.codebuddy.inert_tools_verified）" }
       }
     }
   },
