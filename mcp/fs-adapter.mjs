@@ -41,10 +41,11 @@ function canonicalize(p) {
   }
 }
 
-export function createNodeFsAdapter(rootInput) {
+export function createNodeFsAdapter(rootInput, opts = {}) {
   if (!rootInput || !String(rootInput).trim()) {
-    throw new Error('[novelist-mcp] 书库根为空：启动必须带 --root <目录> 或环境变量 NOVELIST_ROOT（MCP 无宿主沙箱，所有路径必须圈在根内）')
+    throw new Error('[novelist-mcp] 书库根为空：启动必须带 --root <目录> 或环境变量 NF_BOOK_ROOT / NOVELIST_ROOT（MCP 无宿主沙箱，所有路径必须圈在根内）')
   }
+  const rootSource = opts.rootSource || '未知来源'
   const root = path.resolve(String(rootInput).trim())
   // 词法根与归一化根可能是两种字面（短名/链接）——**两形都算根内**（同一个目录）。
   const canonRoot = canonicalize(root)
@@ -61,7 +62,13 @@ export function createNodeFsAdapter(rootInput) {
     // tmpdir 是 RUNNER~1），而 server 启动时已把根 realpath 成长名（runneradmin）——两形
     // 同目录。只在字面层比会把"根内的合法路径"误判成越界（2026-09-19 真进程 e2e 在
     // windows runner 实测抓到；与下方 canonicalize 的注释同族，但那是根侧、这是候选侧）。
-    if (escaped(canonicalize(p))) throw new Error('[novelist-mcp] 路径越界被拒（' + what + '；书库根=' + root + '）：' + p)
+    if (escaped(canonicalize(p))) throw new Error(
+      '[novelist-mcp] 路径越界被拒（' + what + '）\n' +
+      '  书库根 = ' + root + '（来源：' + rootSource + '）\n' +
+      '  请求路径 = ' + p + '\n' +
+      '  两种可能，先分清是哪一种：\n' +
+      '  ①书建在了允许范围外 → 把 book_dir 改到根内，例：' + path.join(root, '我的书') + '\n' +
+      '  ②允许范围配错了 → 改宿主配置里的 --root（或设 NF_BOOK_ROOT 环境变量），**改完需重开会话/重启宿主**才生效')
   }
   // 已存在路径的真实路径也必须在根内（symlink 逃逸防线）；不存在则仅词法校验。
   const guardReal = async (p, what) => {

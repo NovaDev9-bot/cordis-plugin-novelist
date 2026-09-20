@@ -105,7 +105,7 @@ if (pj.expertType === 'team') {
       const bookRootCfg = ri !== -1 && cfg.args[ri + 1] ? cfg.args[ri + 1] : (cfg.env && cfg.env.NOVELIST_ROOT)
       if (!bookRootCfg) findings.push('mcpServers.' + name + ' 没有书库根（args --root 或 env NOVELIST_ROOT）——server.mjs 启动即退出，全部 novel_* 不可用')
       else if (!existsSync(bookRootCfg)) findings.push('mcpServers.' + name + ' 的书库根指向不存在的目录：' + bookRootCfg)
-      else say('· 书库根：' + bookRootCfg)
+      else say('· 书库根：' + bookRootCfg + '（来自 ' + (ri !== -1 ? 'args --root' : 'env NOVELIST_ROOT') + '；运行期可用 NF_BOOK_ROOT 覆盖，改后须重开会话）')
       say('· 内置连接器：' + name + ' → ' + paths.join(', '))
     }
     // 连接器冒烟：按 plugin.json 声明的 command/args **真起一次** server 并走 initialize 握手。
@@ -135,7 +135,7 @@ if (pj.expertType === 'team') {
 
 // ── 4. 关键资产存在性 + 基数自证 ────────────────────────────────────────────
 const assets = [
-  ['机制手册', () => listDir('references').filter((f) => /^novelist-guide-.*\.md$/.test(f)), 1],
+  ['机制手册', () => listDir('references').filter((f) => /^novelist-guide.*\.md$/.test(f)), 1],
   ['协议模板', () => listDir('references/protocols').filter((f) => f.endsWith('.md')), 5],
   ['派工角色', () => listDir('references/roles').filter((f) => f.endsWith('.md')), 4],
   ['作家卡', () => listDir('craft/author-cards').filter((f) => f.endsWith('.md')), 3],
@@ -151,10 +151,19 @@ for (const [label, fn, min] of assets) {
 
 // ── 5. 内容级：机制手册非空且是真中文（防导出截断/乱码） ─────────────────────
 {
-  const g = listDir('references').filter((f) => /^novelist-guide-.*\.md$/.test(f))
-  // 恰好一份：多份＝旧版残留没清（升级/重装没跟上），读者无法知道哪份是现行口径
-  // （2026-09-19 审计实测：缓存里 v7.12 与真源 v7.13 并存，人格与 skill 各说各话）
-  if (g.length > 1) findings.push('机制手册有 ' + g.length + ' 份（' + g.join('、') + '）——旧版残留没清，"唯一真源"有了两个互斥的化身')
+  const g = listDir('references').filter((f) => /^novelist-guide.*\.md$/.test(f))
+  // 文件名自 2026-09-20 起**去版本号**（REC-07）：版本只活在 GUIDE_VERSION 与文件首行。
+  // 旧版残留（`novelist-guide-v7.12.md` 之类）＝升级没清干净，读者不知道哪份是现行口径。
+  const staleVersions = listDir('references').filter((f) => /^novelist-guide-v7\.\d+\.md$/.test(f))
+  if (staleVersions.length) findings.push('机制手册有带版本号的旧版残留（' + staleVersions.join('、') + '）——文件名已去版本号，这些是升级残留，清掉')
+  if (g.length > 1) findings.push('机制手册有 ' + g.length + ' 份（' + g.join('、') + '）——"唯一真源"有了多个互斥的化身')
+  // 活版本交叉核对：手册首行声明的版本必须与 vendored 连接器的 GUIDE_VERSION 一致
+  // （REC-07 附带：selfcheck 打印**实际读到的**版本，而不是从文件名推断）
+  let liveVer = null
+  try {
+    const libSrc = readFileSync(rel('vendor/novelist/lib/novelist.js'), 'utf8')
+    liveVer = (libSrc.match(/GUIDE_VERSION\s*=\s*'([^']+)'/) || [])[1] || null
+  } catch { /* vendored 缺失由 §3b 报 */ }
   for (const f of g) {
     const t = readFileSync(rel('references/' + f), 'utf8')
     if (t.length < 8000) findings.push('机制手册疑似截断：' + f + ' 仅 ' + t.length + ' 字符')
@@ -165,6 +174,10 @@ for (const [label, fn, min] of assets) {
     if (cjk < 2000) findings.push('机制手册中文字数过少（' + cjk + ' 字，期望 ≥2000）：' + f)
     if (ratio < 0.4) findings.push('机制手册中文占比过低（' + Math.round(ratio * 100) + '%，期望 ≥40%——疑似乱码/编码错）：' + f)
     for (const sentinel of ['章状态机', '事件带']) if (!t.includes(sentinel)) findings.push('机制手册缺哨兵词「' + sentinel + '」：' + f)
+    const headVer = (t.slice(0, 200).match(/\b(v7\.\d+)\b/) || [])[1] || null
+    if (!headVer) findings.push('机制手册首行没有可识别的版本号（v7.N）：' + f)
+    else if (liveVer && headVer !== liveVer) findings.push('机制手册首行版本(' + headVer + ') 与连接器 GUIDE_VERSION(' + liveVer + ') 不一致：' + f)
+    if (headVer) say('· 机制手册活版本：' + headVer + '（与 vendored GUIDE_VERSION ' + (liveVer || '读不到') + ' ' + (liveVer && headVer === liveVer ? '一致' : '无法比对') + '）')
   }
   if (g.length) say('· 机制手册哨兵核验：' + g.length + ' 件通过长度/中文占比/哨兵三查')
 }
@@ -207,17 +220,21 @@ for (const [label, fn, min] of assets) {
   const TYPED = /^(https?:|mailto:|~\/|[A-Za-z]:[\\/]|\/|<|\$\{)/
   const PLACEHOLDER = /(YYYY|MM-DD|NN|XXX|卷N|第N|模型名_轮次|issue-NNN|弧X-弧Y|卷X-弧Y|book_dir)/
   const walkMd = (d) => readdirSync(rel(d), { withFileTypes: true }).flatMap((e) => e.isDirectory() ? walkMd(path.join(d, e.name)) : (e.name.endsWith('.md') ? [path.join(d, e.name)] : []))
+  const mdFiles = walkMd('.')
   let refs = 0, okRefs = 0
-  for (const f of walkMd('.')) {
+  // 跳过理由逐类计数（2026-09-20 复核 REC-08）：检查器不该豁免于本项目给仪器定的纪律——
+  // "把没测与测到没有分开报"。报 44/44 绿却不公开没查什么，读者会当成全覆盖。
+  const skipped = { 含空格: 0, 类型化: 0, 已标记: 0, 非文件: 0, 扩展名: 0 }
+  for (const f of mdFiles) {
     const own = path.dirname(rel(f))
     readFileSync(rel(f), 'utf8').split(/\r?\n/).forEach((line, i) => {
       for (const m of line.matchAll(TICK)) {
         const t = m[1].trim()
-        if (!ANYFILE.test(t)) continue
-        if (/[\s>|，。；：]/.test(t)) continue
-        if (/^\.[a-z]+$/i.test(t)) continue
-        if (TYPED.test(t) || PLACEHOLDER.test(t)) continue
-        if (MARK.test(line.slice(m.index + m[0].length, m.index + m[0].length + 6))) continue
+        if (!ANYFILE.test(t)) { skipped.非文件++; continue }
+        if (/[\s>|，。；：]/.test(t)) { skipped.含空格++; continue }
+        if (/^\.[a-z]+$/i.test(t)) { skipped.扩展名++; continue }
+        if (TYPED.test(t) || PLACEHOLDER.test(t)) { skipped.类型化++; continue }
+        if (MARK.test(line.slice(m.index + m[0].length, m.index + m[0].length + 6))) { skipped.已标记++; continue }
         refs++
         if (existsSync(path.join(root, t)) || existsSync(path.join(own, t))) okRefs++
         else findings.push('引用不可达（包根与文件自身目录都解析不到）：' + f + ':' + (i + 1) + ' → ' + t)
@@ -225,7 +242,30 @@ for (const [label, fn, min] of assets) {
     })
   }
   if (refs === 0) findings.push('自证失败：引用可达性扫到 0 条引用——模式失配还是正则写坏？0 条不等于没问题')
-  say('· 引用可达性：' + okRefs + '/' + refs + ' 条解析得到（包根或自身目录基准）')
+  say('· 引用可达性：' + okRefs + '/' + refs + ' 条解析得到（包根或自身目录基准）· 跳过 ' +
+    (Object.entries(skipped).filter(([, v]) => v).map(([k, v]) => k + ' ' + v).join('／') || '0'))
+
+  // ── 命令行形态（2026-09-20 复核 ISS-02）：`node <路径>.mjs` 的路径必须可达 ────
+  // 上面的判定以"反引号整段是一个路径"为前提，含空格即跳过——而读者会照抄的恰恰是命令。
+  // 装配器 7d 与这里此前是同一套判定，盲区镜像，双双报绿却漏掉 4 条照抄即崩的命令。
+  {
+    const CMD = /(\bnode\s+)([^\s`"'<>|]+\.(?:mjs|js))/g
+    let crefs = 0, cok = 0
+    for (const f of mdFiles) {
+      const own = path.dirname(rel(f))
+      readFileSync(rel(f), 'utf8').split(/\r?\n/).forEach((line, i) => {
+        for (const m of line.matchAll(CMD)) {
+          const t = m[2]
+          if (TYPED.test(t) || PLACEHOLDER.test(t)) continue
+          crefs++
+          if (existsSync(path.join(root, t)) || existsSync(path.join(own, t))) cok++
+          else findings.push('命令行引用的脚本不存在（照抄即 MODULE_NOT_FOUND）：' + f + ':' + (i + 1) + ' → ' + t)
+        }
+      })
+    }
+    if (crefs === 0) findings.push('自证失败：命令行形态扫到 0 条 node <路径> 引用——模式失配？0 条不等于没问题')
+    say('· 命令行可达性：' + cok + '/' + crefs + ' 条 node <路径> 可达')
+  }
 }
 
 // ── 8. 仪器可跑（语法级） ───────────────────────────────────────────────────
@@ -251,8 +291,44 @@ for (const [label, fn, min] of assets) {
   say('· 头像 PNG 魔数核验：' + pngs.length + ' 件')
 }
 
+// ── 10. 脚本层不依赖外置命令（2026-09-20 复核 REC-06） ──────────────────────
+// 事故：宿主 bash 的 PATH 缺 coreutils（dirname/head/sha256sum 全 127），依赖它们的启动脚本
+// 当场崩成 `cd: null directory`。宿主的锅不该由包来担，但**包内脚本可以自证不依赖**。
+// 判据：只允许 spawn/exec 用 process.execPath（也就是 node 自己）；出现外置命令名或 shell:true 即报。
+{
+  const scriptsAll = []
+  const walkMjs = (d) => readdirSync(rel(d), { withFileTypes: true }).flatMap((e) => e.isDirectory() ? walkMjs(path.join(d, e.name)) : (e.name.endsWith('.mjs') ? [path.join(d, e.name)] : []))
+  scriptsAll.push(...walkMjs('scripts'))
+  for (const f of walkMjs('vendor/novelist')) scriptsAll.push(f)
+  let checked = 0
+  const offenders = []
+  for (const f of scriptsAll) {
+    checked++
+    readFileSync(rel(f), 'utf8').split(/\r?\n/).forEach((line, i) => {
+      // 注释行不算（守卫自己第一版就被自己的说明文字命中——注释里写着示例形态）
+      const trimmed = line.trim()
+      if (trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/*')) return
+      // 只看真的"调用外部命令"的形态：spawnSync('cmd'…)/execSync('…')/execFileSync('cmd'…)，或 shell: true
+      const m = trimmed.match(/\b(?:spawn|spawnSync|exec|execSync|execFile|execFileSync)\s*\(\s*(['"`])([^'"`]+)\1/) ||
+        trimmed.match(/\bshell\s*:\s*true\b/)
+      if (!m) return
+      if (m[2] === 'node' || m[2] === process.execPath) return       // 显式调 node 允许
+      offenders.push(f + ':' + (i + 1) + '  ' + trimmed.slice(0, 90))
+    })
+  }
+  if (checked === 0) findings.push('自证失败：外置命令检查扫到 0 个脚本')
+  if (offenders.length) findings.push('脚本调用了外置命令（宿主可能没有，PATH 一缺即崩）：\n      ' + offenders.slice(0, 5).join('\n      '))
+  say('· 外置命令静态检查：' + checked + ' 个脚本' + (offenders.length ? '，命中 ' + offenders.length + ' 处' : '，零命中（只用 node 自身）'))
+}
+
 // ── 收束 ────────────────────────────────────────────────────────────────────
 console.log('')
+// 〔2026-09-20 复核 REC-08〕公开**覆盖面**：哪些形式本守卫不看。检查器不该豁免于
+// 本项目给仪器定的纪律（"显式列出测不了什么"）——不写这句，绿就会被读成"全覆盖"。
+console.log('[selfcheck] 本次未检查的形式（不并入"已核"，如实列出）：')
+console.log('  · 宿主环境层：bash/PATH/coreutils 可用性、MSYS 路径转换（/f/… → c:\\f\\…）、MCP 进程新鲜度')
+console.log('    —— 这些随宿主而变，跨机器结果不可能一致；其中"进程新不新鲜"须靠重开会话解决，不是包的缺陷')
+console.log('  · vendor 内第三方代码的逐行行为（只做语法与资产存在性核验）')
 if (findings.length) {
   console.error('[selfcheck] ✗ ' + findings.length + ' 条 findings：')
   findings.forEach((f) => console.error('  - ' + f))

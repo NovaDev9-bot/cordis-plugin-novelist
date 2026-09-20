@@ -1,6 +1,6 @@
 {
   "name": "novel-forge-editorial",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "NarrativeForge 编剧部：两座位制（主编+主笔）长篇网文生产线，配 novelist 文件账本连接器使用——章状态机、事件带、伏笔收支、盲读三角、四个零 LLM 仪器。",
   "expertType": "team",
   "agentName": "chief-editor",

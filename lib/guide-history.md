@@ -27,3 +27,9 @@ novelist-guide 机制沿革正文（下含 v6.0 → v7.13 逐版增量）。**�
 2. **仪器"没检查成"三修**——`structure-check` / `instrument-aggregate` 对不存在的书目录此前 EXIT 0 并产出"全 0 空报告"（aggregate 还会凭空建目录写文件）；现一律 exit 2 且零写入。`style-check` 无参调用此前炸在 `path.resolve(undefined)`（用法提示成了不可达代码），现判空前置 exit 2。
 3. **style-check 均值不把"未测"当 0**——`f(u) || 0` 曾把 null（0 汉字单元的密度＝未测）摊进均值冒充"0 命中"；现均值只对测到的单元求、全未测报 null，并随数报出 measured_units 分母。
 4. **build-blind-pool 种子接线 + corpus-falsify 锚书单源化**——前者 seed 只进 key 不进洗牌（可复算性承诺失效），现 `mulberry32(SEED)`；后者锚书作者靠第二份硬编码名单（4 人 vs ANCHORS 5 本，ANCHORS 成死代码），现从 ANCHORS 书名反查作者，名单只此一份。
+
+**〔2026-09-20 第三方复核修正批（v7.13 内更正，非新机制）〕** 修复方对同一批修复做独立复核（复核报告与问题汇总留痕：私有仓 `docs/audit/2026-09-20/`〔仓外〕），三条残留全部证实并修：
+
+1. **裁决定位：`resolve_conflict` 的 `accept_new` 按 target 生效窗回写**——旧实现 `.find(name)` 命中**首条同名记录**；而 v7.9 起同名可有多条版本记录（窗口不重叠），裁决会**写错那条且不报**。现在冲突事件与返回值都带 `target: {effective_from_ch, effective_to_ch}`，回写按窗口精确定位；legacy 事件（无 target）在同名多条时**拒写并说明**（宁可不写，不静默写错）。
+2. **书库根三件（可覆盖/可发现/可诊断）**——根解析优先级 `--root > NF_BOOK_ROOT > NOVELIST_ROOT`（新增环境变量覆盖，不动机器文件即可换根）；生效根与来源随 `initialize.instructions` 与 `novel_guide` 下发（不必故意触发越界才知道）；越界报错分叉为"书在范围外（改路径）"与"范围没配好（改配置，**改后须重开会话**）"两种，并给出根内示例路径。
+3. **文档与脚本里的可执行命令**——命令行形态（`node <路径>.mjs`）此前被引用检查整条跳过（含空格即跳过），现装配期与包自证各有一条独立通道核它；两份仪器脚本的用法串改为按自身所在目录现算（DSH 在 `instruments/`、专家包在 `scripts/`，写死任一个都会在另一种形态里指向不存在的路径）。

@@ -98,19 +98,23 @@ test('专家自带连接器：mcpServers 指向包内 + vendor 资产齐全 + �
   for (const p of paths) assert.ok(fsSync.existsSync(p), '内置手册指向的路径不存在（假路径）：' + p)
 })
 
-test('机制手册是现导的，且版本号取文中最高 v7.N（不是沿革起点）', () => {
+test('机制手册：文件名去版本号，版本以首行与 GUIDE_VERSION 为准（2026-09-20 REC-07）', () => {
   const out = path.join(tmp('nf-wb-'), 'plugins', 'novel-forge-editorial')
   build(out)
-  const guides = readdirSync(path.join(out, 'references')).filter((f) => /^novelist-guide-v7\.\d+\.md$/.test(f))
-  assert.equal(guides.length, 1, '机制手册应恰好一件，实得 ' + JSON.stringify(guides))
+  const guides = readdirSync(path.join(out, 'references')).filter((f) => /^novelist-guide.*\.md$/.test(f))
+  assert.deepEqual(guides, ['novelist-guide.md'], '机制手册应是唯一一份 novelist-guide.md（带版本号的旧形态会导致每版升版都要全包对齐引用），实得 ' + JSON.stringify(guides))
   const text = readFileSync(path.join(out, 'references', guides[0]), 'utf8')
   assert.ok(text.length > 8000, '手册疑似截断：' + text.length)
   for (const s of ['章状态机', '事件带']) assert.ok(text.includes(s), '手册缺哨兵词：' + s)
 
-  // 与源真值对齐：lib 的 SECTION 里出现的最大 v7.N
+  // 版本真值：源里 GUIDE_VERSION 常量；首行必须标同一个版本（文件名不再承载版本信息）
   const src = readFileSync(path.join(REPO_ROOT, 'lib', 'novelist.js'), 'utf8')
-  const maxV = 'v7.' + Math.max(...[...src.matchAll(/v7\.(\d+)/g)].map((m) => Number(m[1])))
-  assert.equal(guides[0], 'novelist-guide-' + maxV + '.md', '文件名版本号不是文中最高版本（源=' + maxV + '）')
+  const liveV = (src.match(/GUIDE_VERSION\s*=\s*'([^']+)'/) || [])[1]
+  assert.ok(liveV, '源里读不到 GUIDE_VERSION')
+  const headV = (text.slice(0, 200).match(/\b(v7\.\d+)\b/) || [])[1]
+  assert.equal(headV, liveV, '手册首行版本(' + headV + ') 与 GUIDE_VERSION(' + liveV + ') 不一致')
+  // 包内不得再有带版本号的历史形态
+  assert.equal(readdirSync(path.join(out, 'references')).filter((f) => /^novelist-guide-v7\.\d+\.md$/.test(f)).length, 0, '包内出现带版本号的手册（旧形态残留）')
 })
 
 test('skill 内引用按 **skill 自身目录**解析可达（2026-09-19 审计 P0-2：宿主基准=skill 目录）', () => {
@@ -149,6 +153,29 @@ test('静态机制手册零机器绝对路径，且包内坐标真实存在（20
   for (const p of ['vendor/novelist/lib/guide-history.md', 'vendor/novelist/craft/author-cards', 'vendor/novelist/instruments/style-lexicon.json']) {
     assert.ok(fsSync.existsSync(path.join(out, p)), '手册改写后的包内坐标不存在：' + p)
   }
+})
+
+test('命令行引用改写：`node instruments/x.mjs` → 包内 scripts/（2026-09-20 复核 ISS-01 的回归）', () => {
+  const out = path.join(tmp('nf-wb-'), 'plugins', 'novel-forge-editorial')
+  build(out)
+  // 两条真源文档里的命令行必须指向包内真实位置（旧包 4 处的形态＝裸 instruments/，照抄即崩）
+  const t = readFileSync(path.join(out, 'references/protocols', '批审协议.md'), 'utf8')
+  assert.match(t, /node scripts\/batch-aggregate\.mjs/, '命令行未被改写到包内 scripts/')
+  assert.doesNotMatch(t, /node instruments\//, '包内文档残留裸 instruments/ 命令行（照抄即 MODULE_NOT_FOUND）')
+  const card = readFileSync(path.join(out, 'craft/author-cards', '_使用说明.md'), 'utf8')
+  assert.doesNotMatch(card, /node instruments\//, '作家卡使用说明残留裸 instruments/ 命令行')
+  assert.match(card, /node scripts\/build-author-card\.mjs/, '使用说明的命令行应指向包内 scripts/')
+})
+
+test('断链命令行必须让装配红（自证的覆盖面回归——此前含空格整条跳过）', () => {
+  const out = path.join(tmp('nf-wb-'), 'plugins', 'novel-forge-editorial')
+  build(out)
+  // 往已装配包里塞一条指向不存在脚本的命令行，再用 selfcheck（已装状态守卫）复检：必须红
+  const target = path.join(out, 'references', 'protocols', '批审协议.md')
+  writeFileSync(target, readFileSync(target, 'utf8') + '\n参考：`node instruments/no-such-tool.mjs`\n')
+  const r = spawnSync(process.execPath, [path.join(out, 'scripts', 'selfcheck.mjs')], { encoding: 'utf8' })
+  assert.equal(r.status, 1, 'selfcheck 应报红（exit 1），实得 ' + r.status + '；输出：' + (r.stdout || '').slice(-400))
+  assert.match(String(r.stdout) + String(r.stderr), /no-such-tool\.mjs/, '报错要点名那条断链命令')
 })
 
 test('--prune 只清上一版清单里的残留，且确实清掉', () => {

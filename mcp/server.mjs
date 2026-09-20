@@ -29,30 +29,38 @@ const PKG = require_('../package.json')
 
 const stderr = (s) => process.stderr.write('[novelist-mcp] ' + s + '\n')
 
+// 书库根解析（优先级：--root → NF_BOOK_ROOT → NOVELIST_ROOT）。
+// 〔2026-09-20 复核 REC-03.1〕NF_BOOK_ROOT 是**运行期可覆盖**入口：宿主配置里的 --root 烤在
+// plugin.json 里（跨机器要重装），环境变量给一条不动机器文件的换根路径。
+// 同时记下**来源**——"根对不对"必须可发现（随 initialize 与 novel_guide 下发，见 handler）。
 function parseRoot(argv) {
   const i = argv.indexOf('--root')
-  if (i !== -1 && argv[i + 1]) return argv[i + 1]
-  if (process.env.NOVELIST_ROOT) return process.env.NOVELIST_ROOT
+  if (i !== -1 && argv[i + 1]) return { root: argv[i + 1], source: 'args --root' }
+  if (process.env.NF_BOOK_ROOT) return { root: process.env.NF_BOOK_ROOT, source: 'env NF_BOOK_ROOT' }
+  if (process.env.NOVELIST_ROOT) return { root: process.env.NOVELIST_ROOT, source: 'env NOVELIST_ROOT' }
   return null
 }
 
-const rootInput = parseRoot(process.argv.slice(2))
-if (!rootInput) {
-  stderr('缺少 --root <目录> 或 NOVELIST_ROOT，退出。MCP 无宿主沙箱，路径安全由书库根自担——这是启动硬前置。')
+const rootParsed = parseRoot(process.argv.slice(2))
+if (!rootParsed) {
+  stderr('缺少 --root <目录> 或环境变量 NF_BOOK_ROOT / NOVELIST_ROOT，退出。MCP 无宿主沙箱，路径安全由书库根自担——这是启动硬前置。')
   process.exit(2)
 }
+const rootInput = rootParsed.root
+const rootSource = rootParsed.source
 const rootAbs = path.resolve(rootInput)
 await fsp.mkdir(rootAbs, { recursive: true })
 const root = await fsp.realpath(rootAbs)
 
-const adapter = createNodeFsAdapter(root)
+const adapter = createNodeFsAdapter(root, { rootSource })
 const handler = createMcpHandler({
   adapter,
   TOOLS: _internals.TOOLS,
   SECTION: _internals.SECTION,
   serverInfo: { name: 'novelist', title: 'Novelist 文件账本', version: PKG.version },
+  rootInfo: root + '（来源：' + rootSource + '）',
 })
-stderr('ready · root=' + root + ' · tools=' + _internals.TOOLS.length + ' · v' + PKG.version)
+stderr('ready · root=' + root + '（' + rootSource + '） · tools=' + _internals.TOOLS.length + ' · v' + PKG.version)
 
 const rl = readline.createInterface({ input: process.stdin, terminal: false })
 // 串行队列：逐行 await 前一行完成再处理——响应顺序与请求顺序一致（JSON-RPC 按 id 匹配

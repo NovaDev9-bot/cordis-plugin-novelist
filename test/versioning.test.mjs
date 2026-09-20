@@ -160,3 +160,48 @@ test('时间线版本③: novel_bible 的 timeline 与 novel_ask 同口径（处
   assert.equal(bib.timeline.length, 1, 'bible 也走同一投影：' + JSON.stringify(bib.timeline))
   assert.equal(bib.timeline[0].what, '新')
 })
+
+// ── 裁决回写的定位（2026-09-20 第三方复核 ISS-06）────────────────────────────
+// 同名可有多条版本记录（v7.9 起），而 accept_new 的回写若只按 name 找，会命中**首条同名**
+// ——写错那条且不报。这是共享账的裁决路径，静默错写会污染全书口径，必须有能红的回归。
+
+/** 抹掉账上那条 conflict 事件的 target 字段，模拟"早于本修复"的 legacy 事件 */
+function stripConflictTarget(b) {
+  const key = [...b.files.keys()].find((k) => (b.files.get(k) || '').includes('"op":"conflict"'))
+  assert.ok(key, '账上找不到 conflict 事件（键：' + [...b.files.keys()].join('、') + '）')
+  const lines = b.files.get(key).trim().split('\n').map((l) => {
+    const e = JSON.parse(l)
+    if (e.op === 'conflict') delete e.target
+    return JSON.stringify(e)
+  })
+  b.files.set(key, lines.join('\n') + '\n')
+}
+
+test('裁决定位⑦: accept_new 写回**被冲突的那条版本记录**，不碰别的同名记录', async () => {
+  const b = await book()
+  await b.call('novel_ledger', { book_dir: b.dir, op: 'update_term', term: { name: '青玉令', value: '旧口径', effective_from_ch: 1, effective_to_ch: 10 } })
+  await b.call('novel_ledger', { book_dir: b.dir, op: 'update_term', term: { name: '青玉令', value: '新口径', effective_from_ch: 11 } })
+  // 冲突发生在**第二条**（窗口 11+）上：第 12 章起写一个不同的值
+  const conf = await b.call('novel_ledger', { book_dir: b.dir, op: 'update_term', term: { name: '青玉令', value: '第三口径', effective_from_ch: 12 } })
+  assert.equal(conf.ok, false, '应报冲突')
+  assert.deepEqual(conf.result.conflict.target, { effective_from_ch: 11, effective_to_ch: null }, '冲突事件必须带被冲突记录的 target 坐标：' + JSON.stringify(conf.result.conflict))
+  const r = await b.call('novel_ledger', { book_dir: b.dir, op: 'resolve_conflict', conflict: { id: conf.result.conflict.id, scope: 'semantic', verdict: 'accept_new', stance: '采信新值', evidence: 'ch12' } })
+  assert.equal(r.ok, true, JSON.stringify(r))
+  const rows = terms(b.files, b.dir)
+  assert.equal(rows.length, 2, '裁决只改值，不新增/删除版本记录')
+  assert.equal(rows[0].value, '旧口径', '**首条同名记录不许被改写**（旧实现的静默错写就在这）')
+  assert.equal(rows[1].value, '第三口径', '被冲突的那条（窗口 11+）才该被改写')
+})
+
+test('裁决定位⑧: legacy 冲突事件（无 target）＋同名多条 → 拒写并说明，不做猜测性回写', async () => {
+  const b = await book()
+  await b.call('novel_ledger', { book_dir: b.dir, op: 'update_term', term: { name: '青玉令', value: '旧口径', effective_from_ch: 1, effective_to_ch: 10 } })
+  await b.call('novel_ledger', { book_dir: b.dir, op: 'update_term', term: { name: '青玉令', value: '新口径', effective_from_ch: 11 } })
+  const conf = await b.call('novel_ledger', { book_dir: b.dir, op: 'update_term', term: { name: '青玉令', value: '第三口径', effective_from_ch: 12 } })
+  stripConflictTarget(b)
+  await assert.rejects(
+    () => b.call('novel_ledger', { book_dir: b.dir, op: 'resolve_conflict', conflict: { id: conf.result.conflict.id, scope: 'semantic', verdict: 'accept_new', stance: 's', evidence: 'e' } }),
+    /早于 target 坐标登记|拒写/,
+    '同名多条而无 target 时必须拒写（宁可不写，不静默写错）')
+  assert.equal(terms(b.files, b.dir)[0].value, '旧口径', '拒写后账本不得有任何改动')
+})
