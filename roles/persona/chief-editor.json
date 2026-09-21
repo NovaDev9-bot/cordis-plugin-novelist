@@ -29,11 +29,13 @@
       ]
     },
     {
-      "id": "chief-editor.aud.roster.prod",
-      "layer": "audience",
-      "text": "写手/策划/档案员/试读员/结构校准员/校对员",
+      "id": "chief-editor.obl.roster",
+      "layer": "obligation",
+      "text": "主笔/档案员/试读员/结构校准员/校对员/拆书员",
       "usedBy": [
-        "dsh-prod"
+        "dsh-prod",
+        "dsh-public",
+        "wb-seat"
       ]
     },
     {
@@ -158,11 +160,13 @@
       ]
     },
     {
-      "id": "chief-editor.aud.corpus.prod",
-      "layer": "audience",
+      "id": "chief-editor.obl.corpus",
+      "layer": "obligation",
       "text": "语料库",
       "usedBy": [
-        "dsh-prod"
+        "dsh-prod",
+        "dsh-public",
+        "wb-seat"
       ]
     },
     {
@@ -258,27 +262,9 @@
       ]
     },
     {
-      "id": "chief-editor.aud.roster.pub",
-      "layer": "audience",
-      "text": "主笔/档案员/试读员/结构校准员/校对员/拆书员",
-      "usedBy": [
-        "dsh-public",
-        "wb-seat"
-      ]
-    },
-    {
       "id": "chief-editor.aud.topicprotocol.pub",
       "layer": "audience",
       "text": "扫榜做选题积累，榜单页实地读，选题数据落你自己的选题数据账本；用户不需要知道流程，你负责引导）。",
-      "usedBy": [
-        "dsh-public",
-        "wb-seat"
-      ]
-    },
-    {
-      "id": "chief-editor.aud.corpus.pub",
-      "layer": "audience",
-      "text": "真人语料",
       "usedBy": [
         "dsh-public",
         "wb-seat"
@@ -345,7 +331,7 @@
       "audience": "production",
       "segments": [
         "chief-editor.obl.identity",
-        "chief-editor.aud.roster.prod",
+        "chief-editor.obl.roster",
         "chief-editor.obl.side",
         "chief-editor.host.cwd.dsh",
         "chief-editor.obl.booklayout",
@@ -359,7 +345,7 @@
         "chief-editor.obl.discipline",
         "chief-editor.aud.incidents.prod",
         "chief-editor.obl.redlines",
-        "chief-editor.aud.corpus.prod",
+        "chief-editor.obl.corpus",
         "chief-editor.obl.report",
         "chief-editor.aud.report.prod",
         "chief-editor.obl.reportcmd",
@@ -381,7 +367,7 @@
       "audience": "public",
       "segments": [
         "chief-editor.obl.identity",
-        "chief-editor.aud.roster.pub",
+        "chief-editor.obl.roster",
         "chief-editor.obl.side",
         "chief-editor.host.cwd.dsh",
         "chief-editor.obl.booklayout",
@@ -392,7 +378,7 @@
         "chief-editor.obl.guideprecedence",
         "chief-editor.obl.discipline",
         "chief-editor.obl.redlines",
-        "chief-editor.aud.corpus.pub",
+        "chief-editor.obl.corpus",
         "chief-editor.obl.report",
         "chief-editor.obl.reportcmd",
         "chief-editor.host.reportpath.pub",
@@ -413,7 +399,7 @@
       "audience": "public",
       "segments": [
         "chief-editor.obl.identity",
-        "chief-editor.aud.roster.pub",
+        "chief-editor.obl.roster",
         "chief-editor.obl.side",
         "chief-editor.host.cwd.wb",
         "chief-editor.obl.booklayout",
@@ -424,7 +410,7 @@
         "chief-editor.obl.guideprecedence",
         "chief-editor.obl.discipline",
         "chief-editor.obl.redlines",
-        "chief-editor.aud.corpus.pub",
+        "chief-editor.obl.corpus",
         "chief-editor.obl.report",
         "chief-editor.obl.reportcmd",
         "chief-editor.host.reportpath.wb",

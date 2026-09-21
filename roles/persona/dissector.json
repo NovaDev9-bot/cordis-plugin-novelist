@@ -36,18 +36,11 @@
       ]
     },
     {
-      "id": "dissector.aud.job.prod",
-      "layer": "audience",
-      "text": "你的职责：对主编指派的 锚书章节文件做逐章解剖，产出**结构元数据记录**（jsonl），供锚定资产库与回收环消费。",
+      "id": "dissector.obl.job",
+      "layer": "obligation",
+      "text": "你的职责：对主编指派的 锚书章节文件做逐章解剖，产出**结构元数据记录**（jsonl），供锚定资产库与写前锚定消费，回收环对账亦取自此。",
       "usedBy": [
-        "dsh-prod"
-      ]
-    },
-    {
-      "id": "dissector.aud.job.pub",
-      "layer": "audience",
-      "text": "你的职责：对主编指派的锚书章节文件做逐章解剖，产出**结构元数据记录**（jsonl），供锚定资产库与写前锚定消费。",
-      "usedBy": [
+        "dsh-prod",
         "dsh-public",
         "wb-dispatch"
       ]
@@ -117,7 +110,7 @@
       "audience": "production",
       "segments": [
         "dissector.aud.identity.prod",
-        "dissector.aud.job.prod",
+        "dissector.obl.job",
         "dissector.obl.notread",
         "dissector.host.brk.notread.dsh",
         "dissector.obl.discipline",
@@ -135,7 +128,7 @@
       "audience": "public",
       "segments": [
         "dissector.aud.identity.pub",
-        "dissector.aud.job.pub",
+        "dissector.obl.job",
         "dissector.obl.notread",
         "dissector.host.brk.notread.dsh",
         "dissector.obl.discipline",
@@ -153,7 +146,7 @@
       "audience": "public",
       "segments": [
         "dissector.aud.identity.pub",
-        "dissector.aud.job.pub",
+        "dissector.obl.job",
         "dissector.obl.notread",
         "dissector.host.brk.notread.wb",
         "dissector.obl.discipline",

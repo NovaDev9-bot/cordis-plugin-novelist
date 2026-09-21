@@ -163,28 +163,23 @@
       ]
     },
     {
-      "id": "author.aud.refcard.prod",
-      "layer": "audience",
-      "text": "（写悬疑就像「民俗考据-水怪悬疑」那样考据垫场再掀桌）。",
-      "usedBy": [
-        "dsh-prod"
-      ]
-    },
-    {
-      "id": "author.aud.refcard.pub",
-      "layer": "audience",
+      "id": "author.obl.refcard",
+      "layer": "obligation",
       "text": "（写悬疑就像「民俗考据-水怪悬疑」那样考据垫场再掀桌；参照卡=开书时与 Owner 定下的一枚风格指纹，指名到卡与卡里的段）。",
       "usedBy": [
+        "dsh-prod",
         "dsh-public",
         "wb-dispatch"
       ]
     },
     {
-      "id": "author.aud.refcard.source",
-      "layer": "audience",
+      "id": "author.obl.refcard.source",
+      "layer": "obligation",
       "text": "**个体参照卡由主编随派工包给全文**（取卡处见 guide 派工包配方第六层）；卡不在派工包里时向主编要，不要凭记忆编作家特征——编出来的参照比没有更坏（它会把你带向刻板印象）。",
       "usedBy": [
-        "dsh-prod"
+        "dsh-prod",
+        "dsh-public",
+        "wb-dispatch"
       ]
     },
     {
@@ -229,8 +224,8 @@
       ]
     },
     {
-      "id": "author.aud.pbreak.field.flat",
-      "layer": "audience",
+      "id": "author.host.pbreak.field.dsh",
+      "layer": "host",
       "text": "【场域】",
       "usedBy": [
         "dsh-prod",
@@ -238,16 +233,16 @@
       ]
     },
     {
-      "id": "author.aud.pbreak.field.md",
-      "layer": "audience",
+      "id": "author.host.pbreak.field.wb",
+      "layer": "host",
       "text": "\n\n【场域】",
       "usedBy": [
         "wb-dispatch"
       ]
     },
     {
-      "id": "author.aud.pbreak.discipline.flat",
-      "layer": "audience",
+      "id": "author.host.pbreak.discipline.dsh",
+      "layer": "host",
       "text": "【纪律】",
       "usedBy": [
         "dsh-prod",
@@ -255,61 +250,40 @@
       ]
     },
     {
-      "id": "author.aud.pbreak.discipline.md",
-      "layer": "audience",
+      "id": "author.host.pbreak.discipline.wb",
+      "layer": "host",
       "text": "\n\n【纪律】",
       "usedBy": [
         "wb-dispatch"
       ]
     },
     {
-      "id": "author.host.bible.plain",
-      "layer": "host",
+      "id": "author.obl.bible",
+      "layer": "obligation",
       "text": "⑤开工铁律：先 novel_bible 查设定防吃书再动笔；",
       "usedBy": [
         "dsh-prod",
-        "dsh-public"
-      ]
-    },
-    {
-      "id": "author.host.bible.ticked",
-      "layer": "host",
-      "text": "⑤开工铁律：先 `novel_bible` 查设定防吃书再动笔；",
-      "usedBy": [
+        "dsh-public",
         "wb-dispatch"
       ]
     },
     {
-      "id": "author.host.count.plain",
-      "layer": "host",
+      "id": "author.obl.count",
+      "layer": "obligation",
       "text": "交付前 novel_count 自核字数（工具口径，模型自报虚高 37%-63%）；",
       "usedBy": [
         "dsh-prod",
-        "dsh-public"
-      ]
-    },
-    {
-      "id": "author.host.count.ticked",
-      "layer": "host",
-      "text": "交付前 `novel_count` 自核字数（工具口径，模型自报虚高 37%-63%）；",
-      "usedBy": [
+        "dsh-public",
         "wb-dispatch"
       ]
     },
     {
-      "id": "author.host.forbidden.plain",
-      "layer": "host",
+      "id": "author.obl.forbidden",
+      "layer": "obligation",
       "text": "你不得动用 novel_chapter/novel_outline/novel_ledger",
       "usedBy": [
         "dsh-prod",
-        "dsh-public"
-      ]
-    },
-    {
-      "id": "author.host.forbidden.ticked",
-      "layer": "host",
-      "text": "你不得动用 `novel_chapter`/`novel_outline`/`novel_ledger`",
-      "usedBy": [
+        "dsh-public",
         "wb-dispatch"
       ]
     }
@@ -324,27 +298,27 @@
       "audience": "production",
       "segments": [
         "author.obl.identity",
-        "author.aud.refcard.prod",
+        "author.obl.refcard",
         "author.obl.role",
         "author.obl.byline",
-        "author.aud.pbreak.field.flat",
+        "author.host.pbreak.field.dsh",
         "author.obl.scene",
         "author.obl.carryover",
-        "author.aud.pbreak.discipline.flat",
+        "author.host.pbreak.discipline.dsh",
         "author.obl.proposal",
-        "author.aud.refcard.source",
+        "author.obl.refcard.source",
         "author.obl.divergence",
         "author.aud.divergence.prod",
         "author.obl.craft",
         "author.aud.style.prod",
         "author.obl.session",
-        "author.host.bible.plain",
+        "author.obl.bible",
         "author.obl.deliver",
-        "author.host.count.plain",
+        "author.obl.count",
         "author.obl.reread",
         "author.obl.long-chapter",
         "author.obl.only-text",
-        "author.host.forbidden.plain",
+        "author.obl.forbidden",
         "author.obl.ledger-gate"
       ]
     },
@@ -357,26 +331,27 @@
       "audience": "public",
       "segments": [
         "author.obl.identity",
-        "author.aud.refcard.pub",
+        "author.obl.refcard",
+        "author.obl.refcard.source",
         "author.obl.role",
         "author.obl.byline",
-        "author.aud.pbreak.field.flat",
+        "author.host.pbreak.field.dsh",
         "author.obl.scene",
         "author.obl.carryover",
-        "author.aud.pbreak.discipline.flat",
+        "author.host.pbreak.discipline.dsh",
         "author.obl.proposal",
         "author.obl.divergence",
         "author.aud.divergence.pub",
         "author.obl.craft",
         "author.aud.style.pub",
         "author.obl.session",
-        "author.host.bible.plain",
+        "author.obl.bible",
         "author.obl.deliver",
-        "author.host.count.plain",
+        "author.obl.count",
         "author.obl.reread",
         "author.obl.long-chapter",
         "author.obl.only-text",
-        "author.host.forbidden.plain",
+        "author.obl.forbidden",
         "author.obl.ledger-gate"
       ]
     },
@@ -389,26 +364,27 @@
       "audience": "public",
       "segments": [
         "author.obl.identity",
-        "author.aud.refcard.pub",
+        "author.obl.refcard",
+        "author.obl.refcard.source",
         "author.obl.role",
         "author.obl.byline",
-        "author.aud.pbreak.field.md",
+        "author.host.pbreak.field.wb",
         "author.obl.scene",
         "author.obl.carryover",
-        "author.aud.pbreak.discipline.md",
+        "author.host.pbreak.discipline.wb",
         "author.obl.proposal",
         "author.obl.divergence",
         "author.aud.divergence.pub",
         "author.obl.craft",
         "author.aud.style.wb",
         "author.obl.session",
-        "author.host.bible.ticked",
+        "author.obl.bible",
         "author.obl.deliver",
-        "author.host.count.ticked",
+        "author.obl.count",
         "author.obl.reread",
         "author.obl.long-chapter",
         "author.obl.only-text",
-        "author.host.forbidden.ticked",
+        "author.obl.forbidden",
         "author.obl.ledger-gate"
       ]
     }
