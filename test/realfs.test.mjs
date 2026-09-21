@@ -456,6 +456,21 @@ test('批R2 真机: 异机持有的锁按年龄判定（探不了它的 pid：�
   await taken.release()
 })
 
+// 批R3：锁错误码分类。真机只在 Windows **delete-pending** 窗口才撞得到（公开仓 CI windows/22
+// 连红两次，本机 node 26 复现不了），所以分类逻辑做成纯函数单测；"锁文件在不在"这一次判别
+// 由调用方查一次 stat 给出——两种情形宿主给的药方不同（等它写完 vs 你没权限）。
+test('批R3: 锁错误码分类——EPERM 只有"锁文件确实在盘上"才算争用', () => {
+  const { classifyLockError } = _internals
+  assert.equal(classifyLockError('ENOENT', false), 'no-dir', '书目录还不存在＝首次开书（写类工具据此建目录再取锁）')
+  assert.equal(classifyLockError('EEXIST', false), 'contended', '常规争用（不依赖 stat）')
+  assert.equal(classifyLockError('EPERM', true), 'contended', 'delete-pending：同侪刚删、句柄未落')
+  assert.equal(classifyLockError('EACCES', true), 'contended', 'EACCES 同族')
+  assert.equal(classifyLockError('EPERM', false), 'fatal', '锁不在＝真权限拒绝，不许伪装成等待超时')
+  assert.equal(classifyLockError('EACCES', false), 'fatal', '同上')
+  assert.equal(classifyLockError('EROFS', true), 'fatal', '其余 fs 错误码一律原样抛')
+  assert.equal(classifyLockError(undefined, true), 'fatal', '非 fs 错误（无 code）也原样抛')
+})
+
 test('批R2 真机: 多个真进程并发 novel_init 同一本新书——只许一个成功，且不留锁', async (t) => {
   const root = mkdtempSync(join(tmpdir(), 'nf-race-'))
   t.after(() => rmSync(root, { recursive: true, force: true }))
