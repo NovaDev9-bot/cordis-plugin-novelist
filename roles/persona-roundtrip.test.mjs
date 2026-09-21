@@ -34,11 +34,36 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { after, test } from 'node:test'
 
-// ── 落位（一律从本文件自己的位置推出，不写死绝对路径）────────────────────────
-function rel(abs) { return path.relative(REPO, abs).split(path.sep).join('/') }
+// ── 落位与布局（判据与生成器同源，取**最外层**命中者）────────────────────────
+// 为什么不能"往上数两级"：公开仓是**单仓 clone**，插件自己就是仓根——数两级会把仓根解析成
+// 它的父目录（2026-09-21 实测：本文件第一版如此，CI 四作业全红、本机 mono 下一路绿）。
+// 生成器 build-persona.mjs:108-122 的判据是：mono＝仓根同时有 dsh-native/ 与 vault/，
+// flat＝同时有 wb-expert-starter/ 与 lib/；两者都命中时取最外层（插件子仓也满足扁平判据）。
 const HERE = path.dirname(fileURLToPath(import.meta.url))       // …/plugin-novelist/roles
 const PLUGIN = path.resolve(HERE, '..')                         // …/plugin-novelist
-const REPO = path.resolve(PLUGIN, '..', '..')                   // 仓根（mono）
+const MONO_MARKERS = ['dsh-native', 'vault']
+const FLAT_MARKERS = ['wb-expert-starter', 'lib']
+const hasAll = (d, ms) => ms.every((m) => fs.existsSync(path.join(d, m)))
+function findRepo(start) {
+  let cur = path.resolve(start), hit = null
+  for (;;) {
+    if (hasAll(cur, MONO_MARKERS) || hasAll(cur, FLAT_MARKERS)) hit = cur
+    const up = path.dirname(cur)
+    if (up === cur) return hit
+    cur = up
+  }
+}
+const REPO = findRepo(HERE)
+assert.ok(REPO, '没有找到仓库根（mono 需 ' + MONO_MARKERS.join('+') + '；flat 需 ' + FLAT_MARKERS.join('+') + '）')
+const LAYOUT = hasAll(REPO, MONO_MARKERS) ? 'mono' : 'flat'
+function rel(abs) { return path.relative(REPO, abs).split(path.sep).join('/') }
+/** 真源里 carriers[].path 一律写成 mono 坐标（`dsh-native/<x>/…`）；flat 下落到插件根即去掉前缀。 */
+const normRel = (p) => (LAYOUT === 'flat' ? p.replace(/^dsh-native\/[^/]+\//, '') : p)
+/** 载体在真仓里的实际位置：原样路径 + 去前缀两条候选，命中一条才算在盘（与生成器同口径）。 */
+function carrierSrc(p) {
+  const cands = [...new Set([path.join(REPO, p), path.join(PLUGIN, p.replace(/^dsh-native\/[^/]+\//, ''))])]
+  return cands.find((x) => fs.existsSync(x)) || null
+}
 const GEN = path.join(HERE, 'build-persona.mjs')
 const SRC = path.join(HERE, 'persona')
 const TABLE_REL = rel(path.join(HERE, 'tool-face.json'))
@@ -56,13 +81,23 @@ const ROLE_DOCS = ROLE_FILES.map((f) => ({ file: f, doc: JSON.parse(fs.readFileS
 const SHARED_DOC = SRC_FILES.includes(SHARED_FILE) ? JSON.parse(fs.readFileSync(path.join(SRC, SHARED_FILE), 'utf8')) : null
 const SHARED_SEGS = SHARED_DOC ? SHARED_DOC.segments : []
 
-/** 21 份化身（角色 × 载体），路径就是真源 carriers[].path 里登记的那条 */
-const CARRIERS = []
+/** 21 份化身（角色 × 载体）＝真源声明的全部；`declared` 是真源坐标，`rel` 是本布局下的落位 */
+const CARRIERS_DECLARED = []
 for (const { doc } of ROLE_DOCS) {
-  for (const c of doc.carriers) CARRIERS.push({ role: doc.role, id: c.id, rel: c.path, kind: c.kind, anchor: c.anchor, segments: c.segments })
+  for (const c of doc.carriers) CARRIERS_DECLARED.push({ role: doc.role, id: c.id, declared: c.path, rel: normRel(c.path), src: carrierSrc(c.path), kind: c.kind, anchor: c.anchor, segments: c.segments })
 }
 const key = (c) => c.role + '/' + c.id
-/** 九份载体文件（21 份化身落在九份文件里：预设里一份文件装多个角色的锚块） */
+/** 本布局下真在盘上的化身；缺的进 ABSENT（只为 flat 的生产预设开口，且必须被打出来）。
+ *  与生成器同一条豁免（build-persona.mjs:512-519）：flat 里没有生产预设是登记在案的缺，
+ *  mono 里缺一份就是被挪走/改名了——不静默跳过。 */
+const ABSENT = CARRIERS_DECLARED.filter((c) => !c.src)
+const CARRIERS = CARRIERS_DECLARED.filter((c) => c.src)
+for (const c of ABSENT) {
+  assert.ok(LAYOUT === 'flat' && c.kind === 'yaml-persona',
+    '载体在本布局（' + LAYOUT + '）下找不到：' + c.declared + '（' + c.role + '/' + c.id + '）——mono 里两份预设都在，缺就是被挪走/改名了，不静默跳过')
+}
+/** 九份载体（真源口径，布局无关）／本布局下在盘的那些 */
+const ALL_RELS = [...new Set(CARRIERS_DECLARED.map((c) => c.declared))].sort()
 const CARRIER_RELS = [...new Set(CARRIERS.map((c) => c.rel))].sort()
 /** 段 id → 文本 / 层（角色段 + 公共池） */
 const SEG_TEXT = new Map()
@@ -79,11 +114,16 @@ function makeRepo(tag) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'nf-persona-rt-' + tag + '-'))
   assert.ok(!root.startsWith(REPO + path.sep), '临时仓根落在了真仓里——"不许动真仓"这条纪律由机器兜底：' + root)
   TEMP_ROOTS.push(root)
-  fs.mkdirSync(path.join(root, 'vault'), { recursive: true })   // mono 布局判据（生成器 build-persona.mjs:110-113）
+  // 临时根必须与**当前布局**同形，否则生成器对临时根判出的布局与化身落位对不上：
+  // mono＝建 vault/（与 dsh-native/ 一起构成判据）；flat＝建 lib/（与 wb-expert-starter/ 一起构成判据）。
+  if (LAYOUT === 'mono') fs.mkdirSync(path.join(root, 'vault'), { recursive: true })
+  else fs.mkdirSync(path.join(root, 'lib'), { recursive: true })
   const copyRel = (r) => {
+    const src = carrierSrc(r)   // 同生成器口径：原样路径 + 去 dsh-native/<x>/ 前缀两条候选
+    assert.ok(src, '临时副本缺源文件：' + r)
     const to = path.join(root, r)
     fs.mkdirSync(path.dirname(to), { recursive: true })
-    fs.copyFileSync(path.join(REPO, r), to)
+    fs.copyFileSync(src, to)
   }
   copyRel(TABLE_REL)
   fs.mkdirSync(path.join(root, PERSONA_REL), { recursive: true })
@@ -226,7 +266,10 @@ function pickLocalObligation() {
       if (s.layer !== 'obligation' || s.usedBy.length !== ids.length || s.usedBy.length < 2) continue
       const refs = doc.carriers
         .filter((c) => c.segments.includes(s.id))
-        .map((c) => ({ role: doc.role, id: c.id, rel: c.path, kind: c.kind, anchor: c.anchor, segments: c.segments }))
+        // flat 布局缺的化身（私有预设）不算"预期会变"的那一批——预期必须按**在盘载体**算，
+        // 否则断言拿真源声明的 3 去比实际会变的 2，报出来的是"少了三份化身"这种假红。
+        .filter((c) => carrierSrc(c.path))
+        .map((c) => ({ role: doc.role, id: c.id, rel: normRel(c.path), kind: c.kind, anchor: c.anchor, segments: c.segments }))
       return { file, role: doc.role, id: s.id, usedBy: s.usedBy, refs }
     }
   }
@@ -235,18 +278,27 @@ function pickLocalObligation() {
 
 // ═══ ① 重算即真 ═════════════════════════════════════════════════════════════
 test('1 重算即真：临时副本 --check 全绿；手改化身一个字（绕过真源）必须报红并指到"哪份化身 § 哪个锚点 · 第几段"', async (t) => {
-  await t.test('1a 临时副本是真数据的原样副本（九份载体 · 21 份化身），--check 全绿', () => {
+  await t.test('1a 临时副本是真数据的原样副本（九份载体 · 21 份化身；flat 布局按登记豁免私有预设），--check 全绿', () => {
     const root = makeRepo('1a')
     for (const f of SRC_FILES) {
       assert.ok(fs.readFileSync(path.join(SRC, f)).equals(fs.readFileSync(path.join(root, PERSONA_REL, f))),
         '临时副本里的真源与真仓不是同一份字节：' + PERSONA_REL + '/' + f)
     }
-    assert.equal(CARRIER_RELS.length, 9, '载体不是九份，脚本的复制清单与真源对不上：' + CARRIER_RELS.join('、'))
+    assert.equal(ALL_RELS.length, 9, '真源声明的载体不是九份，脚本的复制清单与真源对不上：' + ALL_RELS.join('、'))
+    assert.equal(ABSENT.length + CARRIERS.length, CARRIERS_DECLARED.length, '在盘化身数 + 缺的化身数 ≠ 真源声明数（有化身既没复制也没登记）')
+    if (ABSENT.length) {
+      // 缺的必须**被数出来并打出来**：mono 的"三份化身少了一份"曾经只降级成提示行、退出码仍 0
+      console.log('[1a] 本布局（' + LAYOUT + '）缺 ' + ABSENT.length + ' 份化身／'
+        + new Set(ABSENT.map((c) => c.declared)).size + ' 份载体（私有生产预设，公开 clone 里不存在，与生成器同一条豁免）：'
+        + [...new Set(ABSENT.map((c) => c.declared))].join('、'))
+    }
+    console.log('[1a] 在盘 ' + CARRIERS.length + '/' + CARRIERS_DECLARED.length + ' 份化身 · '
+      + CARRIER_RELS.length + '/' + ALL_RELS.length + ' 份载体（' + LAYOUT + ' 布局）')
     for (const r of CARRIER_RELS) {
       assert.ok(fs.readFileSync(path.join(REPO, r)).equals(fs.readFileSync(path.join(root, r))),
         '临时副本里的载体与真仓不是同一份字节：' + r)
     }
-    assert.equal(CARRIERS.length, 21, '化身不是 21 份（七个角色 × 三份载体）：' + CARRIERS.length)
+    assert.equal(CARRIERS_DECLARED.length, 21, '真源声明的化身不是 21 份（七个角色 × 三份载体）：' + CARRIERS_DECLARED.length)
     const r = runGen(root, ['--check'])
     assert.equal(r.status, 0, '临时副本的 --check 不是 0（真源与化身本应逐段相同）：\n' + r.out)
     assert.ok(r.stdout.includes(CARRIERS.length + '/' + CARRIERS.length),
@@ -321,14 +373,15 @@ test('2 A1 回归：改真源里一条义务段一个字 → --apply 之后只�
 
     console.log('[A1-2a] 真源改动：' + PERSONA_REL + '/' + target.file + ' 的 ' + target.id
       + '（改 1 字：' + JSON.stringify(m.from) + ' → ' + JSON.stringify(m.to) + '）')
-    console.log('[A1-2a] 引用它的化身（预期变）：' + expected.length + ' 份 ＝ 该段 usedBy 的长度 ' + seg.usedBy.length
+    console.log('[A1-2a] 引用它的化身（预期变）：' + expected.length + ' 份 · 该段 usedBy 声明 ' + seg.usedBy.length
+      + ' 份（差 ' + (seg.usedBy.length - expected.length) + ' 份＝本布局不存在的载体）'
       + '（' + expected.join('、') + '）')
     console.log('[A1-2a] --apply 后**跟着变的化身**：' + changed.length + ' 份（' + changed.join('、') + '）')
     console.log('[A1-2a] 未引用它的化身（预期不变）：' + unchanged.length + ' 份 · 实际**一个都没变**：' + unchanged.length + ' 份'
       + '；全部化身 ' + CARRIERS.length + ' 份')
 
-    assert.equal(changed.length, seg.usedBy.length,
-      '跟着变的化身数（' + changed.length + '）≠ 该段 usedBy 的长度（' + seg.usedBy.length + '）：' + changed.join('、'))
+    assert.equal(changed.length, expected.length,
+      '跟着变的化身数（' + changed.length + '）≠ 本布局在盘的"引用它的化身"数（' + expected.length + '）：' + changed.join('、'))
     assert.deepEqual(changed, expected, '跟着变的化身与"引用它的化身"不是同一批')
     assert.equal(unchanged.length, CARRIERS.length - expected.length)
     for (const k of changed) {
