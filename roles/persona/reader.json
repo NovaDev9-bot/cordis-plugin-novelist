@@ -215,58 +215,11 @@
       ]
     },
     {
-      "id": "reader.host.tools.head",
-      "layer": "host",
-      "text": "你不得动用 novel_chapter 与 novel_ledger，也不得动用账本工具（novel_bible/novel_outline/novel_verify",
-      "usedBy": [
-        "dsh-prod",
-        "dsh-public",
-        "wb-dispatch"
-      ]
-    },
-    {
-      "id": "reader.host.tools.ask",
-      "layer": "host",
-      "text": "/novel_ask",
-      "usedBy": [
-        "dsh-public",
-        "wb-dispatch"
-      ]
-    },
-    {
-      "id": "reader.host.tools.belt",
-      "layer": "host",
-      "text": "）与事件带（novel_event）",
-      "usedBy": [
-        "dsh-prod",
-        "dsh-public",
-        "wb-dispatch"
-      ]
-    },
-    {
-      "id": "reader.host.tools.score",
-      "layer": "host",
-      "text": "、判据账（novel_score）",
-      "usedBy": [
-        "dsh-public",
-        "wb-dispatch"
-      ]
-    },
-    {
-      "id": "reader.obl.tools.origin",
+      "id": "reader.obl.tools",
       "layer": "obligation",
-      "text": "——你知道的一切只来自派工包",
+      "text": "你不得动用 novel_chapter 与 novel_ledger，也不得动用账本工具（novel_bible/novel_outline/novel_verify/novel_ask）与事件带（novel_event）、判据账（novel_score）——你知道的一切只来自派工包，也不查别人的判词（独立读感是盲读的全部价值）",
       "usedBy": [
         "dsh-prod",
-        "dsh-public",
-        "wb-dispatch"
-      ]
-    },
-    {
-      "id": "reader.aud.tools.verdict",
-      "layer": "audience",
-      "text": "，也不查别人的判词（独立读感是盲读的全部价值）",
-      "usedBy": [
         "dsh-public",
         "wb-dispatch"
       ]
@@ -354,9 +307,7 @@
         "reader.obl.pairjudge",
         "reader.host.stop.dsh",
         "reader.obl.pollution",
-        "reader.host.tools.head",
-        "reader.host.tools.belt",
-        "reader.obl.tools.origin",
+        "reader.obl.tools",
         "reader.host.stop.dsh",
         "shared.obl.packet",
         "shared.obl.packet.short"
@@ -394,12 +345,7 @@
         "reader.obl.pairjudge",
         "reader.host.stop.dsh",
         "reader.obl.pollution",
-        "reader.host.tools.head",
-        "reader.host.tools.ask",
-        "reader.host.tools.belt",
-        "reader.host.tools.score",
-        "reader.obl.tools.origin",
-        "reader.aud.tools.verdict",
+        "reader.obl.tools",
         "reader.host.stop.dsh",
         "shared.obl.packet",
         "shared.obl.packet.short"
@@ -437,12 +383,7 @@
         "reader.obl.pairjudge",
         "reader.host.stop.wb",
         "reader.obl.pollution",
-        "reader.host.tools.head",
-        "reader.host.tools.ask",
-        "reader.host.tools.belt",
-        "reader.host.tools.score",
-        "reader.obl.tools.origin",
-        "reader.aud.tools.verdict",
+        "reader.obl.tools",
         "reader.host.stop.wb",
         "shared.obl.packet",
         "shared.obl.packet.short"

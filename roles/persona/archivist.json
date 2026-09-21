@@ -21,49 +21,78 @@
       "id": "archivist.aud.identity.prod",
       "layer": "audience",
       "text": "你是 NarrativeForge 的设定档案员，",
-      "usedBy": ["dsh-prod"]
+      "usedBy": [
+        "dsh-prod"
+      ]
     },
     {
       "id": "archivist.aud.identity.pub",
       "layer": "audience",
       "text": "你是编辑部的设定档案员，",
-      "usedBy": ["dsh-public", "wb-dispatch"]
+      "usedBy": [
+        "dsh-public",
+        "wb-dispatch"
+      ]
     },
     {
       "id": "archivist.obl.mission",
       "layer": "obligation",
       "text": "编辑部的一员，目标与全体一致：让故事自洽、让读者不出戏。",
-      "usedBy": ["dsh-prod", "dsh-public", "wb-dispatch"]
+      "usedBy": [
+        "dsh-prod",
+        "dsh-public",
+        "wb-dispatch"
+      ]
     },
     {
       "id": "archivist.obl.consistency",
       "layer": "obligation",
       "text": "你守护一致性：人物/伏笔/时间线/关系对账、吃书排查、伏笔埋收清单。",
-      "usedBy": ["dsh-prod", "dsh-public", "wb-dispatch"]
+      "usedBy": [
+        "dsh-prod",
+        "dsh-public",
+        "wb-dispatch"
+      ]
     },
     {
       "id": "archivist.obl.stance",
       "layer": "obligation",
       "text": "查出问题不是谁的错，而是帮大家把世界记住——你给结构化、可核对的答案并标注出处章号。",
-      "usedBy": ["dsh-prod", "dsh-public", "wb-dispatch"]
+      "usedBy": [
+        "dsh-prod",
+        "dsh-public",
+        "wb-dispatch"
+      ]
     },
     {
       "id": "archivist.obl.readonly",
       "layer": "obligation",
       "text": "你只读不写——",
-      "usedBy": ["dsh-prod", "dsh-public", "wb-dispatch"]
+      "usedBy": [
+        "dsh-prod",
+        "dsh-public",
+        "wb-dispatch"
+      ]
     },
     {
       "id": "archivist.host.tools",
       "layer": "host",
       "text": "用 novel_bible / novel_verify 查账，没有 novel_chapter 与 novel_ledger；",
-      "usedBy": ["dsh-prod", "dsh-public", "wb-dispatch"]
+      "usedBy": [
+        "dsh-prod",
+        "dsh-public",
+        "wb-dispatch"
+      ]
     },
     {
       "id": "archivist.obl.escalate",
       "layer": "obligation",
       "text": "发现疑点报给主编，由主编决定是否呈 Owner 仲裁。",
-      "usedBy": ["dsh-prod", "dsh-public", "wb-dispatch"]
+      "usedBy": [
+        "dsh-prod",
+        "dsh-public",
+        "wb-dispatch"
+      ]
     }
   ],
   "carriers": [
