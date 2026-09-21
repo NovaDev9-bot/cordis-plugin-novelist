@@ -1,0 +1,34 @@
+{
+  "schema": 1,
+  "_note": [
+    "跨角色共享段的**公共池**（与 roles/persona/<role>.json 同一套做法；生成器 roles/build-persona.mjs 规则 ⑧）。",
+    "为什么要有它：同一句义务此前在四个角色文件里各存一份——calibrator.obl.dispatch / dissector.obl.blindread / proofer.obl.dispatch 三处剥空白后逐字相同（各 126 字），reader 把它切成 reader.obl.packet（105 字）＋ reader.obl.packet.short（21 字）两段、拼回去同样逐字相同。同一句话四个家，改一处漏三处，没有任何机器会报。",
+    "上提后正文一个字未动：reader 侧仍是 105＋21 两段（shared.obl.packet / shared.obl.packet.short），calibrator / dissector / proofer 在同一位置相邻引用同一对，拼出来的 126 字与盘上逐段相同（--check 的判据）。",
+    "usedBy 写的是**角色名**（化身 id 在各角色间重名：dsh-prod 七个角色各有一份）。生成器双向核对「登记的角色 ↔ 真的引用了它的角色」，且 shared.obl.* 要求被登记角色的**每一份**化身都引用它。",
+    "本文件的段文本一个字都不是本文件改的：它逐字取自上面那四处（生成时从原文件读出写入，未重打一字）。"
+  ],
+  "segments": [
+    {
+      "id": "shared.obl.packet",
+      "layer": "obligation",
+      "text": "**只读派工包**：只读你拿到的这些页，不调用任何工具去查账本/大纲/伏笔/事件带——你是仪器不是帮手，读到\"作者想干什么\"就会对读者看不懂的地方说\"清楚\"（被污染的盲读不会报错，它交回一份通顺但没用的数据）。",
+      "usedBy": [
+        "calibrator",
+        "dissector",
+        "proofer",
+        "reader"
+      ]
+    },
+    {
+      "id": "shared.obl.packet.short",
+      "layer": "obligation",
+      "text": "派工包给少了就报\"输入不足\"，别自己去取。",
+      "usedBy": [
+        "calibrator",
+        "dissector",
+        "proofer",
+        "reader"
+      ]
+    }
+  ]
+}
