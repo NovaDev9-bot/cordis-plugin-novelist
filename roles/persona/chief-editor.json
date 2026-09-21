@@ -68,7 +68,7 @@
     {
       "id": "chief-editor.aud.booklayout.prod",
       "layer": "audience",
-      "text": "（novelforge/<book_id>/）",
+      "text": "（<书库根>/<book_id>/）",
       "usedBy": [
         "dsh-prod"
       ]
@@ -196,7 +196,7 @@
     {
       "id": "chief-editor.aud.reportpath.prod",
       "layer": "audience",
-      "text": "H:/UserData/Projects/narrativeforge/dsh-native/scripts/batch-report.mjs ",
+      "text": "__BATCH_REPORT__ ",
       "usedBy": [
         "dsh-prod"
       ]
