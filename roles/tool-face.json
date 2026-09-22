@@ -55,8 +55,10 @@
     },
     "codebuddy": {
       "enforcement": "proven-mechanism",
-      "enforcement_note": "WorkBuddy/CodeBuddy 形态：**机制已实测、载体未落地**。① **落点不在插件包内**——宿主组件装载器**不枚举专家包**（2026-09-22 宿主日志：11 个插件各有 `Loaded plugin components for X: N agent(s)`，本包一次都没出现；同日志 `[AgentManager] volatile plugin agent override updated: chief-editor (source=novel-forge-editorial@my-experts)` 说明专家包只走「**单槽绑定 lead**」这条路）⇒ 包内 `agents/` 那两份**不是注册载体**（0.1.7 补的前言块与 `agents` 登记，对这条装载器不生效——它们的真实用途是**人格文本的权威来源**）。② **真正的落点是项目级自定义 agent 定义**：`<工作区>/.codebuddy/agents/*.md`；用户级＝app 进程环境变量 `CODEBUDDY_CONFIG_DIR` 下的 `agents/`（**本机该变量指向宿主自己的配置目录 `.workbuddy`**）；⇒ **用户级实为「宿主配置目录/agents/」**，本机是 `~/.workbuddy/agents/`——**不要照抄 `~/.codebuddy/agents/`**（那是我 09-22 早先写错的一处，已更正）；**换台机器以环境变量为准，不要以本条的字面值为准**。③ **实测三件（WB 侧 `[硬返回]`）**：能派 ✓（`Task(subagent_type=\"author\")` 一次成功）、**人格注入** ✓（自报并准确引用 `AUTH-01…19` 条款号）、**deny 拦得住** ✓（中性同形探针 `disallowedTools:[mcp__novelist__novel_chapter]` → `Error: Permission to use mcp__novelist__novel_chapter has been denied.`，拦在权限层、未到工具本体）。④ **分层如实记**：deny 读数来自**同形配置的中性座位**；**主笔本座无机械读数**（两次自守拒发，读数 `REFUSED-BY-SELF`）⇒ 对外口径只能是「机制已实测成立（同形配置）」，**不许写成「主笔已被机器封死」**。⑤ **热加载**：插件 agent 定义随组件加载（改了要重启）；**项目级自定义定义当次生效**（实测不需重启）——两条不同的路，别混。⑥ **本包当前生效的 deny ＝ 0 条**（还没有任何一份定义投放到项目级落点）。判据：WB 侧 09-22 实跑 ＋ 宿主日志；**仓侧未独立复现该读数**（本机无法驱动该宿主的 agent 回合），但三处宿主源码事实（`getProjectAgentsDir` 写死 `.codebuddy`／`parseAgentFile` 读 `disallowedTools`／`AgentTask` 把 `agentConfig.disallowedTools` 并进子会话）已由仓侧**独立读源码坐实**。",
+      "enforcement_note": "WorkBuddy/CodeBuddy 形态：**机制已实测、载体已建（7 份，由 `scripts/install-wb-agents.mjs` 从能力表渲进宿主载体目录）**。① **落点不在插件包内**——宿主组件装载器**不枚举专家包**（2026-09-22 宿主日志：11 个插件各有 `Loaded plugin components for X: N agent(s)`，本包一次都没出现；同日志 `[AgentManager] volatile plugin agent override updated: chief-editor (source=novel-forge-editorial@my-experts)` 说明专家包只走「**单槽绑定 lead**」这条路）⇒ 包内 `agents/` 那两份**不是注册载体**（0.1.7 补的前言块与 `agents` 登记，对这条装载器不生效——它们的真实用途是**人格文本的权威来源**）。② **真正的落点是项目级自定义 agent 定义**：`<工作区>/.codebuddy/agents/*.md`；用户级＝app 进程环境变量 `CODEBUDDY_CONFIG_DIR` 下的 `agents/`（**本机该变量指向宿主自己的配置目录 `.workbuddy`**）；⇒ **用户级实为「宿主配置目录/agents/」**，本机是 `~/.workbuddy/agents/`——**不要照抄 `~/.codebuddy/agents/`**（那是我 09-22 早先写错的一处，已更正）；**换台机器以环境变量为准，不要以本条的字面值为准**。③ **实测三件（WB 侧 `[硬返回]`）**：能派 ✓（`Task(subagent_type=\"author\")` 一次成功）、**人格注入** ✓（自报并准确引用 `AUTH-01…19` 条款号）、**deny 拦得住** ✓（中性同形探针 `disallowedTools:[mcp__novelist__novel_chapter]` → `Error: Permission to use mcp__novelist__novel_chapter has been denied.`，拦在权限层、未到工具本体）。④ **分层如实记**：deny 读数来自**同形配置的中性座位**；**主笔本座无机械读数**（两次自守拒发，读数 `REFUSED-BY-SELF`）⇒ 对外口径只能是「机制已实测成立（同形配置）」，**不许写成「主笔已被机器封死」**。⑤ **热加载**：插件 agent 定义随组件加载（改了要重启）；**项目级自定义定义当次生效**（实测不需重启）——两条不同的路，别混。⑥ **本包当前生效的 deny ＝ 7 份载体**（2026-09-22 B1：七个角色各一份，封名单由安装器渲；包内那两份定义**仍然不带**封名单——官方校验器禁止）。判据：WB 侧 09-22 实跑 ＋ 宿主日志；**仓侧未独立复现该读数**（本机无法驱动该宿主的 agent 回合），但三处宿主源码事实（`getProjectAgentsDir` 写死 `.codebuddy`／`parseAgentFile` 读 `disallowedTools`／`AgentTask` 把 `agentConfig.disallowedTools` 并进子会话）已由仓侧**独立读源码坐实**。",
       "artifact": "dsh-native/plugin-novelist/wb-expert-starter/references/宿主工具面.md",
+    "carrier_ledger": "references/carrier-deny.json",
+    "carrier_ledger_note": "**包内相对**坐标（与各角色的 codebuddy.file / agentdef 同一基准，不再走 mono 剥前缀那套）。它是安装器唯一的名单来源：宿主载体怎么渲由这份派生件说了算，安装器自己再算一遍就是第二份实现。文件名用 ASCII：约定一致性棘轮的判据是**非文档件的文件名不许含中文**（2026-09-22 实测：中文名当场把 cjk_paths_in_code 从 0 顶到 1），而那条守卫的注释写明「不往豁免清单里加前缀」——所以改名，不加豁免。",
       "forms": {
         "seat": "主编座位（专家组长本尊）——工具最全",
         "teammate": "团队成员（本专家只有主笔是常驻成员）——实测缺 Edit/TaskStop 等、且缺 Agent/TeamCreate",
@@ -217,7 +219,7 @@
       "zh": "主编",
       "kind": "seat",
       "dsh": { "entry": null, "why": "主编＝主智能体：人格由 preset 的 persona 条目给，没有 toolFilter 派生面（他持有全部派发权）" },
-      "codebuddy": { "file": "agents/chief-editor.md", "form": "seat", "seat": "lead" },
+      "codebuddy": { "file": "agents/chief-editor.md", "agentdef": "agents/chief-editor.md", "form": "seat", "seat": "lead", "maxTurns": 150, "description": "主编（主理人）：决策、派工与落账的唯一入口；只管账本与门控，不写正文。" },
       "deny": [],
       "why": "派发权与落账权唯一在此——其余角色的面都是从他这里减出去的"
     },
@@ -225,7 +227,13 @@
       "zh": "主笔",
       "kind": "seat",
       "dsh": { "entry": "nf-role-author", "toolName": "nf_author", "backgroundMode": "continuable" },
-      "codebuddy": { "file": "agents/author.md", "form": "teammate", "seat": "member" },
+      "codebuddy": {
+        "file": "agents/author.md", "agentdef": "agents/author.md", "form": "teammate", "seat": "member", "maxTurns": 50,
+        "description": "主笔（第二座位）：署提案并亲自执笔，交正文交付文件到指定路径；落账权不在此座。",
+        "denyExempt": [
+          { "cap": "fs.search", "why": "**2026-09-22 WB 侧运行时裁定**：「未写 edit/write/glob/grep——封它们是错的」。本形态主笔要按 AUTH-11 重读受影响正文、按 AUTH-16 取参照卡，`Glob`/`Grep` 是**只读**面、不构成落账旁路（真正的旁路是 `shell.exec`，**保留封禁**）；DSH 形态之所以封它，是因为那边主笔**没有路径知识**、放开等于整块硬盘——**那条理由随宿主变，故按宿主分列而不是照搬**。豁免项必须在生成文档里印出来：静默少封一个名字＝虚假的安全感" }
+        ]
+      },
       "deny": ["ledger.write", "tape.write", "decision.write", "fs.edit", "fs.search", "shell.exec", "image.read"],
       "why": "防自提自存：提案未经 Owner 门不得入账；保留 read（重读纪律）+ write（分段落盘）+ novel_bible/novel_count/novel_ask。**2026-09-22 撤销 09-20 那两条（tool.search / tool.invoke）**：当时封它们，是因为 MCP 名 deny **不生效**（那时这条路上压根没有落点），只能把「唯一能绕过 deny 面的通道」整个砍掉当权宜；现在 MCP 名 deny 已实测生效（判据见各 MCP 能力条目），**权宜的因被消除**——而本形态 `ToolSearch`→`DeferExecuteTool` 是**到达一切 MCP 工具的唯一路径**（含主笔该有的 `novel_bible`/`novel_search`）⇒ 继续封它＝把自己该有的面一起封掉。收口改由生成器的**耦合不变量**守：封发现面者必须同时封掉全部 MCP 面能力"
     },
@@ -233,7 +241,7 @@
       "zh": "档案员",
       "kind": "duty",
       "dsh": { "entry": "nf-role-archivist", "toolName": "nf_archivist", "backgroundMode": "one-shot" },
-      "codebuddy": { "file": "references/roles/archivist.md", "form": "subagent", "seat": null },
+      "codebuddy": { "file": "references/roles/archivist.md", "agentdef": "agents/archivist.md", "form": "subagent", "seat": null, "maxTurns": 50, "description": "档案员：维护事件带与事实投影——只写事件，不碰正文与裁决。" },
       "deny": ["ledger.write", "decision.write"],
       "why": "只读对账，保留事件带（对账要记痕）"
     },
@@ -242,7 +250,7 @@
       "kind": "duty",
       "blind": true,
       "dsh": { "entry": "nf-role-reader", "toolName": "nf_reader", "backgroundMode": "one-shot" },
-      "codebuddy": { "file": "references/roles/reader.md", "form": "subagent", "seat": null },
+      "codebuddy": { "file": "references/roles/reader.md", "agentdef": "agents/reader.md", "form": "subagent", "seat": null, "maxTurns": 50, "description": "试读员：盲读仪器——只读派工包，交读感记录与成对判，不给写作建议。" },
       "deny": ["ledger.write", "ledger.read", "tape.write", "ledger.ask", "decision.write", "retrieval", "fs.read", "fs.write", "fs.edit", "fs.search", "shell.exec", "image.read", "spawn", "tool.search", "tool.invoke", "agent.message"],
       "why": "纯盲仪器：一切输入只来自派工包文本；封工具索引/执行（@2026-09-20 Owner 批① + WB 运行时实测：发现面是绕过面），封跨代理发消息（盲仪器不该有对外通道）"
     },
@@ -251,7 +259,7 @@
       "kind": "duty",
       "blind": true,
       "dsh": { "entry": "nf-role-calibrator", "toolName": "nf_calibrator", "backgroundMode": "one-shot" },
-      "codebuddy": { "file": "references/roles/calibrator.md", "form": "subagent", "seat": null },
+      "codebuddy": { "file": "references/roles/calibrator.md", "agentdef": "agents/calibrator.md", "form": "subagent", "seat": null, "maxTurns": 50, "description": "结构校准员：盲读仪器——判结构九类病与节拍落点，只报观察、不改文。" },
       "deny": ["ledger.write", "ledger.read", "tape.write", "ledger.ask", "decision.write", "retrieval", "fs.read", "fs.write", "fs.edit", "fs.search", "shell.exec", "image.read", "spawn", "tool.search", "tool.invoke", "agent.message"],
       "why": "同试读员：九类结构病只看正文本身，多一条取数通道就等于多一个污染源"
     },
@@ -260,7 +268,7 @@
       "kind": "duty",
       "blind": true,
       "dsh": { "entry": "nf-role-proofer", "toolName": "nf_proof", "backgroundMode": "one-shot" },
-      "codebuddy": { "file": "references/roles/proofer.md", "form": "subagent", "seat": null },
+      "codebuddy": { "file": "references/roles/proofer.md", "agentdef": "agents/proofer.md", "form": "subagent", "seat": null, "maxTurns": 50, "description": "校对员：盲读仪器——查错字/标点/称谓/前后矛盾，逐条给坐标，不改文。" },
       "deny": ["ledger.write", "ledger.read", "tape.write", "ledger.ask", "decision.write", "retrieval", "fs.write", "fs.edit", "fs.search", "shell.exec", "image.read", "spawn", "tool.search", "tool.invoke", "agent.message"],
       "why": "保留 read 作受控单文件通道（主编指哪读哪），其余同盲角色"
     },
@@ -269,7 +277,7 @@
       "kind": "duty",
       "blind": true,
       "dsh": { "entry": "nf-role-dissector", "toolName": "nf_dissector", "backgroundMode": "one-shot" },
-      "codebuddy": { "file": "references/roles/dissector.md", "form": "subagent", "seat": null },
+      "codebuddy": { "file": "references/roles/dissector.md", "agentdef": "agents/dissector.md", "form": "subagent", "seat": null, "maxTurns": 50, "description": "拆书员：拆锚书的结构与节拍，产出可移植清单（不参与本书写作）。" },
       "deny": ["ledger.write", "ledger.read", "tape.write", "ledger.ask", "decision.write", "retrieval", "fs.edit", "fs.search", "shell.exec", "image.read", "spawn", "tool.search", "tool.invoke", "agent.message"],
       "why": "保留 read+write（读章文件、写批次记录）；同属派工包边界角色，故与盲角色同列（Owner 批①的字面集合是试读/校准/校对三个，拆书员与 agent.message 为同族加固，撤只需删这两个位置）"
     }

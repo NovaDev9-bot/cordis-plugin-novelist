@@ -1,6 +1,6 @@
 {
   "name": "novel-forge-editorial",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "description": "A two-seat editorial department for long-form web novels: an editor-in-chief who owns the ledger, the gates and disk-vs-ledger reconciliation, an author who drafts, plus blind-read calibration and zero-LLM instruments. Requires the novelist connector.",
   "expertType": "team",
   "agentName": "chief-editor",
