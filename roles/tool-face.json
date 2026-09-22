@@ -54,8 +54,8 @@
       }
     },
     "codebuddy": {
-      "enforcement": "declared-unverified",
-      "enforcement_note": "WorkBuddy/CodeBuddy 形态：**没有一条**机器强制——角色工具面只作为声明产出（生成一份文档）。**0.1.7 起落点已建立**（两个 agent 定义带 frontmatter＋在 plugin.json 的 `agents` 登记，对齐本机 576 份可工作样本的结构），但 **`disallowedTools` 是否真能拦住调用仍未证**（R-a 红测未跑），故 enforcement 保持 declared-unverified。**2026-09-22 读宿主源码所得三条事实**（宿主装机打包件里的 codebuddy.js，软件本体不在本仓）：① agent 定义的前言块是**一等字段面**——`parseAgentFile` 解析 name/description/tools/disallowedTools/skills/mcpServers/model/effort/isolation/maxTurns/background/initialPrompt/memory，其中 `permissionMode`/`hooks`/`mcpServers` 被**显式忽略并告警**（与 09-18 实测一致）；② **deny 的接线在**——`AgentTask` 组子会话 options 时做 `[...mainSession.options.disallowedTools, ...agentConfig.disallowedTools]`，即子代理会继承它自己 agent 定义里的 deny；③ `Task(subagent_type=X)` 按名查 `agentManager.get(X)`，查不到即**硬错**并打一行 `[AgentTask] agent lookup failed | requested=\"X\" | available=[...]`——**那行 available 列表就是本形态的现成仪器**（09-22 实测：探针那一刻的名单里有别的已启用插件的 agent，没有本包的）。自定义 agent 定义（非插件）另有两条落地路：项目级 `<工作区>/.codebuddy/agents/*.md`、用户级 `(CODEBUDDY_CONFIG_DIR || ~/.codebuddy)/agents/*.md`——**不是 `.workbuddy/agents/`**（09-22 实测：探针放错目录，宿主从未读它）。agent 定义**不热加载**，改完必须重启。把没验的写成生效的，是本项目最贵的缺陷形状。R-a 跑通后才翻转 enforcement。",
+      "enforcement": "proven-mechanism",
+      "enforcement_note": "WorkBuddy/CodeBuddy 形态：**机制已实测、载体未落地**。① **落点不在插件包内**——宿主组件装载器**不枚举专家包**（2026-09-22 宿主日志：11 个插件各有 `Loaded plugin components for X: N agent(s)`，本包一次都没出现；同日志 `[AgentManager] volatile plugin agent override updated: chief-editor (source=novel-forge-editorial@my-experts)` 说明专家包只走「**单槽绑定 lead**」这条路）⇒ 包内 `agents/` 那两份**不是注册载体**（0.1.7 补的前言块与 `agents` 登记，对这条装载器不生效——它们的真实用途是**人格文本的权威来源**）。② **真正的落点是项目级自定义 agent 定义**：`<工作区>/.codebuddy/agents/*.md`；用户级＝app 进程环境变量 `CODEBUDDY_CONFIG_DIR` 下的 `agents/`（**本机该变量指向宿主自己的配置目录 `.workbuddy`**）；⇒ **用户级实为「宿主配置目录/agents/」**，本机是 `~/.workbuddy/agents/`——**不要照抄 `~/.codebuddy/agents/`**（那是我 09-22 早先写错的一处，已更正）；**换台机器以环境变量为准，不要以本条的字面值为准**。③ **实测三件（WB 侧 `[硬返回]`）**：能派 ✓（`Task(subagent_type=\"author\")` 一次成功）、**人格注入** ✓（自报并准确引用 `AUTH-01…19` 条款号）、**deny 拦得住** ✓（中性同形探针 `disallowedTools:[mcp__novelist__novel_chapter]` → `Error: Permission to use mcp__novelist__novel_chapter has been denied.`，拦在权限层、未到工具本体）。④ **分层如实记**：deny 读数来自**同形配置的中性座位**；**主笔本座无机械读数**（两次自守拒发，读数 `REFUSED-BY-SELF`）⇒ 对外口径只能是「机制已实测成立（同形配置）」，**不许写成「主笔已被机器封死」**。⑤ **热加载**：插件 agent 定义随组件加载（改了要重启）；**项目级自定义定义当次生效**（实测不需重启）——两条不同的路，别混。⑥ **本包当前生效的 deny ＝ 0 条**（还没有任何一份定义投放到项目级落点）。判据：WB 侧 09-22 实跑 ＋ 宿主日志；**仓侧未独立复现该读数**（本机无法驱动该宿主的 agent 回合），但三处宿主源码事实（`getProjectAgentsDir` 写死 `.codebuddy`／`parseAgentFile` 读 `disallowedTools`／`AgentTask` 把 `agentConfig.disallowedTools` 并进子会话）已由仓侧**独立读源码坐实**。",
       "artifact": "dsh-native/plugin-novelist/wb-expert-starter/references/宿主工具面.md",
       "forms": {
         "seat": "主编座位（专家组长本尊）——工具最全",
@@ -99,42 +99,42 @@
       "zh": "写书工程账本（落账权唯一在主编）",
       "dsh": { "tools": ["novel_chapter", "novel_ledger", "novel_init", "novel_assemble", "novel_outline"], "note": "章正文/账本总入口/开书/汇编/章纲" },
       "codebuddy": {
-        "*": { "status": "unverified", "candidates": ["mcp__novelist__novel_chapter", "mcp__novelist__novel_ledger", "mcp__novelist__novel_init", "mcp__novelist__novel_assemble", "mcp__novelist__novel_outline"], "why": "名字形状已实测（mcp__novelist__*），但'deny 名单接受这个写法'未验——R-a 跑通前是假设，不是结论" }
+        "*": { "tools": ["mcp__novelist__novel_chapter", "mcp__novelist__novel_ledger", "mcp__novelist__novel_init", "mcp__novelist__novel_assemble", "mcp__novelist__novel_outline"], "note": "**已从 unverified 翻为已核实名（2026-09-22）**：`disallowedTools` 接受 `mcp__novelist__*` 写法且**真能拦住**——WB 侧中性同形探针的硬返回原文 `Error: Permission to use mcp__novelist__novel_chapter has been denied.`（拦在权限层，未到工具本体）。判据＝WB 侧 `[硬返回]`（同形配置座位），**仓侧未独立复现**（本机无法驱动该宿主的 agent 回合）；其余同形同族，故整册直接可用。**边界**：读数来自同形中性探针；主笔本座两次自守拒发，**本座无机械读数**" }
       }
     },
     "ledger.read": {
       "zh": "读设定与一致性账（含字数工具口径）",
       "dsh": { "tools": ["novel_bible", "novel_verify", "novel_count"], "note": "" },
       "codebuddy": {
-        "*": { "status": "unverified", "candidates": ["mcp__novelist__novel_bible", "mcp__novelist__novel_verify", "mcp__novelist__novel_count"], "why": "同上" }
+        "*": { "tools": ["mcp__novelist__novel_bible", "mcp__novelist__novel_verify", "mcp__novelist__novel_count"], "note": "同 ledger.write：同形同族，09-22 已实测" }
       }
     },
     "tape.write": {
       "zh": "写事件带",
       "dsh": { "tools": ["novel_event"], "note": "档案员保留它（对账要记痕），其余角色封。**粒度警告（2026-09-20 第三方实测）**：toolFilter.deny 只有整工具粒度、没有 op 级语法，宿主侧 disallowedTools 同样整名匹配 ⇒ 保留 novel_event ＝把 op=append（往事件带写）一并给它。原先文档写「保留 novel_event read」是把意图写成了事实，已改。要在硬面上只给读，只能改连接器侧（宿主层做不到）" },
       "codebuddy": {
-        "*": { "status": "unverified", "candidates": ["mcp__novelist__novel_event"], "why": "同上" }
+        "*": { "tools": ["mcp__novelist__novel_event"], "note": "同 ledger.write：同形同族，09-22 已实测" }
       }
     },
     "ledger.ask": {
       "zh": "一次查账（novel_ask 汇总视图）",
       "dsh": { "tools": ["novel_ask"], "note": "" },
       "codebuddy": {
-        "*": { "status": "unverified", "candidates": ["mcp__novelist__novel_ask"], "why": "同上" }
+        "*": { "tools": ["mcp__novelist__novel_ask"], "note": "同 ledger.write：同形同族，09-22 已实测" }
       }
     },
     "decision.write": {
       "zh": "留痕决定与判据账",
       "dsh": { "tools": ["novel_decide", "novel_score"], "note": "判词只由主编落账——盲角色产读感、不产判词" },
       "codebuddy": {
-        "*": { "status": "unverified", "candidates": ["mcp__novelist__novel_decide", "mcp__novelist__novel_score"], "why": "同上" }
+        "*": { "tools": ["mcp__novelist__novel_decide", "mcp__novelist__novel_score"], "note": "同 ledger.write：同形同族，09-22 已实测" }
       }
     },
     "retrieval": {
       "zh": "正文/账本检索与机制手册",
       "dsh": { "tools": ["novel_context", "novel_search", "novel_guide"], "note": "盲角色连 novel_guide 也封：手册里写着流程与账本结构，读到就等于知道作者想干什么" },
       "codebuddy": {
-        "*": { "status": "unverified", "candidates": ["mcp__novelist__novel_context", "mcp__novelist__novel_search", "mcp__novelist__novel_guide"], "why": "同上；注意实测已证明 novel_guide 可被 DeferExecuteTool 拉起来执行（只读零副作用，正是拿它做的可执行性验证）" }
+        "*": { "tools": ["mcp__novelist__novel_context", "mcp__novelist__novel_search", "mcp__novelist__novel_guide"], "note": "同 ledger.write：同形同族，09-22 已实测。另注：实测已证明 novel_guide 可被 DeferExecuteTool 拉起来执行（只读零副作用，正是拿它做的可执行性验证）" }
       }
     },
     "fs.read": {
@@ -226,8 +226,8 @@
       "kind": "seat",
       "dsh": { "entry": "nf-role-author", "toolName": "nf_author", "backgroundMode": "continuable" },
       "codebuddy": { "file": "agents/author.md", "form": "teammate", "seat": "member" },
-      "deny": ["ledger.write", "tape.write", "decision.write", "fs.edit", "fs.search", "shell.exec", "image.read", "tool.search", "tool.invoke"],
-      "why": "防自提自存：提案未经 Owner 门不得入账；保留 read（重读纪律）+ write（分段落盘）+ novel_bible/novel_count/novel_ask。2026-09-20 加：封工具索引/执行两面——实测它们是唯一能绕过 deny 面的通道（主笔被封了 novel_* 却能用它把 novel_chapter 翻出来执行）"
+      "deny": ["ledger.write", "tape.write", "decision.write", "fs.edit", "fs.search", "shell.exec", "image.read"],
+      "why": "防自提自存：提案未经 Owner 门不得入账；保留 read（重读纪律）+ write（分段落盘）+ novel_bible/novel_count/novel_ask。**2026-09-22 撤销 09-20 那两条（tool.search / tool.invoke）**：当时封它们，是因为 MCP 名 deny **不生效**（那时这条路上压根没有落点），只能把「唯一能绕过 deny 面的通道」整个砍掉当权宜；现在 MCP 名 deny 已实测生效（判据见各 MCP 能力条目），**权宜的因被消除**——而本形态 `ToolSearch`→`DeferExecuteTool` 是**到达一切 MCP 工具的唯一路径**（含主笔该有的 `novel_bible`/`novel_search`）⇒ 继续封它＝把自己该有的面一起封掉。收口改由生成器的**耦合不变量**守：封发现面者必须同时封掉全部 MCP 面能力"
     },
     "archivist": {
       "zh": "档案员",

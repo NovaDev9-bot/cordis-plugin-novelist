@@ -135,6 +135,30 @@ test('角色 deny 写工具名而不是能力 id ⇒ 拒绝生成', () => {
   rmSync(d, { recursive: true, force: true })
 })
 
+// ── 2026-09-22 两条新不变量（WB 侧实测所迫）──────────────────────────────
+test('角色封了发现面却仍允许 MCP 面 ⇒ 拒绝生成（本形态 MCP 只能经那一对到达）', () => {
+  const t = realTable()
+  // 复现 09-22 之前主笔的真实形状：封了 tool.search/tool.invoke，却留着 ledger.read/retrieval
+  // ⇒ 它会把自己该有的 novel_bible/novel_search 一起封掉（本形态 MCP 只能经这一对到达）
+  t.roles.author.deny.push('tool.search', 'tool.invoke')
+  const d = fakeRepo({ table: t })
+  const r = run(d, ['--host', 'dsh', '--check'])
+  assert.equal(r.status, 2, both(r))
+  assert.match(both(r), /封了发现面/, '要说清后果：该角色一件 MCP 工具都拿不到')
+  assert.match(both(r), /ledger\.read/, '要点名哪些 MCP 面能力还在允许侧')
+  rmSync(d, { recursive: true, force: true })
+})
+
+test('codebuddy 列里的 MCP 工具名不在连接器清单里 ⇒ 拒绝生成（宿主不会报错，只能自己收口）', () => {
+  const t = realTable()
+  t.capabilities['ledger.write'].codebuddy['*'].tools[0] = 'mcp__novelist__novel_chaptr'   // 拼错一个字母
+  const d = fakeRepo({ table: t })
+  const r = run(d, ['--host', 'dsh', '--check'])
+  assert.equal(r.status, 2, both(r))
+  assert.match(both(r), /不在连接器工具清单里/, 'MCP 名的存在性由连接器清单定义，不由宿主内置清单定义')
+  rmSync(d, { recursive: true, force: true })
+})
+
 test('同一宿主列里一个工具名进了两个能力 ⇒ 拒绝生成（否则 deny 一个静默连坐另一个）', () => {
   const t = realTable()
   t.capabilities['fs.write'].dsh.tools.push('read')

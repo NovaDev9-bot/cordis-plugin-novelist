@@ -8,6 +8,29 @@
 
 ---
 
+## 2026-09-22（当晚二次）· 机制实测了，但落点不在包里（v0.1.8）
+
+**改了什么**：① `.codebuddy-plugin/plugin.json` 的 description 与 `references/宿主工具面.md` §二/§六/§七（生成件，真源＝能力表）的落点与 enforcement 口径；② 能力表里六条 MCP 能力从 `status:unverified`（只有候选名）**翻成已核实名**；③ **撤销主笔 deny 里的 `tool.search` / `tool.invoke`**；④ 生成器新增两条不变量与两条反例回归。
+
+**原文（改前）**：
+
+> **0.1.7 起落点已建立**（两个 agent 定义带 frontmatter＋在 plugin.json 的 `agents` 登记…），但 **`disallowedTools` 是否真能拦住调用仍未证**（R-a 红测未跑）…
+> 落点：**是 agent 定义**（`agents/` 下的件），且 0.1.7 起已带前言块…
+
+**为什么改（两层，都不是推理，是读数）**：
+
+1. **0.1.7 那次对齐打空了。** WB 侧在 0.1.7 装好并**重启之后**再试：`author` 仍不在 `Task` 的表里。翻宿主启动日志看到：`Loaded plugin components for …: N agent(s)` **枚举了 11 个插件，本包一次都没出现**（同日志只有 `[AgentManager] volatile plugin agent override updated: chief-editor (source=本包)`——专家包走的是「单槽绑定 lead」那条路）。⇒ **组件装载器根本不枚举专家包**，所以补前言块、补 `agents` 登记，都是对着一条永远不会被走到的路做的。包内那两份的真实身份回到它们的本分：**人格文本的权威来源**。
+2. **真正的落点被找到并实测了三件事**：`<工作区>/.codebuddy/agents/*.md`（项目级）——**能派**（`Task(subagent_type="author")` 一次成功）、**人格注入**（自报并准确引用 `AUTH-01…19` 条款号）、**deny 拦得住**（中性同形探针 → `Error: Permission to use mcp__novelist__novel_chapter has been denied.`，拦在权限层未到工具本体）。
+
+**改后**：`enforcement` → `proven-mechanism`（**机制已实测 · 载体未落地**）；**本包当前生效的 deny ＝ 0 条**，口径仍是软隔离。
+**分层如实记**：deny 读数来自**同形配置的中性座位**；**主笔本座无机械读数**（两次自守拒发）⇒ 只能写「机制已实测成立（同形配置）」，**不许写成「主笔已被机器封死」**。
+
+**撤销主笔那两条 deny 的理由**：09-20 封 `tool.search`/`tool.invoke`，是因为当时 MCP 名 deny **不生效**（那时这条路压根没有落点），只能把「唯一能绕过 deny 面的通道」整个砍掉当**权宜**。现在 MCP 名 deny 已实测生效，**权宜的因被消除**；而本形态 `ToolSearch`→`DeferExecuteTool` 是**到达一切 MCP 工具的唯一路径**（含主笔该有的 `novel_bible`/`novel_search`）⇒ 继续封它＝把自己该有的面一起封掉。收口改由**生成器的耦合不变量**守：**封发现面者必须同时封掉全部 MCP 面能力**（不满足即装配期报红，已配反例回归）。
+
+**另加**：codebuddy 列里的 MCP 工具名改按**连接器自己的工具清单**校验（比宿主内置清单更强的判据——形状对不代表工具对，拼错一个字母宿主不报错、静默空转）；配反例回归。
+
+---
+
 ## 2026-09-22 · agent 定义补前言块并登记（v0.1.7）；落点口径更正
 
 **改了什么**：① `agents/chief-editor.md`、`agents/author.md` 各加一个前言块（`name` / `description`）；② `.codebuddy-plugin/plugin.json` 新增 `agents: ["./agents/chief-editor.md", "./agents/author.md"]` 登记；③ `README` §三.3 补一句"当用户级同名存在时，包内 `.codebuddy-plugin/plugin.json` 的 `--root` 根本不参与，改它等于白改"；④ `references/宿主工具面.md` §七（生成件，真源＝`roles/tool-face.json`）的"落点"口径更正。

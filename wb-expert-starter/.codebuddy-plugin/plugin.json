@@ -1,7 +1,7 @@
 {
   "name": "novel-forge-editorial",
-  "version": "0.1.7",
-  "description": "NarrativeForge 编剧部：两座位制（主编+主笔）长篇网文生产线，配 novelist 文件账本连接器使用——章状态机、事件带、伏笔收支、盲读三角、四个零 LLM 仪器。**能力口径（v0.1.7 更正）**：本形态下 `disallowedTools` **落点已建立但生效仍未证**——0.1.7 起两个 agent 定义带 frontmatter＋在 plugin.json 的 `agents` 登记（对齐本机 576 份可工作样本的结构），宿主源码确认它会读 `tools`/`disallowedTools` 并把 agent 定义里的 deny 并进子代理会话选项，但**「调用真被拦住」的红测（R-a）仍未跑**，故一律按**软隔离**对待，证据力低于 DSH 形态；实测**发现面可用**——`ToolSearch`+`DeferExecuteTool` 在子代理形态就在、并已实际执行过写入口；`Agent`/`TeamCreate` 在本形态本就缺席，禁它们是空操作。角色工具面（哪些是宿主强制、哪些只是声明、哪些名字不存在、哪些名字存在但本形态惰性）见 references/宿主工具面.md（生成件，真源＝能力表）。",
+  "version": "0.1.8",
+  "description": "NarrativeForge 编剧部：两座位制（主编+主笔）长篇网文生产线，配 novelist 文件账本连接器使用——章状态机、事件带、伏笔收支、盲读三角、四个零 LLM 仪器。**能力口径（v0.1.8 又一次更正，这次是按实测）**：`disallowedTools` 的**机制已实测拦得住**（中性同形探针 → `Error: Permission to use mcp__novelist__novel_chapter has been denied.`），但**落点不在本包内**——宿主组件装载器**不枚举专家包**，包内 `agents/` 那两份只是**人格文本的权威来源**、不是注册载体；**真正的落点是项目级 `<工作区>/.codebuddy/agents/*.md`**（投放即生效）。**本包当前投放数＝0 ⇒ 现状仍按软隔离对待**，证据力低于 DSH 形态。另：实测**发现面可用**——`ToolSearch`+`DeferExecuteTool` 是到达一切 MCP 工具的唯一路径（故主笔不能封它，五个盲角色正相反）。角色工具面与落点细则见 references/宿主工具面.md（生成件，真源＝能力表）。",
   "expertType": "team",
   "agentName": "chief-editor",
   "teamInfo": {
