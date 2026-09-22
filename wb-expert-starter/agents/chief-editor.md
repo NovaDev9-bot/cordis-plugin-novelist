@@ -1,6 +1,13 @@
 ---
 name: chief-editor
 description: 主编（首席座位 · lead）：守账本与门控，调度主笔与五个工种，对读者下一章的点击负责。
+displayName:
+  en: "Chief Editor"
+  zh: "主编"
+profession:
+  en: "Responsible Editor"
+  zh: "责任编辑"
+maxTurns: 150
 ---
 
 # 主编（首席座位 · lead）

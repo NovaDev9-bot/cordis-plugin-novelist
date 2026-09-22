@@ -145,12 +145,12 @@
     "fs.write": {
       "zh": "写文件",
       "dsh": { "tools": ["write"], "note": "" },
-      "codebuddy": { "*": { "tools": ["Write"], "note": "" } }
+      "codebuddy": { "*": { "status": "unknown", "candidates": ["Write"], "why": "**2026-09-22 实测：不许渲进名单**——`Write`+`Edit`+`WebFetch` 三项同时写进 `disallowedTools` 时 **agent 直接起不来**（`Error: Failed to execute task … Tool Read not found in agent …`）；三项之一**未二分到底** ⇒ 二分之前禁止渲染（渲出来的不是「更严」，是「这个座位没了」）。且主笔本形态必须能写交付件。DSH 侧不受影响（那边 write 是允许项）。" } }
     },
     "fs.edit": {
       "zh": "改文件",
       "dsh": { "tools": ["edit"], "note": "" },
-      "codebuddy": { "*": { "tools": ["Edit", "NotebookEdit"], "note": "NotebookEdit 是同一能力的另一面（写单元格）；团队成员形态实测缺 Edit——故这一条在 teammate 形态是空操作，但无害（见 hosts.codebuddy.forms）" } }
+      "codebuddy": { "*": { "status": "unknown", "candidates": ["Edit", "NotebookEdit"], "why": "**2026-09-22 实测：同 fs.write，禁止渲染**（三项组合致命、未二分）。原注保留：NotebookEdit 是同一能力的另一面（写单元格）；团队成员形态实测缺 Edit——故这一条在 teammate 形态本就是空操作。" } }
     },
     "fs.search": {
       "zh": "文件发现与内容搜索",
@@ -160,7 +160,7 @@
     "shell.exec": {
       "zh": "执行命令",
       "dsh": { "tools": ["pwsh"], "note": "本机 win32 无 bash 工具（dsh-base 按平台禁用），名单只能点名实存工具" },
-      "codebuddy": { "*": { "tools": ["Bash", "PowerShell"], "note": "两个都要写：只封 Bash 会在 Windows 上留一条命令通道（本机 PowerShell 工具另有返回空 stdout 的宿主缺陷，与隔离无关）" } }
+      "codebuddy": { "*": { "tools": ["Bash"], "ineffective": ["PowerShell"], "note": "**2026-09-22 实测推翻了本条原来的写法**：原写「两个都要写：只封 Bash 会在 Windows 上留一条命令通道」——**`PowerShell` 写进 deny 后仍在工具面里、且调用真的执行了**（`Command completed with exit code 0`；`PowerShell`/`powershell`/`pwsh` 三种写法都无效）⇒ 它从「名单」移进 `ineffective`：**渲染器不渲它，但必须当缺口公开**（静默列进去＝虚假的约束感，本项目最贵的那类缺陷）。本机只渲 `Bash`。" } }
     },
     "image.read": {
       "zh": "读图像",

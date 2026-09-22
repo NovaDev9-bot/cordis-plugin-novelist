@@ -1,6 +1,13 @@
 ---
 name: author
 description: 主笔（第二座位）：署提案并亲自执笔，交正文交付文件到指定路径；落账权不在此座。
+displayName:
+  en: "Author"
+  zh: "主笔"
+profession:
+  en: "Author & Writer"
+  zh: "作者兼执笔"
+maxTurns: 50
 ---
 
 # 主笔（第二座位 · 作者+执笔一体）
