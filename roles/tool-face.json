@@ -55,7 +55,7 @@
     },
     "codebuddy": {
       "enforcement": "declared-unverified",
-      "enforcement_note": "WorkBuddy/CodeBuddy 形态：**没有一条**机器强制——角色工具面只作为声明产出（生成一份文档），不写进随包发布的 agent 定义。两条理由：①插件 agent 的 disallowedTools 是否在运行时生效尚未实证（R-a 红测未跑）；②包内两个 agent 定义目前**都没有 frontmatter**，要声明必须先新建 frontmatter 块，而 agent 定义**不热加载、改完必须重启**，验证天然跨会话。把没验的写成生效的，是本项目最贵的缺陷形状。R-a 跑通后翻转 hosts.codebuddy.enforcement 并让装配器写 frontmatter。",
+      "enforcement_note": "WorkBuddy/CodeBuddy 形态：**没有一条**机器强制——角色工具面只作为声明产出（生成一份文档）。**0.1.7 起落点已建立**（两个 agent 定义带 frontmatter＋在 plugin.json 的 `agents` 登记，对齐本机 576 份可工作样本的结构），但 **`disallowedTools` 是否真能拦住调用仍未证**（R-a 红测未跑），故 enforcement 保持 declared-unverified。**2026-09-22 读宿主源码所得三条事实**（宿主装机打包件里的 codebuddy.js，软件本体不在本仓）：① agent 定义的前言块是**一等字段面**——`parseAgentFile` 解析 name/description/tools/disallowedTools/skills/mcpServers/model/effort/isolation/maxTurns/background/initialPrompt/memory，其中 `permissionMode`/`hooks`/`mcpServers` 被**显式忽略并告警**（与 09-18 实测一致）；② **deny 的接线在**——`AgentTask` 组子会话 options 时做 `[...mainSession.options.disallowedTools, ...agentConfig.disallowedTools]`，即子代理会继承它自己 agent 定义里的 deny；③ `Task(subagent_type=X)` 按名查 `agentManager.get(X)`，查不到即**硬错**并打一行 `[AgentTask] agent lookup failed | requested=\"X\" | available=[...]`——**那行 available 列表就是本形态的现成仪器**（09-22 实测：探针那一刻的名单里有别的已启用插件的 agent，没有本包的）。自定义 agent 定义（非插件）另有两条落地路：项目级 `<工作区>/.codebuddy/agents/*.md`、用户级 `(CODEBUDDY_CONFIG_DIR || ~/.codebuddy)/agents/*.md`——**不是 `.workbuddy/agents/`**（09-22 实测：探针放错目录，宿主从未读它）。agent 定义**不热加载**，改完必须重启。把没验的写成生效的，是本项目最贵的缺陷形状。R-a 跑通后才翻转 enforcement。",
       "artifact": "dsh-native/plugin-novelist/wb-expert-starter/references/宿主工具面.md",
       "forms": {
         "seat": "主编座位（专家组长本尊）——工具最全",

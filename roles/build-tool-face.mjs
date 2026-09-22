@@ -558,9 +558,15 @@ function codebuddyDoc() {
   L.push('下表这几条**只由已核实的真名组成**（不含任何"未核实"能力），可以直接拿去做运行时红测——例如给某个 agent 加上它，重启后看它还能不能调 `ToolSearch`：')
   L.push('')
   L.push('**★ 但先看清落点**：`disallowedTools` 只在 **agent 定义**（`agents/` 下的件、写在前言块里）里生效。')
-  L.push('本节里标「落点待建」的那几行，文件是**派工提示词**（在 `references/roles/` 目录下），不是 agent 定义——')
-  L.push('往它里面加 frontmatter **不会有任何效果**；照抄去测只会得到"加了没反应"，然后误判成"deny 不生效"。')
-  L.push('那几个工种的 agent 定义**尚未建立**（要建就得先回答"宿主接不接受只有 frontmatter + 指针的定义"这个问题）。')
+  L.push('宿主源码（2026-09-22 读本机装机）已证实：`parseAgentFile` 会读这个字段，`AgentTask` 组子会话 options 时做')
+  L.push('`[...mainSession.options.disallowedTools, ...agentConfig.disallowedTools]`——即**接线在**；但"调用真被拦住"仍未红测，故一律按**未证实**对待。')
+  L.push('')
+  L.push('三条省事的取证路径（**先走第 1 条，它不用重启也不用派探针**）：')
+  L.push('1. 日志行 `[AgentTask] agent lookup failed | requested="X" | available=[...]`——那行 `available` 就是本形态的现成仪器，直接看"宿主到底加载了哪些 agent"。')
+  L.push('2. 自定义 agent 定义（非插件）的项目级目录是 `<工作区>/.codebuddy/agents/*.md`，用户级是 `(CODEBUDDY_CONFIG_DIR || ~/.codebuddy)/agents/*.md`；**不是 `.workbuddy/agents/`**（2026-09-22 实测放错目录，宿主从未读它）。')
+  L.push('3. 五个工种的落点仍是**待建**：`references/roles/` 下的件是派工文本、不是 agent 定义，往里加 frontmatter **不会有任何效果**——')
+  L.push('照抄去测只会得到"加了没反应"，然后误判成"deny 不生效"。而新建 `agents/<工种>.md` 这条路**尚未验证宿主能按名派**')
+  L.push('（`Task(subagent_type=X)` 按名查表，查不到即硬错）。**先证明能派，再谈封。**')
   L.push('')
   for (const rid of roleIds) {
     const r = TABLE.roles[rid]
@@ -570,7 +576,7 @@ function codebuddyDoc() {
     const isAgentDef = f.startsWith('agents/')
     L.push('- **' + r.zh + '**（' + f + '，形态 ' + r.codebuddy.form + '）：`disallowedTools: [' + names.join(', ') + ']`')
     L.push('  - 落点：' + (isAgentDef
-      ? '**是 agent 定义**（`agents/` 下的件）。当前**没有 frontmatter**，要先新建块；改完**必须重启**才生效（agent 定义不热加载）'
+      ? '**是 agent 定义**（`agents/` 下的件），且**0.1.7 起已带前言块**（`name`/`description`，并在 plugin.json 的 `agents` 里登记）。做红测时把上面那行 deny 临时加进该前言块，跑完撤掉；改完**必须重启**才生效（agent 定义不热加载）'
       : '**待建**——`' + f + '` 是派工文本、不是 agent 定义，往里加 frontmatter 无效果（见本节开头）'))
   }
   L.push('')
