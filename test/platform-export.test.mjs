@@ -146,3 +146,87 @@ test('--out 覆盖输出路径；--header 加书籍信息块（书名缺失则�
   assert.ok(!readFileSync(out2, 'utf8').startsWith('《'), 'project.json 无 title 时不得加信息块')
   assert.equal(JSON.parse(readFileSync(j2, 'utf8')).header, false)
 })
+
+// ── B9 规则出处与上传前检查（2026-09-22）──────────────────────────────────────
+// 病根：旧版文件头写的是一张"坊间软惯例"表，**没有出处**——把"听说"和"规范"混在一处，
+// 谁也没法判哪条能照抄、哪条必须实测。这组测试钉两件事：规则必须带出处或显式标未证实；
+// 官方明写的驳回原因（空章/乱码/乱序/字数门槛）要真的会报。
+function bookWith(chapters, project = { title: '测试书', genre: 'x', logline: '一句话' }) {
+  const dir = mkdtempSync(path.join(tmpdir(), 'pe2-'))
+  mkdirSync(path.join(dir, 'manuscript'), { recursive: true })
+  writeFileSync(path.join(dir, 'project.json'), JSON.stringify(project), 'utf8')
+  for (const [name, text] of Object.entries(chapters)) writeFileSync(path.join(dir, 'manuscript', name), text, 'utf8')
+  return dir
+}
+const para = (n) => '这是一段正文。'.repeat(20) + '（' + n + '）'   // 每段 120+ 汉字
+const longText = (paras) => Array.from({ length: paras }, (_, i) => para(i)).join('\n\n')
+
+test('B9① 规则表自检：每条规则二选一——有官方出处（带 URL 与原文）或显式标"未证实"', () => {
+  const dir = makeBook()
+  const jp = path.join(dir, 'rep.json')
+  const r = run(dir, ['--platform=tomato', '--dry-run', '--json', jp])
+  assert.equal(r.code, 0, r.stderr)
+  const spec = JSON.parse(readFileSync(jp, 'utf8')).rule_spec
+  const entries = Object.entries(spec)
+  assert.ok(entries.length >= 8, '规则表条目太少（规则被删了？）：' + entries.length)
+  for (const [k, v] of entries) {
+    assert.ok(v.source || v.unverified,
+      '规则「' + k + '」既没有出处也没有"未证实"标记——这正是上一版"把听说当规范"的病')
+    if (v.source) {
+      assert.match(v.source.url, /^https:\/\//, k + ' 的出处必须带可点的官方 URL')
+      assert.ok(v.source.quote && v.source.quote.length > 6, k + ' 的出处必须带原文摘句（没有原文＝没法复核）')
+    }
+  }
+})
+
+test('B9② 篇幅与空章：低于平台下限、以及 0 汉字的空章都要被点名（带规则名）', () => {
+  const dir = bookWith({
+    'chapter_001.md': longText(10),                 // 正常章
+    'chapter_002.md': '第2章 短\n\n就一句话。',        // 远低于 1000
+    'chapter_003.md': '第3章 空\n\n',                // 0 汉字＝空章
+  })
+  const jp = path.join(dir, 'rep.json')
+  const r = run(dir, ['--platform=tomato', '--dry-run', '--json', jp])
+  assert.equal(r.code, 0, r.stderr)
+  const hits = JSON.parse(readFileSync(jp, 'utf8')).rule_hits
+  assert.ok(hits.some((h) => h.rule === 'chapter_min_han' && h.ch === 2), '低于 1000 汉字要报：' + JSON.stringify(hits))
+  assert.ok(hits.some((h) => h.rule === 'reject_reasons' && h.ch === 3 && h.msg.includes('空章')), '空章要报：' + JSON.stringify(hits))
+  assert.equal(hits.some((h) => h.ch === 1), false, '正常章不该被报：' + JSON.stringify(hits.filter((h) => h.ch === 1)))
+})
+
+test('B9③ 乱码与章号断档：U+FFFD 与跳号都命中（官方驳回原因里的"乱码／章节乱序"）', () => {
+  const dir = bookWith({
+    'chapter_001.md': longText(10),
+    'chapter_003.md': longText(10) + '\n\n这行有替换字符\uFFFD。',
+  })
+  const jp = path.join(dir, 'rep.json')
+  const r = run(dir, ['--platform=tomato', '--dry-run', '--json', jp])
+  assert.equal(r.code, 0, r.stderr)
+  const hits = JSON.parse(readFileSync(jp, 'utf8')).rule_hits
+  assert.ok(hits.some((h) => h.ch === 3 && h.msg.includes('U+FFFD')), '替换字符要报：' + JSON.stringify(hits))
+  assert.ok(hits.some((h) => h.msg.includes('章号不连续')), '章号断档要报：' + JSON.stringify(hits))
+})
+
+test('B9④ --checklist：两栏分明（有依据带 URL 与原文／未证实带查证说明与实测方法）', () => {
+  const dir = makeBook()
+  const lp = path.join(dir, 'checklist.md')
+  const r = run(dir, ['--platform=tomato', '--checklist', lp, '--dry-run'])
+  assert.equal(r.code, 0, r.stderr)
+  const md = readFileSync(lp, 'utf8')
+  assert.ok(md.includes('## 一、有官方依据'), '缺"有官方依据"栏')
+  assert.ok(md.includes('## 二、无公开规范'), '缺"无公开规范"栏')
+  assert.ok(/\[[^\]]+\]\(https:\/\//.test(md), '有依据的条目必须带可点的 URL')
+  assert.ok(md.includes('章节字数至少1000字'), '官方原文摘句必须进清单')
+  assert.ok(md.includes('实测'), '未证实项必须明确要求实测')
+  assert.ok(md.includes('没回填就永远是未证实'), '必须写清"回填"这道收口（否则未证实永远挂着）')
+  assert.ok(!readdirSync(dir).includes('export'), '--dry-run 不该建 export 目录')
+})
+
+test('B9⑤ 书名字符集（番茄）：含官方不允许的字符要点名', () => {
+  const dir = bookWith({ 'chapter_001.md': longText(10) }, { title: '《测试》·卷一', genre: 'x', logline: '一句话' })
+  const jp = path.join(dir, 'rep.json')
+  const r = run(dir, ['--platform=tomato', '--dry-run', '--json', jp])
+  assert.equal(r.code, 0, r.stderr)
+  const hits = JSON.parse(readFileSync(jp, 'utf8')).rule_hits
+  assert.ok(hits.some((h) => h.rule === 'title_charset'), '书名里的《》·不在番茄允许字符集内，要报：' + JSON.stringify(hits))
+})
