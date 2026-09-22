@@ -133,7 +133,18 @@ function checkLeaf(v, ctx, host, form, cid) {
         reportedDupe.add(key + ':' + n)
       }
       toolOwners[key].set(n, cid)    }
-  } else if (v.status === 'none' || v.status === 'unverified') {
+    // ineffective＝**真名字、但实测拦不住**（2026-09-22：`PowerShell` 写进 deny 仍在工具面里、
+    // 且调用真的执行了）。它与 tools 互斥，渲染器不渲它，但**必须列进文档当缺口**——
+    // 静默列进去＝虚假的约束感；静默丢掉＝下一个人会再写一次。
+    if (v.ineffective !== undefined) {
+      if (!Array.isArray(v.ineffective) || !v.ineffective.length) errs.push(ctx + '.ineffective 必须是至少一项的数组（它是"实测拦不住的真名字"，不是名单）')
+      else for (const n of v.ineffective) {
+        if (v.tools.includes(n)) errs.push(ctx + ' 的「' + n + '」同时落在 tools 与 ineffective 里——两者互斥（一个名字要么封得住，要么实测封不住）')
+        if (ghostTools.has(n)) errs.push(ctx + '.ineffective 里写着已核实**不存在**的名字「' + n + '」')
+        else if (knownTools.size && !knownTools.has(n)) errs.push(ctx + '.ineffective 里的「' + n + '」不在 hosts.codebuddy.known_tools 里——它必须是**真名字**（"拦不住的真名字"才有资格当缺口公开）')
+      }
+    }
+  } else if (v.status === 'none' || v.status === 'unverified' || v.status === 'unknown') {
     if (!v.why || !String(v.why).trim()) errs.push(ctx + ' 写了 status=' + v.status + ' 却没给 why（"没有这个工具"和"没查清"都必须留一句为什么）')
     // candidates＝给实测用的候选名（如 mcp__novelist__novel_chapter）：它不是名单，故不进
     // toolOwners、不参与生成，只出现在文档里——但塞一个已核实不存在的名字进去，等于让下一轮
@@ -239,7 +250,10 @@ function faceOf(roleId, host) {
   for (const cid of CAP_ORDER) {
     if (!r.deny.includes(cid)) continue
     const v = leafOf(TABLE.capabilities[cid], host, form)
-    if (Array.isArray(v.tools)) names.push(...v.tools)
+    if (Array.isArray(v.tools)) {
+      names.push(...v.tools)
+      if (Array.isArray(v.ineffective) && v.ineffective.length) skipped.push({ cid, status: 'ineffective', names: v.ineffective, why: v.note || '' })
+    }
     else skipped.push({ cid, status: v.status, why: v.why, candidates: v.candidates || [] })
   }
   return { names, skipped, form }
@@ -610,11 +624,17 @@ function codebuddyDoc() {
   L.push('')
   for (const rid of roleIds) {
     const r = TABLE.roles[rid]
-    const { names } = faceOf(rid, 'codebuddy')
+    const { names, skipped } = faceOf(rid, 'codebuddy')
     if (!names.length) continue
     const f = r.codebuddy && r.codebuddy.file ? r.codebuddy.file : '—'
     const isAgentDef = f.startsWith('agents/')
     L.push('- **' + r.zh + '**（' + f + '，形态 ' + r.codebuddy.form + '）：`disallowedTools: [' + names.join(', ') + ']`')
+    const gaps = (skipped || []).filter((s) => s.status === 'ineffective')
+    for (const g of gaps) {
+      L.push('  - **⚠ 缺口（已实测拦不住，故不写进名单）**：`' + g.names.join('`, `') + '`（能力 ' + g.cid + '）——' +
+        '写进 `disallowedTools` 后**它仍在工具面里、且调用真的会执行**。**不许写进去装作封住了**：静默列进去＝虚假的约束感。' +
+        '本行是**如实标注**，不是"以后会修"。')
+    }
     L.push('  - 落点：' + (isAgentDef
       ? '**包内 `agents/` 不是注册载体**（组件装载器不枚举专家包）。本行是**人格文本的权威来源**；要让它真的生效，需把同一份文本投放成**项目级定义** `<工作区>/.codebuddy/agents/<name>.md`（投放即生效、不用重启；见本节开头）'
       : '**待建**——`' + f + '` 是派工文本、不是 agent 定义。要建就建成**项目级定义**（路径同左）；建前先过耦合不变量：封发现面者必须封掉全部 MCP 面能力'))

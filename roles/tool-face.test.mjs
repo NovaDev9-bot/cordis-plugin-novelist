@@ -149,6 +149,16 @@ test('角色封了发现面却仍允许 MCP 面 ⇒ 拒绝生成（本形态 MCP
   rmSync(d, { recursive: true, force: true })
 })
 
+test('同一名字同时落在 tools 与 ineffective ⇒ 拒绝生成（一个名字要么封得住、要么实测封不住）', () => {
+  const t = realTable()
+  t.capabilities['shell.exec'].codebuddy['*'].ineffective = ['PowerShell', 'Bash']   // Bash 已在 tools 里
+  const d = fakeRepo({ table: t })
+  const r = run(d, ['--host', 'dsh', '--check'])
+  assert.equal(r.status, 2, both(r))
+  assert.match(both(r), /同时落在 tools 与 ineffective/, '要把"两者互斥"说清楚，否则下一个人会以为可以两处都写')
+  rmSync(d, { recursive: true, force: true })
+})
+
 test('codebuddy 列里的 MCP 工具名不在连接器清单里 ⇒ 拒绝生成（宿主不会报错，只能自己收口）', () => {
   const t = realTable()
   t.capabilities['ledger.write'].codebuddy['*'].tools[0] = 'mcp__novelist__novel_chaptr'   // 拼错一个字母
@@ -309,7 +319,10 @@ test('WB 角色工具面文档：零机器路径、点明三个不存在的名�
 test('能力表：每个能力两列齐全，且 domain 工具名与 lib 注册表一致', async () => {
   const t = realTable()
   const forms = Object.keys(t.hosts.codebuddy.forms)
-  const leafOk = (v) => Array.isArray(v.tools) ? v.tools.length > 0 : (v.status === 'none' || v.status === 'unverified')
+  // 合法状态三值（2026-09-22 加 unknown）：none＝本宿主没这个能力；unverified＝**没查**；
+  // unknown＝**查过了，结论是"不许渲染"**（实测会致命、或未二分到底）——它必须与 unverified 分开：
+  // 前者是"我没看"，后者是"我看了，不能写"。混成一个，下一个人会把"实测禁止"读成"还没测"。
+  const leafOk = (v) => Array.isArray(v.tools) ? v.tools.length > 0 : (v.status === 'none' || v.status === 'unverified' || v.status === 'unknown')
   for (const [cid, cap] of Object.entries(t.capabilities)) {
     assert.ok(cap.dsh, cid + ' 缺 dsh 列')
     assert.ok(leafOk(cap.dsh), cid + '.dsh 取值非法：' + JSON.stringify(cap.dsh))

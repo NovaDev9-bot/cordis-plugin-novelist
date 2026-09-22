@@ -8,6 +8,27 @@
 
 ---
 
+## 2026-09-22（当晚三次）· 对齐官方 expert-manager 校验；deny 三态入表（v0.1.9）
+
+**改了什么**：① 新增 `settings.json`（`{"agent":"chief-editor"}`）；② `.codebuddy-plugin/plugin.json` 补顶层 `leader`；③ 两个 agent 定义的前言块补 `displayName`/`profession`/`maxTurns`（主理人 150／成员 50）；④ 修 `references/handbooks/主编手册.md` 三处断链；⑤ 能力表引入 **`ineffective` / `status:unknown`** 两格，渲染器只渲 `tools` 并把缺口印在文档里。
+
+**为什么改**：
+1. **官方校验器（`expert-manager` 自带）复跑出 4 error ＋ 2 warning**（仓侧独立复算，与 WB 侧一致）。其中 `settings.json` 是真缺口——它是**"包级绑定主代理"那条通道**（缺了它，以插件形式加载时主编人格不会合成到默认 agent 上），不是格式洁癖。`leader` 是宿主读的顶层字段（`members[].role` 优先级更高，故属应收尽收）。
+2. **三处断链**：主编手册里三条指向协议件的相对引用，**按文件所在目录解析会差一级**（落进该目录下一个不存在的子目录）。**这是我装配自证的一个假绿**——它按包根解析，而读者的基准是**文件所在目录**。改法用 `../` 回退一级：**它在包内与书工程内两种布局下都对**（两边的相对关系相同）。
+3. **deny 三态**（WB 侧逐名红测）：同一个字段里写下去的名字，结局有三种——
+   `Read`/`Glob`/`Grep`/`Bash`/`ToolSearch`/`DeferExecuteTool`：**从工具面整个消失**（enforced）；
+   `mcp__novelist__*`：列着、**调用时被拒**（enforced）；**`PowerShell`：列着、且真的执行了**（ineffective，`PowerShell`/`powershell`/`pwsh` 三种写法都无效）；
+   `Write`+`Edit`+`WebFetch` 同时写：**agent 直接起不来**（fatal，三项之一未二分）。
+   ⇒ 表里加 `ineffective`（与 `tools` 互斥、渲染器不渲、**必须当缺口印出来**）与 `status:unknown`（查过了、结论是不许渲染——与 unverified 分开：前者"我没看"，后者"我看了，不能写"）。
+   ⇒ **落地效果**：`shell.exec` 只渲 `Bash`，`PowerShell` 变成文档里的显式缺口；`fs.write`/`fs.edit` 退出渲染 ⇒ 主笔的名单不再含 `Edit`/`Write`（它本来就必须能写交付件）。
+   **不许写"盲读已封死"**：准确口径是**半机器强制**（读取面＋发现面真封住，`PowerShell` 是已实测缺口）。
+
+**仍未修的（等 Owner 拍文案）**：`profession`≠`displayName`、`tags` 4→3、`quickPrompts` 4→3、`displayDescription.zh` 超长、`defaultInitPrompt` 与 `quickPrompts[0]` 不一致——**这五条是定位/文案，不是工程判断**，故不擅自改。
+
+**★ 一条新增硬约束（写死进本节与 §七）**：官方校验器对前言块做的是**子串**判断 `'tools:' in frontmatter`，而 `disallowedTools:` **含有** `tools:` ⇒ **deny 名单永远不许渲进包内的 agent 定义**（渲一次，包就不合规）。deny 只能住在宿主载体里。
+
+---
+
 ## 2026-09-22（当晚二次）· 机制实测了，但落点不在包里（v0.1.8）
 
 **改了什么**：① `.codebuddy-plugin/plugin.json` 的 description 与 `references/宿主工具面.md` §二/§六/§七（生成件，真源＝能力表）的落点与 enforcement 口径；② 能力表里六条 MCP 能力从 `status:unverified`（只有候选名）**翻成已核实名**；③ **撤销主笔 deny 里的 `tool.search` / `tool.invoke`**；④ 生成器新增两条不变量与两条反例回归。
