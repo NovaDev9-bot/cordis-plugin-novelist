@@ -1,7 +1,7 @@
 {
   "name": "novel-forge-editorial",
-  "version": "0.1.9",
-  "description": "NarrativeForge 编剧部：两座位制（主编+主笔）长篇网文生产线，配 novelist 文件账本连接器使用——章状态机、事件带、伏笔收支、盲读三角、四个零 LLM 仪器。**能力口径（v0.1.8 又一次更正，这次是按实测）**：`disallowedTools` 的**机制已实测拦得住**（中性同形探针 → `Error: Permission to use mcp__novelist__novel_chapter has been denied.`），但**落点不在本包内**——宿主组件装载器**不枚举专家包**，包内 `agents/` 那两份只是**人格文本的权威来源**、不是注册载体；**真正的落点是项目级 `<工作区>/.codebuddy/agents/*.md`**（投放即生效）。**本包当前投放数＝0 ⇒ 现状仍按软隔离对待**，证据力低于 DSH 形态。另：实测**发现面可用**——`ToolSearch`+`DeferExecuteTool` 是到达一切 MCP 工具的唯一路径（故主笔不能封它，五个盲角色正相反）。角色工具面与落点细则见 references/宿主工具面.md（生成件，真源＝能力表）。",
+  "version": "0.1.10",
+  "description": "A two-seat editorial department for long-form web novels: an editor-in-chief who owns the ledger, the gates and disk-vs-ledger reconciliation, an author who drafts, plus blind-read calibration and zero-LLM instruments. Requires the novelist connector.",
   "expertType": "team",
   "agentName": "chief-editor",
   "leader": "chief-editor",
@@ -49,17 +49,17 @@
   },
   "profession": {
     "en": "Long-form Web Novel Studio",
-    "zh": "长篇网文生产线"
+    "zh": "编剧部"
   },
   "displayDescription": {
-    "en": "Two-seat editorial studio for serialized web novels: a responsible editor who owns the ledger and a staff writer who owns the prose. Chapter state machine, event tape, foreshadow accounting, blind-read triangulation, four zero-LLM instruments. Requires the novelist MCP connector.",
-    "zh": "两座位制网文编辑部：主编守账本与门控，主笔署提案并亲自执笔。章状态机、事件带、伏笔收支对账、盲读三角、四个零 LLM 仪器。依赖 novelist 连接器提供 novel_* 工具。"
+    "en": "A two-seat long-form web-novel studio: the editor-in-chief owns the ledger, the gates and disk-vs-ledger reconciliation; the author owns proposals and prose.",
+    "zh": "两座位制长篇网文生产线：主编守账本与门控、负责账实对账，主笔署提案并亲自执笔，交付逐章可核。"
   },
   "avatar": "avatars/expert.png",
   "categoryId": "06-ContentCreative",
   "defaultInitPrompt": {
-    "en": "Start a new serialized web novel: scan the charts, shortlist topics, and set up the book ledger.",
-    "zh": "开一本新的连载网文：先扫榜做选题，再建书工程账本。"
+    "en": "Scan the charts and give me a topic shortlist before we start the book.",
+    "zh": "先扫榜给我一份选题短名单，再决定开什么书。"
   },
   "tags": [
     {
@@ -69,10 +69,6 @@
     {
       "en": "Editorial Workflow",
       "zh": "编辑部流程"
-    },
-    {
-      "en": "Continuity Ledger",
-      "zh": "连续性账本"
     },
     {
       "en": "Blind Read",
@@ -91,10 +87,6 @@
     {
       "en": "Run a ledger-vs-disk consistency check on the current book.",
       "zh": "体检这本书的账实一致性，把 issue 和 warning 分清单列出来。"
-    },
-    {
-      "en": "Run a blind read on the latest chapters and report only observations.",
-      "zh": "对最近几章跑一次盲读，只交读感记录，不给写作建议。"
     }
   ],
   "skills": [
