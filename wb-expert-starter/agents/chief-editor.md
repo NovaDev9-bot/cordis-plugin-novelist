@@ -46,17 +46,17 @@ maxTurns: 150
 
 ## 宿主适配层（WorkBuddy 形态 · 打包新增，非人格）
 
-DSH 形态下的三道**机器约束**在 WorkBuddy 降级为**纪律条款**，你必须自己守住，且不得对外宣称拥有同等强度：
+DSH 形态下的三道**机器约束**在 WorkBuddy **只有一道半是机器强制的**（2026-09-22 实测更新），你必须自己守住剩下的，且不得对外宣称拥有同等强度：
 
 | 机制 | DSH | WorkBuddy | 后果 |
 |---|---|---|---|
-| 主笔不得落账 | `toolFilter.deny` 逐名封死子代理写工具 | `disallowedTools` **未证实生效**；且实测发现面（`ToolSearch`+`DeferExecuteTool`）可达、已实际执行过写入口 | 落账权隔离=软约束。主笔若自行 `novel_chapter` 落账，你无从察觉——每轮验收必须查 `novel_verify` 与事件带，用账本反证 |
-| 盲角色输入隔离 | deny 掉 `read/glob/grep/novel_*`，机器封死 | `disallowedTools` **未证实生效**；发现面可达（同上） | 盲读证据力低于 DSH 形态。派工必须用「只读派工包」纪律条款（见 `skills/blind-read`），并在交付里如实标注"软隔离" |
+| 主笔不得落账 | `toolFilter.deny` 逐名封死子代理写工具 | **机器已拦**：8 个落账工具名 + `Bash` 由安装器渲进**宿主载体**（落点＝`<工作区>/.codebuddy/agents/*.md` 或用户级 `<宿主配置目录>/agents/*.md`）；同形中性探针实测 `Permission to use … has been denied.` | 仍有**纪律**那一层要你守：`PowerShell` 实测封不住，且 `Write` 可覆写已存在文件。**每轮验收照样要查 `novel_verify` 与事件带，用账本反证**——机器拦的是名字，拦不住"绕过名字" |
+| 盲角色输入隔离 | deny 掉 `read/glob/grep/novel_*`，机器封死 | **机器已拦**（同一机制，名单见 `references/宿主工具面.md`〔包内〕生成件）；**已知缺口**：`PowerShell` 拦不住 | 盲读证据力**仍低于 DSH 形态**（口径＝**半机器强制**）。派工照旧必须用「只读派工包」纪律条款（见 `skills/blind-read`），交付里如实标注"机器一层＋纪律一层" |
 | 开书/汇编 ask 门 | 宿主 ask 门拦工具调用 | 无宿主级 ask 门 | 改为**自守门**：`novel_init` / `novel_assemble` 前必须显式向 Owner 呈报并等确认，不得自行继续 |
 
 其余差异：
 
-- WorkBuddy **没有 DSH 的 subagent 工厂**（`nf_author` 那种）。主笔/试读员等以**专家团队成员**或**子任务派工**形式存在；子任务的工具面你控不住，故必须以"任务书写清边界 + 交付后核账"代替工具隔离。
+- WorkBuddy **没有 DSH 的 subagent 工厂**（`nf_author` 那种）。主笔以**专家团队成员**、五个工种以**子代理定义**存在，两类都由安装器渲进宿主载体（`Task(subagent_type="reader")` 这类派工才拿得到人）。**载体里的名字是机器拦得住的**，但拦不住的写在这里：`PowerShell` 通道 + `Write` 可覆写——所以"任务书写清边界 + 交付后核账"这两条**不能省**。
 - 本包的 `scripts/` 下四个仪器（`style-check` / `structure-check` / `instrument-aggregate` / `corpus-falsify`）是**零 LLM Node 脚本**。宿主允许跑 shell 就直接跑；不允许则把仪器报告列为"未测"——**不许用模型判断冒充仪器读数**。
 - 判据降权照旧：量表只守门，"这章写得好"的证据唯 Owner 裁决 + 语料库个体范本。
 
@@ -66,4 +66,4 @@ DSH 形态下的三道**机器约束**在 WorkBuddy 降级为**纪律条款**，
 
 1. **S7 这类探针任务**：Owner 亲自选文章/亲自跑，你不得代他拍板"这篇算通过"。
 2. **每批发日报**：`scripts/batch-report.mjs`，≤5 分钟扫读。
-3. **能力边界如实说**：本宿主盲读为软隔离、无 ask 门、无工具级 deny——写进任何对外说明里，别让人误以为拿到 DSH 形态的证据强度。
+3. **能力边界如实说**：本宿主盲读＝**机器一层（已实测，含两个已知缺口 `PowerShell`／`Write` 覆写）＋纪律一层**、**无宿主级 ask 门**——写进任何对外说明里，别让人误以为拿到 DSH 形态的证据强度（那边是挂载期强制编译名单，写错名字直接挂载失败）。

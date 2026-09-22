@@ -199,12 +199,33 @@ function checkLeaf(v, ctx, host, form, cid) {
     for (const c of r.deny) {
       if (!TABLE.capabilities[c]) errs.push('角色 ' + rid + ' 的 deny 里写着「' + c + '」，它不是能力 id——deny 只许写能力（写工具名＝把宿主差异搬回宿主无关层，等于没拆）')
     }
+    // 宿主豁免（2026-09-22 新增）：豁免是"换宿主换理由"的地方，所以**没有理由的豁免就是漏封**。
+    const exList = r.codebuddy && r.codebuddy.denyExempt
+    if (exList !== undefined) {
+      if (!Array.isArray(exList)) errs.push('角色 ' + rid + '.codebuddy.denyExempt 必须是数组（每项 {cap, why}）')
+      else {
+        for (const e of exList) {
+          if (!e || typeof e !== 'object') { errs.push('角色 ' + rid + ' 的 denyExempt 项不是对象：' + JSON.stringify(e)); continue }
+          if (!r.deny.includes(e.cap)) errs.push('角色 ' + rid + ' 豁免了「' + e.cap + '」，可它本来就不在 deny 里——' +
+            '豁免表只许写**真被封过**的能力（写错名字＝你以为豁免了一件事，其实什么都没发生）')
+          if (!e.why || !String(e.why).trim()) errs.push('角色 ' + rid + ' 豁免「' + e.cap + '」却没给 why——' +
+            '豁免是"换宿主换理由"的地方，没理由的豁免就是漏封')
+          if (e.cap === 'tool.search' || e.cap === 'tool.invoke') errs.push('角色 ' + rid + ' 试图豁免发现面（' + e.cap + '）——' +
+            'WB 侧运行时实测：发现面就是绕过面，豁免它等于把整条 MCP 面还回去')
+        }
+      }
+    }
+    const exCaps = new Set(Array.isArray(exList) ? exList.map((e) => e && e.cap).filter(Boolean) : [])
+    const effDeny = r.deny.filter((c) => !exCaps.has(c))
+
     // 耦合不变量（2026-09-22 WB 侧实测所迫）：本形态 MCP 只能经 ToolSearch→DeferExecuteTool 到达，
     // 所以「封发现面」与「还允许用任何 MCP 工具」在物理上不相容——封了发现面＝该角色一件 MCP 工具都拿不到。
     // 主笔正踩在这条上（它要 novel_bible/novel_search，却曾被 09-20 的权宜封了发现面）。
-    if (Array.isArray(r.deny) && (r.deny.includes('tool.search') || r.deny.includes('tool.invoke'))) {
-      const missing = MCP_CAPS.filter((c) => !r.deny.includes(c))
-      if (missing.length) errs.push('角色 ' + rid + ' 封了发现面（tool.search/tool.invoke），却仍允许 MCP 面能力 ' + missing.join(' / ') +
+    // 两张名单都查：DSH 面用 r.deny（无豁免），本形态面用 effDeny（豁免后仍成立才放行）。
+    for (const [label, list] of [['DSH 面', r.deny], ['本形态面（豁免后）', effDeny]]) {
+      if (!(list.includes('tool.search') || list.includes('tool.invoke'))) continue
+      const missing = MCP_CAPS.filter((c) => !list.includes(c))
+      if (missing.length) errs.push('角色 ' + rid + ' 在' + label + '封了发现面（tool.search/tool.invoke），却仍允许 MCP 面能力 ' + missing.join(' / ') +
         '——本形态 MCP 只能经这一对到达：封了发现面＝该角色一件 MCP 工具都拿不到（两处口径打架，装配期拦下）')
     }
     for (const h of HOSTS) if (!r[h]) errs.push('角色 ' + rid + ' 缺 ' + h + ' 列（映射缺一列就是"这个宿主上它是什么"没答）')
@@ -245,10 +266,21 @@ if (errs.length) die('能力表不合法（' + errs.length + ' 条）：\n  ' + 
 function faceOf(roleId, host) {
   const r = TABLE.roles[roleId]
   const form = host === 'codebuddy' ? r.codebuddy.form : null
+  // 宿主豁免（2026-09-22 新增）：同一角色在不同宿主上"该不该封"**可以不同**，但必须逐条带理由。
+  // 现实例：DSH 形态封 `Glob`/`Grep`，是因为那边主笔没有路径知识、放开等于整块硬盘；
+  // 本形态主笔要按 AUTH-11 重读受影响正文，只读面不构成落账旁路 ⇒ 那条理由在你这儿不成立。
+  const exempt = host === 'codebuddy' && Array.isArray(r.codebuddy.denyExempt) ? r.codebuddy.denyExempt : []
   const names = []
   const skipped = []      // 本宿主/本形态没有、或还没核实的（要看得见，不是"跳过"）
+  const exempted = []     // 有意不封的（同样要看得见——静默少封一个名字＝虚假的安全感）
   for (const cid of CAP_ORDER) {
     if (!r.deny.includes(cid)) continue
+    const ex = exempt.find((e) => e && e.cap === cid)
+    if (ex) {
+      const v = leafOf(TABLE.capabilities[cid], host, form)
+      exempted.push({ cid, names: Array.isArray(v.tools) ? v.tools : [], why: String(ex.why).trim() })
+      continue
+    }
     const v = leafOf(TABLE.capabilities[cid], host, form)
     if (Array.isArray(v.tools)) {
       names.push(...v.tools)
@@ -256,7 +288,7 @@ function faceOf(roleId, host) {
     }
     else skipped.push({ cid, status: v.status, why: v.why, candidates: v.candidates || [] })
   }
-  return { names, skipped, form }
+  return { names, skipped, exempted, form }
 }
 const roleIds = Object.keys(TABLE.roles)
 
@@ -515,18 +547,38 @@ function codebuddyDoc() {
   L.push('')
   L.push('| 角色 | 形态 | 封掉的能力 | 本宿主工具真名 | 本形态没有/未核实 |')
   L.push('|---|---|---|---|---|')
+  const exemptRows = []
   for (const rid of roleIds) {
     const r = TABLE.roles[rid]
-    const { names, skipped, form } = faceOf(rid, 'codebuddy')
+    const { names, skipped, exempted, form } = faceOf(rid, 'codebuddy')
     const seat = r.codebuddy && r.codebuddy.seat ? '（' + seatZh[r.codebuddy.seat] + '）' : ''
     const un = skipped.map((s) => s.cid + '（' + (s.status === 'none' ? '本形态无此工具' : '未核实') + '）')
-    L.push('| ' + r.zh + seat + ' | ' + form + ' | ' + (r.deny.length ? r.deny.join('、') : '（不封任何能力）') + ' | ' +
+    const denyCell = r.deny.length
+      ? r.deny.join('、') + (exempted.length ? '　**（本形态有意豁免：' + exempted.map((e) => e.cid).join('、') + '）**' : '')
+      : '（不封任何能力）'
+    if (exempted.length) exemptRows.push({ zh: r.zh, rid, exempted })
+    L.push('| ' + r.zh + seat + ' | ' + form + ' | ' + denyCell + ' | ' +
       (names.length ? names.map((n) => '`' + n + '`').join(' ') : '—') + ' | ' + (un.length ? un.join('；') : '—') + ' |')
   }
   L.push('')
   L.push('「封掉的能力」一列是宿主无关口径（与 DSH 形态同一张表推导）；「工具真名」一列才是可以写进 disallowedTools 的东西。')
   L.push('同一列里既有名字又有"—"，差别不是重不重要，而是**这个形态下有没有这个工具**：没有工具可禁时，那条 deny 是空操作。')
   L.push('')
+  if (exemptRows.length) {
+    L.push('### 本形态有意**不封**的能力（豁免必须带理由，写在这里而不是悄悄少写一个名字）')
+    L.push('')
+    for (const row of exemptRows) {
+      for (const e of row.exempted) {
+        L.push('- **' + row.zh + '**：`' + e.cid + '`（对应本宿主工具 ' +
+          (e.names.length ? e.names.map((n) => '`' + n + '`').join('、') : '（本形态无此工具）') + '）')
+        L.push('  - 理由：' + e.why)
+      }
+    }
+    L.push('')
+    L.push('为什么要把豁免也印出来：**静默少封一个名字，与静默封错一个名字一样，都是虚假的安全感**——' +
+      '两者的表观都是"没报错"。这张表是唯一能让人看出"这里本该有封锁，但按本宿主的形态有意没做"的地方。')
+    L.push('')
+  }
   if (host.couplings && Object.keys(host.couplings).length) {
     L.push('### 连带影响（禁一条会顺带影响什么）')
     L.push('')
@@ -618,26 +670,35 @@ function codebuddyDoc() {
   L.push('2. 用户级目录＝app 进程环境变量的 `CODEBUDDY_CONFIG_DIR` 下的 `agents/`（**本机该变量指向宿主自己的配置目录 `.workbuddy`** ⇒ 实为 `~/.workbuddy/agents/`）；')
   L.push('   **以环境变量为准，不要照抄本条的字面值**——换个装法就会分叉。（本节不写机器绝对路径：包内文档零机器路径是硬门。）')
   L.push('')
-  L.push('**★ 五个工种的落点＝待建**：`references/roles/` 下的件是派工文本、不是 agent 定义（往里加 frontmatter 不会有任何效果）。')
-  L.push('要建就建成**项目级定义**（路径同上）；且**建之前先过耦合不变量**——本形态 MCP 只能经 `ToolSearch`→`DeferExecuteTool` 到达，')
-  L.push('**封发现面的角色必须同时封掉全部 MCP 面能力**（生成器会在装配期拦下不满足者）。')
+  L.push('**★ 载体怎么装（2026-09-22 B1 落地）：三层分工，别混。**')
+  L.push('1. **人格文本** ＝ 包内 `agents/*.md`〔模板〕（真源＝`roles/persona/`），**不带封名单**——官方校验器对前言块做**子串**判断（出现 `tools:` 即报错），' +
+    '而 `disallowedTools:` 含该子串 ⇒ **封名单渲进包内 MD 会立刻不合规**。')
+  L.push('2. **宿主载体** ＝ 宿主配置目录下的 `agents/<name>.md`，由安装器**在包内文本之上补前言块与封名单**（名字从能力表现渲，**只渲 enforced**）。')
+  L.push('3. **陈旧门** ＝ 安装器 `--check` 逐文件比 sha256——**定义是热加载的，"装的时候对过"不作数**。')
+  L.push('')
+  L.push('**五个工种的正文源在 `references/roles/`（派工文本），但那不是定义载体**——往里加前言块不会有任何效果；' +
+    '它们的**定义**由安装器生成到宿主载体目录。耦合不变量（封发现面者必须封掉全部 MCP 面能力）在装配期拦。')
   L.push('')
   for (const rid of roleIds) {
     const r = TABLE.roles[rid]
-    const { names, skipped } = faceOf(rid, 'codebuddy')
-    if (!names.length) continue
-    const f = r.codebuddy && r.codebuddy.file ? r.codebuddy.file : '—'
-    const isAgentDef = f.startsWith('agents/')
-    L.push('- **' + r.zh + '**（' + f + '，形态 ' + r.codebuddy.form + '）：`disallowedTools: [' + names.join(', ') + ']`')
+    const { names, skipped, exempted } = faceOf(rid, 'codebuddy')
+    if (!names.length && !exempted.length) continue
+    const src = r.codebuddy && r.codebuddy.file ? r.codebuddy.file : '—'
+    const def = r.codebuddy && r.codebuddy.agentdef ? r.codebuddy.agentdef : '（未登记 agentdef）'
+    // 载体路径写成符号形态（`<宿主配置目录>/…`）：它**不在本包内**，写成包内相对路径会被包内引用自证
+    // 判成悬空——而那正是"装作它在包里"的错误来源（2026-09-22 实测：这样写会被装配期拦下）。
+    L.push('- **' + r.zh + '**（正文源 `' + src + '` → 载体 `<宿主配置目录>/' + def + '`，形态 ' + r.codebuddy.form + '）：`disallowedTools: [' + names.join(', ') + ']`')
+    for (const e of exempted) {
+      L.push('  - 本形态有意**不封**：`' + e.cid + '`' + (e.names.length ? '（`' + e.names.join('`, `') + '`）' : '') +
+        '——理由：' + e.why)
+    }
     const gaps = (skipped || []).filter((s) => s.status === 'ineffective')
     for (const g of gaps) {
       L.push('  - **⚠ 缺口（已实测拦不住，故不写进名单）**：`' + g.names.join('`, `') + '`（能力 ' + g.cid + '）——' +
         '写进 `disallowedTools` 后**它仍在工具面里、且调用真的会执行**。**不许写进去装作封住了**：静默列进去＝虚假的约束感。' +
         '本行是**如实标注**，不是"以后会修"。')
     }
-    L.push('  - 落点：' + (isAgentDef
-      ? '**包内 `agents/` 不是注册载体**（组件装载器不枚举专家包）。本行是**人格文本的权威来源**；要让它真的生效，需把同一份文本投放成**项目级定义** `<工作区>/.codebuddy/agents/<name>.md`（投放即生效、不用重启；见本节开头）'
-      : '**待建**——`' + f + '` 是派工文本、不是 agent 定义。要建就建成**项目级定义**（路径同左）；建前先过耦合不变量：封发现面者必须封掉全部 MCP 面能力'))
+    L.push('  - 落点：宿主配置目录下的 `agents/`（见上第 2 条；安装器 `--check` 可验是否陈旧）')
   }
   L.push('')
   L.push('预期：加上之后该 agent 调这些工具应当直接失败或被拒。**若照样能调通，说明本形态的 deny 不生效**——那就要如实降级到"纪律约束"，并把这条写进交付说明，而不是当它生效了。')
@@ -714,7 +775,10 @@ if (wants('codebuddy')) {
         '；本段由本次生成写入 **' + names.length + '** 份派工文本——份数是现算的，不在文档里手写） -->',
       '**DSH 侧（宿主强制）**：本角色在 DSH 预设里的 `toolFilter.deny` 名单（含 2026-09-20 起的扇出/发现面封锁与 `maxDepth: 0` 深度锁）**由能力表生成，不在本文件复述**——复述就是第三份会过期的拷贝：2026-09-20 第三方实测，这批派工文本里的名单**全部**落后真源（盲角色各漏 7 项反扇出条款）。要查实际名单就读能力表，或跑生成器 `--check`。',
       '',
-      '**WorkBuddy 侧（只有声明，未核实生效）**：本角色应封的能力与**本宿主工具真名**见 `../宿主工具面.md`〔包内〕（生成件）。本形态下宿主**未证实**执行 deny，故一律按纪律约束对待，交付说明须标注"软隔离、证据力低于 DSH 形态"。',
+      '**WorkBuddy 侧（载体已建，名单与缺口都在生成件里）**：本角色应封的能力与**本宿主工具真名**见 `../宿主工具面.md`〔包内〕（生成件）。' +
+      '**deny 机制已实测拦得住**（同形中性探针 → `Permission to use … has been denied.`），落点＝**宿主载体**（`<宿主配置目录>/agents/*.md`，由 `scripts/install-wb-agents.mjs` 从能力表渲染安装）。' +
+      '**两件如实标注**：①已实测拦不住的名字（`PowerShell`）**不渲进名单**，但也**不许当成封住了**；②本形态的盲读隔离＝**机器拦一层＋纪律一层**，' +
+      '证据力仍低于 DSH 形态（那边是宿主在挂载期强制编译名单）——交付说明照此写，别写成"已机器封死"。',
       '',
       '**术语对照**（派工指令里会遇到这些词；坐标**从机制手册现读**，按同一份手册读细则）：',
       '',
@@ -741,7 +805,53 @@ if (wants('codebuddy')) {
       else { await fsp.writeFile(full, next); results.push({ rel: shortRel, status: 'written', note: '工具面生成区已刷新' }) }
     }
   }
-}
+
+// ── 七、宿主载体封名单（机器可读派生件，2026-09-22 B1）
+// 它属于 codebuddy 侧产物（宿主载体是 CodeBuddy 的工作方式），所以**必须留在 wants('codebuddy') 里**——
+// 放在门外会让 `--host dsh` 这条路径也去写 references/，而只跑 DSH 侧的场合未必有那个目录
+// （2026-09-22 实测：一放出门外，工具面回归里两条 `--host dsh` 的用例当场红）。
+// 为什么把它吐成文件而不是让安装器自己再算一遍：宿主载体（<宿主配置目录>/agents/*.md）
+// 里的封名单必须与本生成器**同一份实现**——再算一遍就是第二份实现，而第二份实现就是下一次漂移。
+// 安装器（scripts/install-wb-agents.mjs）只消费本件：它负责写盘与陈旧检查，不负责决定封什么。
+{
+  // 坐标从表里读，不写死在代码里：路径含中文，而约定一致性棘轮禁止代码里出现中文路径字面量
+  // （2026-09-22 实测：写死当场把 cjk_paths_in_code 从 0 顶到 1）。表里那条是**包内相对**坐标。
+  const rel = 'wb-expert-starter/' + TABLE.hosts.codebuddy.carrier_ledger
+  const full = path.resolve(PLUGIN, rel)
+  const roles = {}
+  for (const rid of roleIds) {
+    const r = TABLE.roles[rid]
+    const cb = r.codebuddy || {}
+    const { names, skipped, exempted, form } = faceOf(rid, 'codebuddy')
+    roles[rid] = {
+      zh: r.zh,
+      form,
+      agentdef: cb.agentdef || null,
+      sourceText: cb.file || null,
+      description: cb.description || null,
+      maxTurns: cb.maxTurns || null,
+      denyNames: names,
+      exempted,
+      skipped,
+    }
+  }
+  const payload = {
+    _generated_by: 'roles/build-tool-face.mjs',
+    _source: REL_TABLE,
+    _note: '机器可读派生件：宿主载体（agent 定义）的前言块与封名单由它说了算。**手改无效**——' +
+      '跑生成器重生成。为什么单列一份：包内 agent 定义**不许**带 disallowedTools（官方校验器做子串判断，' +
+      '`disallowedTools:` 含 `tools:` ⇒ 渲进包内 MD 立刻不合规），所以封名单只能由宿主载体承载，' +
+      '而载体是派生件——派生件必须由生成器给，不许安装器自己再算一遍（那就是第二份实现）。',
+    roles,
+  }
+  const next = JSON.stringify(payload, null, 2) + '\n'
+  const prev = fsSync.existsSync(full) ? fsSync.readFileSync(full, 'utf8') : null
+  const shortRel = path.relative(ROOT, full).split(path.sep).join('/')
+  if (prev === next) results.push({ rel: shortRel, status: 'ok', note: '宿主载体封名单与能力表一致' })
+  else if (CHECK) results.push({ rel: shortRel, status: 'drift', note: '宿主载体封名单与能力表不一致' })
+  else { await fsp.writeFile(full, next); results.push({ rel: shortRel, status: 'written', note: '宿主载体封名单已刷新' }) }
+  }
+}   // ← 关 `if (wants('codebuddy'))`
 
 console.log('')
 console.log('══════ 角色工具面（能力表 → 派生件）══════')
