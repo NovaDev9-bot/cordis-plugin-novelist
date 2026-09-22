@@ -60,7 +60,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-dispatch"
-      ]
+      ],
+      "code": "PROOF-01"
     },
     {
       "id": "proofer.host.stop.dsh",
@@ -104,7 +105,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-dispatch"
-      ]
+      ],
+      "code": "PROOF-02"
     }
   ],
   "carriers": [

@@ -30,7 +30,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-dispatch"
-      ]
+      ],
+      "code": "AUTH-01"
     },
     {
       "id": "author.obl.role",
@@ -40,7 +41,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-dispatch"
-      ]
+      ],
+      "code": "AUTH-02"
     },
     {
       "id": "author.obl.byline",
@@ -50,7 +52,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-dispatch"
-      ]
+      ],
+      "code": "AUTH-03"
     },
     {
       "id": "author.obl.scene",
@@ -60,7 +63,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-dispatch"
-      ]
+      ],
+      "code": "AUTH-04"
     },
     {
       "id": "author.obl.carryover",
@@ -70,7 +74,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-dispatch"
-      ]
+      ],
+      "code": "AUTH-05"
     },
     {
       "id": "author.obl.proposal",
@@ -80,7 +85,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-dispatch"
-      ]
+      ],
+      "code": "AUTH-06"
     },
     {
       "id": "author.obl.divergence",
@@ -90,7 +96,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-dispatch"
-      ]
+      ],
+      "code": "AUTH-07"
     },
     {
       "id": "author.obl.craft",
@@ -100,7 +107,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-dispatch"
-      ]
+      ],
+      "code": "AUTH-08"
     },
     {
       "id": "author.obl.session",
@@ -110,7 +118,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-dispatch"
-      ]
+      ],
+      "code": "AUTH-09"
     },
     {
       "id": "author.obl.deliver",
@@ -120,7 +129,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-dispatch"
-      ]
+      ],
+      "code": "AUTH-10"
     },
     {
       "id": "author.obl.reread",
@@ -130,7 +140,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-dispatch"
-      ]
+      ],
+      "code": "AUTH-11"
     },
     {
       "id": "author.obl.long-chapter",
@@ -140,7 +151,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-dispatch"
-      ]
+      ],
+      "code": "AUTH-12"
     },
     {
       "id": "author.obl.only-text",
@@ -150,7 +162,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-dispatch"
-      ]
+      ],
+      "code": "AUTH-13"
     },
     {
       "id": "author.obl.ledger-gate",
@@ -160,7 +173,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-dispatch"
-      ]
+      ],
+      "code": "AUTH-14"
     },
     {
       "id": "author.obl.refcard",
@@ -170,7 +184,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-dispatch"
-      ]
+      ],
+      "code": "AUTH-15"
     },
     {
       "id": "author.obl.refcard.source",
@@ -180,7 +195,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-dispatch"
-      ]
+      ],
+      "code": "AUTH-16"
     },
     {
       "id": "author.aud.divergence.prod",
@@ -265,7 +281,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-dispatch"
-      ]
+      ],
+      "code": "AUTH-17"
     },
     {
       "id": "author.obl.count",
@@ -275,7 +292,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-dispatch"
-      ]
+      ],
+      "code": "AUTH-18"
     },
     {
       "id": "author.obl.forbidden",
@@ -285,7 +303,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-dispatch"
-      ]
+      ],
+      "code": "AUTH-19"
     }
   ],
   "carriers": [

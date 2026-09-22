@@ -62,7 +62,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-dispatch"
-      ]
+      ],
+      "code": "CAL-01"
     },
     {
       "id": "calibrator.obl.duty",
@@ -72,7 +73,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-dispatch"
-      ]
+      ],
+      "code": "CAL-02"
     },
     {
       "id": "calibrator.host.stop.dsh",
@@ -99,7 +101,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-dispatch"
-      ]
+      ],
+      "code": "CAL-03"
     },
     {
       "id": "calibrator.obl.catalog.b",
@@ -109,7 +112,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-dispatch"
-      ]
+      ],
+      "code": "CAL-04"
     },
     {
       "id": "calibrator.obl.unit",
@@ -119,7 +123,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-dispatch"
-      ]
+      ],
+      "code": "CAL-05"
     },
     {
       "id": "calibrator.obl.output",
@@ -129,7 +134,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-dispatch"
-      ]
+      ],
+      "code": "CAL-06"
     },
     {
       "id": "calibrator.obl.noreport",
@@ -139,7 +145,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-dispatch"
-      ]
+      ],
+      "code": "CAL-07"
     },
     {
       "id": "calibrator.aud.exemption.prod",

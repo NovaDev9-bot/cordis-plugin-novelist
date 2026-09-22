@@ -42,7 +42,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-dispatch"
-      ]
+      ],
+      "code": "ARCH-01"
     },
     {
       "id": "archivist.obl.consistency",
@@ -52,7 +53,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-dispatch"
-      ]
+      ],
+      "code": "ARCH-02"
     },
     {
       "id": "archivist.obl.stance",
@@ -62,7 +64,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-dispatch"
-      ]
+      ],
+      "code": "ARCH-03"
     },
     {
       "id": "archivist.obl.readonly",
@@ -72,7 +75,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-dispatch"
-      ]
+      ],
+      "code": "ARCH-04"
     },
     {
       "id": "archivist.host.tools",
@@ -92,7 +96,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-dispatch"
-      ]
+      ],
+      "code": "ARCH-05"
     }
   ],
   "carriers": [

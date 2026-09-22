@@ -17,7 +17,8 @@
         "dissector",
         "proofer",
         "reader"
-      ]
+      ],
+      "code": "CORE-01"
     },
     {
       "id": "shared.obl.packet.short",
@@ -28,7 +29,8 @@
         "dissector",
         "proofer",
         "reader"
-      ]
+      ],
+      "code": "CORE-02"
     }
   ]
 }
