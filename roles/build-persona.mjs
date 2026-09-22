@@ -155,6 +155,33 @@ const TABLE = JSON.parse(fsSync.readFileSync(TABLE_PATH, 'utf8'))
 const LAYERS = ['obligation', 'audience', 'host']
 const KINDS = ['yaml-persona', 'md-persona']
 
+// ── 条款锚点（A3 · 2026-09-22）───────────────────────────────────────────────
+// 真源段可带 `code`（稳定号）。带 code 的段在**所有化身**里渲染成「〔CODE〕正文」——
+// 引用用稳定号，序号只作导航。业界依据（原文摘句与 URL 见 docs/planning/整改总计划_2026-09-21.md §九）：
+//   · NASA NPR 7150.2D：位置号（3.12.1）＋稳定号 [SWE-052] 并存，**引用只写稳定号**；
+//   · SARIF v2.1.0 §3.49.3：rule id **SHALL** be stable、SHOULD be opaque；§3.49.4
+//     `deprecatedIds`：改号必须留旧号映射（旧号不得回收）；
+//   · OWASP ASVS：纯位置号会随版本漂移（其 README 明说）——所以这里**不**用「纪律⑤」式位置号。
+// 格式：`<角色前缀>-<两位序号>`；序号一经发布不改、不复用（要改就进 deprecated 清单）。
+const CODE_RE = /^[A-Z]{2,6}-\d{2}$/
+const CODES = new Map()   // code -> 段 id（跨角色查重；同一段出现在多个化身里不算撞号）
+function renderSeg(s, where) {
+  if (typeof s.text !== 'string') die(where + '：段「' + s.id + '」没有 text')
+  if (s.code === undefined) return s.text
+  if (typeof s.code !== 'string' || !CODE_RE.test(s.code)) {
+    die(where + '：段「' + s.id + '」的 code 必须是「<前缀>-<两位序号>」（如 AUTH-03），收到「' + s.code + '」',
+      '序号要**不透明**（SARIF §3.49.3）：别把语义写进号里——规则实现改了，语义化的号会长期误导读者')
+  }
+  if (CODES.has(s.code) && CODES.get(s.code) !== s.id) {
+    die(where + '：条款号撞号「' + s.code + '」——' + CODES.get(s.code) + ' 与 ' + s.id + ' 用了同一个号',
+      '稳定号的唯一意义是可引用：撞号＝两个条款共用一个引用。改号只许进 deprecated 清单，不许回收旧号')
+  }
+  CODES.set(s.code, s.id)
+  // 号插在**前导空白之后**：段的段落边界由前导换行决定，插在换行之前会把段落结构改掉。
+  const lead = /^\s*/.exec(s.text)[0]
+  return lead + '〔' + s.code + '〕' + s.text.slice(lead.length)
+}
+
 // ── 跨角色共享段（可选真源 roles/persona/_shared.json）──────────────────────
 // 文件不在＝没有这一层，不报错、不造默认值（"缺失没有类型"管的是"该有的缺了要报"，不是
 // "没造的东西也要报"）。在，则其中的段是公共池：任何角色的任何化身都能引用它。
@@ -188,7 +215,7 @@ if (fsSync.existsSync(SHARED_PATH)) {
     if (!Array.isArray(s.usedBy)) {
       die(w + '：段「' + s.id + '」的 usedBy 必须是数组（可空；写**角色名**，不是化身 id——化身 id 在各角色间重名）')
     }
-    sharedSegs.set(s.id, s.text)
+    sharedSegs.set(s.id, renderSeg(s, w))
     sharedUsedBy.set(s.id, [...new Set(s.usedBy)])
   }
 }
@@ -499,7 +526,7 @@ const lines = []
 const summaries = []
 
 for (const role of picked) {
-  const segText = new Map(role.segments.map((s) => [s.id, s.text]))
+  const segText = new Map(role.segments.map((s) => [s.id, renderSeg(s, '角色 ' + role.role)]))
   for (const [id, t] of sharedSegs) segText.set(id, t) // 公共池：任何角色的任何化身都能引用
   const rows = []
   let matched = 0

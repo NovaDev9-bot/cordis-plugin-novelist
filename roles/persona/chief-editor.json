@@ -26,7 +26,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-seat"
-      ]
+      ],
+      "code": "ED-01"
     },
     {
       "id": "chief-editor.obl.roster",
@@ -36,7 +37,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-seat"
-      ]
+      ],
+      "code": "ED-02"
     },
     {
       "id": "chief-editor.obl.side",
@@ -46,7 +48,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-seat"
-      ]
+      ],
+      "code": "ED-03"
     },
     {
       "id": "chief-editor.host.cwd.dsh",
@@ -65,7 +68,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-seat"
-      ]
+      ],
+      "code": "ED-04"
     },
     {
       "id": "chief-editor.aud.booklayout.prod",
@@ -83,7 +87,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-seat"
-      ]
+      ],
+      "code": "ED-05"
     },
     {
       "id": "chief-editor.obl.field",
@@ -93,7 +98,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-seat"
-      ]
+      ],
+      "code": "ED-06"
     },
     {
       "id": "chief-editor.aud.topicprotocol.prod",
@@ -111,7 +117,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-seat"
-      ]
+      ],
+      "code": "ED-07"
     },
     {
       "id": "chief-editor.aud.obs.prod",
@@ -129,7 +136,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-seat"
-      ]
+      ],
+      "code": "ED-08"
     },
     {
       "id": "chief-editor.obl.discipline",
@@ -139,7 +147,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-seat"
-      ]
+      ],
+      "code": "ED-09"
     },
     {
       "id": "chief-editor.aud.incidents.prod",
@@ -157,7 +166,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-seat"
-      ]
+      ],
+      "code": "ED-10"
     },
     {
       "id": "chief-editor.obl.corpus",
@@ -167,7 +177,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-seat"
-      ]
+      ],
+      "code": "ED-11"
     },
     {
       "id": "chief-editor.obl.report",
@@ -177,7 +188,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-seat"
-      ]
+      ],
+      "code": "ED-12"
     },
     {
       "id": "chief-editor.aud.report.prod",
@@ -195,7 +207,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-seat"
-      ]
+      ],
+      "code": "ED-13"
     },
     {
       "id": "chief-editor.aud.reportpath.prod",
@@ -213,7 +226,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-seat"
-      ]
+      ],
+      "code": "ED-14"
     },
     {
       "id": "chief-editor.aud.autonomyhead.prod",
@@ -231,7 +245,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-seat"
-      ]
+      ],
+      "code": "ED-15"
     },
     {
       "id": "chief-editor.obl.conflictrule",
@@ -241,7 +256,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-seat"
-      ]
+      ],
+      "code": "ED-16"
     },
     {
       "id": "chief-editor.aud.conflictdispatch.prod",
@@ -259,7 +275,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-seat"
-      ]
+      ],
+      "code": "ED-17"
     },
     {
       "id": "chief-editor.aud.topicprotocol.pub",

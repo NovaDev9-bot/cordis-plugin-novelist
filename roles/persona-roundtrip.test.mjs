@@ -605,3 +605,40 @@ test('4 空转判据：真源清空 / 某角色 carriers 为空 / 锚点被删 �
     console.log('[空转 4f] 锚点被删 + --apply → exit ' + r.status + '，九份载体逐字节未动')
   })
 })
+
+// ═══ ⑤ 条款号（A3 · 2026-09-22）═══════════════════════════════════════════════
+// 为什么单独立一组：条款此前只能引到"纪律⑤"——位置号会漂（ASVS 自家 README 明说），
+// 于是改稿后引用指向别处。稳定号是"能被引用的前提"（SARIF §3.49.3：id SHALL be stable）。
+// 这组钉两件事：真源里义务段**都有号且不撞号**；号**真的渲染进了每一个化身**（不是只活在真源里）。
+test('5 条款号：每个义务段都有稳定号、全局不撞号、且在每个化身里都渲染成 〔CODE〕', () => {
+  const CODE_RE = /^[A-Z]{2,6}-\d{2}$/
+  const seen = new Map()
+  const ALLSEG = [
+    ...ROLE_DOCS.flatMap((r) => r.doc.segments.map((s) => ({ f: r.file, s }))),
+    ...(SHARED_DOC ? SHARED_DOC.segments.map((s) => ({ f: SHARED_FILE, s })) : []),
+  ]
+  let obl = 0
+  for (const { f, s } of ALLSEG) {
+    if (s.layer !== 'obligation') continue
+    obl++
+    assert.ok(s.code, f + ' 的义务段「' + s.id + '」没有稳定号——引用只能退回到"纪律⑤"那种位置说法')
+    assert.ok(CODE_RE.test(s.code), f + ' 的「' + s.id + '」条款号格式不对（要 <前缀>-<两位序号>）：' + s.code)
+    assert.ok(!seen.has(s.code), '条款号撞号：' + s.code + ' 同时属于 ' + seen.get(s.code) + ' 与 ' + s.id)
+    seen.set(s.code, s.id)
+  }
+  assert.ok(obl > 0, '真源里一个义务段都没有——这组守卫会空转（空转必须报错，不许打成通过）')
+
+  let checked = 0
+  for (const c of CARRIERS) {
+    const txt = fs.readFileSync(path.join(REPO, c.rel), 'utf8')
+    for (const id of c.segments) {
+      const hit = ALLSEG.find((x) => x.s.id === id)
+      if (!hit || !hit.s.code) continue
+      assert.ok(txt.includes('〔' + hit.s.code + '〕'),
+        c.rel + ' 里找不到条款号 〔' + hit.s.code + '〕（' + id + '）——号只在真源里，引用还是落不到纸上')
+      checked++
+    }
+  }
+  assert.ok(checked > 0, '一条渲染都没核到——夹具坏了，别当成通过')
+  console.log('[条款号] ' + seen.size + ' 个稳定号 · 覆盖 ' + obl + ' 个义务段 · 化身里核到 ' + checked + ' 处渲染')
+})

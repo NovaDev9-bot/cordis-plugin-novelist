@@ -43,7 +43,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-dispatch"
-      ]
+      ],
+      "code": "DISS-01"
     },
     {
       "id": "dissector.obl.notread",
@@ -53,7 +54,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-dispatch"
-      ]
+      ],
+      "code": "DISS-02"
     },
     {
       "id": "dissector.obl.discipline",
@@ -63,7 +65,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-dispatch"
-      ]
+      ],
+      "code": "DISS-03"
     },
     {
       "id": "dissector.host.brk.notread.dsh",

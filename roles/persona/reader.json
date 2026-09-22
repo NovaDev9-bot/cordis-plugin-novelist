@@ -48,7 +48,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-dispatch"
-      ]
+      ],
+      "code": "READ-01"
     },
     {
       "id": "reader.obl.coldread",
@@ -58,7 +59,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-dispatch"
-      ]
+      ],
+      "code": "READ-02"
     },
     {
       "id": "reader.obl.mission",
@@ -68,7 +70,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-dispatch"
-      ]
+      ],
+      "code": "READ-03"
     },
     {
       "id": "reader.aud.profile.pub",
@@ -95,7 +98,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-dispatch"
-      ]
+      ],
+      "code": "READ-04"
     },
     {
       "id": "reader.obl.roster.eight",
@@ -105,7 +109,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-dispatch"
-      ]
+      ],
+      "code": "READ-05"
     },
     {
       "id": "reader.aud.method.pub",
@@ -124,7 +129,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-dispatch"
-      ]
+      ],
+      "code": "READ-06"
     },
     {
       "id": "reader.obl.foothold",
@@ -134,7 +140,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-dispatch"
-      ]
+      ],
+      "code": "READ-07"
     },
     {
       "id": "reader.obl.firstread",
@@ -144,7 +151,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-dispatch"
-      ]
+      ],
+      "code": "READ-08"
     },
     {
       "id": "reader.obl.retell",
@@ -154,7 +162,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-dispatch"
-      ]
+      ],
+      "code": "READ-09"
     },
     {
       "id": "reader.obl.delivery",
@@ -164,7 +173,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-dispatch"
-      ]
+      ],
+      "code": "READ-10"
     },
     {
       "id": "reader.obl.gateway",
@@ -174,7 +184,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-dispatch"
-      ]
+      ],
+      "code": "READ-11"
     },
     {
       "id": "reader.aud.calibmark.pub",
@@ -202,7 +213,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-dispatch"
-      ]
+      ],
+      "code": "READ-12"
     },
     {
       "id": "reader.obl.pollution",
@@ -212,7 +224,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-dispatch"
-      ]
+      ],
+      "code": "READ-13"
     },
     {
       "id": "reader.obl.tools",
@@ -222,7 +235,8 @@
         "dsh-prod",
         "dsh-public",
         "wb-dispatch"
-      ]
+      ],
+      "code": "READ-14"
     },
     {
       "id": "reader.aud.identity.prod",
