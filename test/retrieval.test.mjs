@@ -49,7 +49,7 @@ const cardBook = () => {
   return { files, call, dir }
 }
 
-test('A: factsheet 六节确定性投影（每条带章号坐标）＋叙述节明标由主编补写', async () => {
+test('A: factsheet 七节确定性投影（每条带章号坐标；v7.16 起含「规矩」节）＋叙述节明标由主编补写', async () => {
   const { files, call, dir } = cardBook()
   const before = new Map(files)
   const card = await call('novel_context', { book_dir: dir, op: 'factsheet', ch: 5, near: 3 })

@@ -27,7 +27,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "test": "node --test test/audit-regressions.test.mjs test/novelist.test.mjs test/context.test.mjs test/retrieval.test.mjs test/decide-faults.test.mjs test/versioning.test.mjs test/structure.test.mjs test/required-fields.test.mjs test/seal.test.mjs test/realfs.test.mjs test/preset.test.mjs test/batch-aggregate.test.mjs test/versions.test.mjs test/platform-export.test.mjs mcp/test/mcp.test.mjs mcp/test/server-e2e.test.mjs test/test-manifest.test.mjs instruments/style-check.test.mjs instruments/instrument-aggregate.test.mjs instruments/instrument-guards.test.mjs scripts/build-wb-expert.test.mjs roles/tool-face.test.mjs roles/text-invariants.test.mjs roles/persona-roundtrip.test.mjs test/blind-credentials.test.mjs test/e2e-acceptance.test.mjs test/untested-paths.test.mjs",
+    "test": "node --test test/audit-regressions.test.mjs test/novelist.test.mjs test/context.test.mjs test/retrieval.test.mjs test/decide-faults.test.mjs test/versioning.test.mjs test/structure.test.mjs test/required-fields.test.mjs test/seal.test.mjs test/realfs.test.mjs test/preset.test.mjs test/batch-aggregate.test.mjs test/versions.test.mjs test/platform-export.test.mjs mcp/test/mcp.test.mjs mcp/test/server-e2e.test.mjs test/test-manifest.test.mjs instruments/style-check.test.mjs instruments/instrument-aggregate.test.mjs instruments/instrument-guards.test.mjs scripts/build-wb-expert.test.mjs roles/tool-face.test.mjs roles/text-invariants.test.mjs roles/persona-roundtrip.test.mjs test/blind-credentials.test.mjs test/e2e-acceptance.test.mjs test/rule-ledger.test.mjs test/untested-paths.test.mjs",
     "check:wb-package": "node scripts/wb-package-check.mjs"
   },
   "keywords": [
