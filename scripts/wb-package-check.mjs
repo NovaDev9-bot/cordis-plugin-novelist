@@ -20,6 +20,7 @@
  * —— 2 不是 0：没检查成不许报成通过。
  */
 import { spawnSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -56,6 +57,54 @@ const pjPath = path.join(PKG, '.codebuddy-plugin', 'plugin.json')
 if (!existsSync(pjPath)) {
   die('专家包不存在或缺 plugin.json：' + PKG,
     '默认路径针对本机 my-experts 市场；别的机器/别的市场用 --package <目录> 指定')
+}
+
+// ── --entries：两份连接器入口的一致性（X2 · 2026-09-22）─────────────────────
+// 同名两处：①包内 `vendor/novelist/mcp/server.mjs`（跟着包走，对外唯一那份）；
+// ②用户级 <用户目录>/.workbuddy/mcp.json 的 novelist（**本机生效**的那份——同名时用户级胜出）。
+// 两处都在时，它们指向的连接器文件必须**逐字节相同**：不同＝本机跑的和对外发的不是同一份代码，
+// 而这种漂移在两边都不报错（本机永远绿、拿到包的人是旧的）。加这条正是为了让它会报。
+if (argv.includes('--entries')) {
+  const sha = (p) => createHash('sha256').update(readFileSync(p)).digest('hex')
+  const readEntry = (p, label) => {
+    if (!existsSync(p)) return null
+    let j
+    try { j = JSON.parse(readFileSync(p, 'utf8')) } catch (e) { die(label + ' 解析失败：' + p + '：' + e.message) }
+    const cfg = (j.mcpServers || j.mcp_servers || {}).novelist
+    if (!cfg || !Array.isArray(cfg.args)) die(label + ' 里没有可解析的 novelist 入口：' + p)
+    const file = path.resolve(String(cfg.args[0]).replace('${CODEBUDDY_PLUGIN_ROOT}', PKG))
+    const i = cfg.args.indexOf('--root')
+    return { path: p, file, root: i !== -1 ? cfg.args[i + 1] : (cfg.env && cfg.env.NOVELIST_ROOT) || null }
+  }
+  const pkgEntry = readEntry(pjPath, '包内 plugin.json')
+  const userEntry = readEntry(path.resolve(opt('--user-mcp') || path.join(
+    process.env.USERPROFILE || process.env.HOME || '', '.workbuddy', 'mcp.json')), '用户级 mcp.json')
+  const list = [['包内', pkgEntry], ['用户级', userEntry]].filter(([, e]) => e)
+  if (list.length === 0) die('两处入口都没解析出来（包内 ' + pjPath + '）')
+  for (const [label, e] of list) console.log('[entries] ' + label + ' → ' + e.file + '（书库根 ' + e.root + '）')
+  if (list.length === 1) {
+    // 只有一份＝判据（"两份若都在则必须相同"）在此处空成立——**明写出来**，不当成"查过了"
+    console.log('[entries] 本机只有一份入口（另一处不存在）：判据在本机为空，未做比对（登记，不并入"已核"）')
+    process.exit(0)
+  }
+  for (const [, e] of list) if (!existsSync(e.file)) die('入口指向的连接器文件不存在：' + e.file)
+  const a = sha(pkgEntry.file)
+  const b = sha(userEntry.file)
+  if (a !== b) {
+    console.error('[entries] ✗ 两份入口不是同一份代码：')
+    console.error('    包内   ' + a.slice(0, 16) + '  ' + pkgEntry.file)
+    console.error('    用户级 ' + b.slice(0, 16) + '  ' + userEntry.file)
+    console.error('  含义：本机生效的是**用户级**那份（同名时用户级胜出），对外发出去的是**包内**那份。')
+    console.error('  处置：重装配包到最新真源，或把用户级入口指回同一份代码。')
+    process.exit(1)
+  }
+  if (pkgEntry.root !== userEntry.root) {
+    console.error('[entries] ✗ 两份入口的书库根不同：包内 ' + pkgEntry.root + ' ／ 用户级 ' + userEntry.root)
+    process.exit(1)
+  }
+  console.log('[entries] ✓ 两份入口逐字节相同（' + a.slice(0, 16) + '）· 书库根一致（' + pkgEntry.root + '）')
+  console.log('  生效＝用户级那份；对外唯一＝包内那份。')
+  process.exit(0)
 }
 
 let bookRoot = opt('--book-root')
