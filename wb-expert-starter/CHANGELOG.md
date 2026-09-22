@@ -8,6 +8,25 @@
 
 ---
 
+## 2026-09-22 · agent 定义补前言块并登记（v0.1.7）；落点口径更正
+
+**改了什么**：① `agents/chief-editor.md`、`agents/author.md` 各加一个前言块（`name` / `description`）；② `.codebuddy-plugin/plugin.json` 新增 `agents: ["./agents/chief-editor.md", "./agents/author.md"]` 登记；③ `README` §三.3 补一句"当用户级同名存在时，包内 `.codebuddy-plugin/plugin.json` 的 `--root` 根本不参与，改它等于白改"；④ `references/宿主工具面.md` §七（生成件，真源＝`roles/tool-face.json`）的"落点"口径更正。
+
+**原文（改前）**：
+
+> ②包内两个 agent 定义目前**都没有 frontmatter**，要声明必须先新建 frontmatter 块…
+> 那几个工种的 agent 定义**尚未建立**（要建就得先回答"宿主接不接受只有 frontmatter + 指针的定义"这个问题）。
+
+**为什么改（判据＝宿主源码 ＋ 宿主日志，2026-09-22）**：WB 侧三个探针 `subagent_type` 全部硬失败（`Task agent X is not available`，0–2ms）。当时那边得出的结论是"自定义 agent 定义在本宿主挂不上 ⇒ 这条路不通"。**读宿主本机装机后，三条都比那个结论更靠前**：
+
+1. **探针放错了目录。** 宿主解析器 `getProjectAgentsDir(){ return join(this.getWorkDir(), ".codebuddy", "agents") }`——项目级自定义 agent 定义在 **`<工作区>/.codebuddy/agents/`**（用户级是 `(CODEBUDDY_CONFIG_DIR || ~/.codebuddy)/agents/`）。探针放的是 `.workbuddy/agents/`，**宿主从未读它**。（全文只有这一种写法，无 `.workbuddy/agents` 变体。）
+2. **`author` 失败是另一条机理，且它提示了真正的缺口。** 宿主 `Task` 按名查 `agentManager.get(X)`，查不到即硬错，并打一行 `[AgentTask] agent lookup failed | requested="X" | available=[...]`。**那行 available 列表就是现成的仪器**——实测那一刻它是：`[compact,…,Plan,Explore,general-purpose,cli,create,sheet-agent,doc-converter,doc-formatter,doc-writer]`：**有别的已启用插件的 agent，没有本包的**。对照同机所有插件：**576 份 agent 定义全部带前言块**，本包那两份是少数例外 ⇒ 本包的 agent 从来没进过注册表。
+3. **落点不但存在、接线也在。** `parseAgentFile` 解析 `name/description/tools/disallowedTools/skills/mcpServers/model/effort/isolation/maxTurns/background/initialPrompt/memory`，其中 `permissionMode`/`hooks`/`mcpServers` **被显式忽略并告警**（与 09-18 实测一致）；`AgentTask` 组子会话 options 时做 `[...mainSession.options.disallowedTools, ...agentConfig.disallowedTools]` ⇒ **子代理会继承它自己 agent 定义里的 deny**。
+
+**改后**：落点**已建立**（结构对齐本机可工作样本）；但 `disallowedTools` 是否真能拦住调用**仍未红测**（R-a 未跑）⇒ 三处口径一律保持"**未证实生效**、按软隔离对待"，**没有一处在说它生效了**。§七 同时写死三条省事取证路径（先 grep 那行日志、再放对目录、五工种落点仍待建且"先证明能派，再谈封"）。
+
+---
+
 ## 2026-09-21 · 能力口径按运行时实测收紧（v0.1.6）
 
 **改了什么**：`README` §四（能力边界表）与两处 agent 定义的「宿主适配层」、`skills/blind-read` 与 `skills/novel-editorial` 里关于"WorkBuddy 封不住工具名"的表述。
