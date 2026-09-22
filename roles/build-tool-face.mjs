@@ -94,6 +94,10 @@ const errs = []
 // （三形态工具面本就不同：seat 有 Agent、subagent 没有），而落到**同一形态**上的两个能力
 // 同时持有它，就是"两处真源"——deny 一个会静默连坐另一个。
 const toolOwners = {}   // 'host:form' → Map(工具名 → 能力 id)
+const mcpNames = []     // codebuddy 列里形如 mcp__<server>__<tool> 的名字（后置按连接器工具清单校验）
+// 「能被 MCP 名封住」的能力全集——本形态 MCP 只能经 ToolSearch→DeferExecuteTool 到达，
+// 故封发现面与"还允许其中任何一件"互斥（角色校验里用它做耦合不变量）。
+const MCP_CAPS = ['ledger.write', 'ledger.read', 'tape.write', 'ledger.ask', 'decision.write', 'retrieval']
 const reportedDupe = new Set()   // 'host:form:工具名'——同一格同一名字只报一次（下面两条通道会同时命中同一处）
 const ownerKey = (host, form) => host + ':' + (host === 'dsh' ? '*' : form)
 function checkLeaf(v, ctx, host, form, cid) {
@@ -113,6 +117,14 @@ function checkLeaf(v, ctx, host, form, cid) {
         // 只在 DSH 侧靠 restrict() 抛错是不够的：那边是宿主替我们 fail-closed，
         // 这边没有宿主兜底，必须自己收口。
         if (ghostTools.has(n)) errs.push(ctx + ' 里写着 CodeBuddy **不存在**的工具名「' + n + '」——这正是静默空转（看起来封了，其实一条也没封）')
+        else if (n.startsWith('mcp__')) {
+          // MCP 工具名的"存在性"由**连接器自己的工具清单**定义，不由宿主内置清单定义
+          // （宿主内置清单里当然没有 mcp__*）。形状＝mcp__<server>__<tool>；
+          // 工具那一段另有后置校验（NOVEL_TOOLS 读进来之后），此处只收口形状。
+          const m = /^mcp__([a-z0-9_-]+)__([a-z0-9_]+)$/i.exec(n)
+          if (!m) errs.push(ctx + ' 里的「' + n + '」形如 MCP 工具名但形状不合法（应为 mcp__<server>__<tool>）')
+          else mcpNames.push({ ctx, name: n, server: m[1], tool: m[2] })
+        }
         else if (knownTools.size && !knownTools.has(n)) errs.push(ctx + ' 里的「' + n + '」不在 hosts.codebuddy.known_tools（官方内置工具清单）里——拼错了？还是抄了别的宿主的名字？')
       }
       const prev = toolOwners[key].get(n)
@@ -175,6 +187,14 @@ function checkLeaf(v, ctx, host, form, cid) {
     if (!Array.isArray(r.deny)) { errs.push('角色 ' + rid + ' 缺 deny 数组'); continue }
     for (const c of r.deny) {
       if (!TABLE.capabilities[c]) errs.push('角色 ' + rid + ' 的 deny 里写着「' + c + '」，它不是能力 id——deny 只许写能力（写工具名＝把宿主差异搬回宿主无关层，等于没拆）')
+    }
+    // 耦合不变量（2026-09-22 WB 侧实测所迫）：本形态 MCP 只能经 ToolSearch→DeferExecuteTool 到达，
+    // 所以「封发现面」与「还允许用任何 MCP 工具」在物理上不相容——封了发现面＝该角色一件 MCP 工具都拿不到。
+    // 主笔正踩在这条上（它要 novel_bible/novel_search，却曾被 09-20 的权宜封了发现面）。
+    if (Array.isArray(r.deny) && (r.deny.includes('tool.search') || r.deny.includes('tool.invoke'))) {
+      const missing = MCP_CAPS.filter((c) => !r.deny.includes(c))
+      if (missing.length) errs.push('角色 ' + rid + ' 封了发现面（tool.search/tool.invoke），却仍允许 MCP 面能力 ' + missing.join(' / ') +
+        '——本形态 MCP 只能经这一对到达：封了发现面＝该角色一件 MCP 工具都拿不到（两处口径打架，装配期拦下）')
     }
     for (const h of HOSTS) if (!r[h]) errs.push('角色 ' + rid + ' 缺 ' + h + ' 列（映射缺一列就是"这个宿主上它是什么"没答）')
     if (r.codebuddy && !FORMS.includes(r.codebuddy.form)) {
@@ -261,6 +281,18 @@ let GUIDE_TEXT = null
     '\n  （DSH 侧会抛 `tools.restrict() names unknown global tool`：挂载期直接失败；改名后忘了改表就是这条）')
   for (const n of NOVEL_TOOLS) knownByHost.dsh.add(n)
   console.log('· 领域工具真源：lib/novelist.js 现读 ' + NOVEL_TOOLS.length + ' 个，与能力表双向全等')
+  // MCP 名（codebuddy 列）按**连接器自己的工具清单**校验——比宿主内置清单更强的判据：
+  // 形状对不代表工具对，写错一个字母就是静默空转（宿主对 deny 名单里不存在的 MCP 名不会报错）。
+  if (mcpNames.length) {
+    const servers = new Set(mcpNames.map((e) => e.server))
+    if (servers.size > 1) die('MCP 名里出现了多个 server 前缀：' + [...servers].join(' / ') +
+      '——本包只有一个连接器，多前缀说明有名字抄错了', 'MCP 工具名只有一种合法来源：连接器自己的工具清单')
+    const bad = mcpNames.filter((e) => !NOVEL_TOOLS.includes(e.tool))
+    if (bad.length) die('MCP 名里的工具段不在连接器工具清单里：' + bad.map((e) => e.name).join(', ') +
+      '\n  （连接器现读 ' + NOVEL_TOOLS.length + ' 个：' + NOVEL_TOOLS.join(', ') + '）',
+      '改 ' + REL_TABLE + ' 里那几条的名字；名字写错＝deny 一个不存在的 MCP 工具，宿主不报错、静默空转')
+    console.log('· MCP 名校验：' + mcpNames.length + ' 条，server=' + [...servers][0] + '，工具段全部命中连接器清单')
+  }
 }
 
 // ── 术语对照（A2）：术语 → 手册里出现它的那一条 ────────────────────────────────
@@ -455,7 +487,7 @@ function codebuddyDoc() {
   L.push('')
   L.push('## 二、本形态的强制力现状（先说结论）')
   L.push('')
-  const enfZh = { enforced: '**宿主强制**（已在本机核实到源码级）', 'declared-unverified': '**只有声明，未核实是否生效**' }
+  const enfZh = { enforced: '**宿主强制**（已在本机核实到源码级）', 'declared-unverified': '**只有声明，未核实是否生效**', 'proven-mechanism': '**机制已实测 · 载体未落地**（落点在项目级定义，本包尚未投放）' }
   L.push((enfZh[host.enforcement] || host.enforcement) + '。' + host.enforcement_note)
   L.push('')
   L.push('对比 DSH 形态：那边的角色工具面是**宿主强制**的——子代理的 deny 名单由宿主在挂载期编译，写错名字直接挂载失败（不是失败在第一次派工），')
@@ -547,26 +579,34 @@ function codebuddyDoc() {
   L.push('')
   L.push('| 机制 | DSH 形态 | 本形态（现状） |')
   L.push('|---|---|---|')
-  L.push('| 落账权隔离（只有主编能写账本） | 宿主强制：子代理 deny 掉写账本工具 | 纪律约束：靠角色自律，未核实能否用 deny 表达 |')
-  L.push('| 盲读输入隔离（盲角色只能读派工包） | 宿主强制：读写文件工具全封 | 纪律约束（同上） |')
-  L.push('| 盲角色不得发现/执行未加载的工具 | 宿主强制：本预设根本没挂这条通道 | **实测：通道存在且可执行**——本形态下盲读隔离**没有工具级保障** |')
+  L.push('| 落账权隔离（只有主编能写账本） | 宿主强制：子代理 deny 掉写账本工具 | **机制已实测拦得住**（`disallowedTools` 中性同形探针红测），但**须把定义投放到项目级落点**；本包当前投放数＝**0**，故现状仍等于纯纪律 |')
+  L.push('| 盲读输入隔离（盲角色只能读派工包） | 宿主强制：读写文件工具全封 | 同上（同一机制）。五工种定义建好之前＝纯纪律 |')
+  L.push('| 盲角色不得发现/执行未加载的工具 | 宿主强制：本预设根本没挂这条通道 | **实测：通道存在且可执行**；但**对盲角色可以封**（`ToolSearch`+`DeferExecuteTool` 一对，封了＝切断全部 MCP）——机制已实测，定义未建 |')
   L.push('')
   L.push('引用本形态的盲读结论做重要判断时，请带上这条限定。日常写作不受影响。')
   L.push('')
   L.push('## 七、给实测用：只含已核实真名的声明片段（★读之前先看"落点"在不在）')
   L.push('')
-  L.push('下表这几条**只由已核实的真名组成**（不含任何"未核实"能力），可以直接拿去做运行时红测——例如给某个 agent 加上它，重启后看它还能不能调 `ToolSearch`：')
+  L.push('下表这几条**只由已核实的真名组成**（含已实测的 MCP 名），可以直接拿去做运行时红测。')
   L.push('')
-  L.push('**★ 但先看清落点**：`disallowedTools` 只在 **agent 定义**（`agents/` 下的件、写在前言块里）里生效。')
-  L.push('宿主源码（2026-09-22 读本机装机）已证实：`parseAgentFile` 会读这个字段，`AgentTask` 组子会话 options 时做')
-  L.push('`[...mainSession.options.disallowedTools, ...agentConfig.disallowedTools]`——即**接线在**；但"调用真被拦住"仍未红测，故一律按**未证实**对待。')
+  L.push('**★ 落点只有一处是真的：项目级自定义 agent 定义 `<工作区>/.codebuddy/agents/<name>.md`。**')
+  L.push('三条 2026-09-22 实测（WB 侧 `[硬返回]` ＋ 宿主源码，仓侧已独立读源码复核前两条）：')
+  L.push('1. **包内 `agents/` 不是注册载体**——宿主组件装载器**不枚举专家包**（日志里 11 个插件各有 `Loaded plugin components for …`，本包一次都没出现）；包内那两份的真实用途是**人格文本的权威来源**，往里补前言块不会让它进表。')
+  L.push('2. **项目级定义当次生效**（实测不需重启；插件内定义才随组件加载、改完要重启——两条路别混）。')
+  L.push('3. **deny 真拦得住**：中性同形探针 `disallowedTools:[mcp__novelist__novel_chapter]` → `Error: Permission to use mcp__novelist__novel_chapter has been denied.`（拦在权限层，未到工具本体）。')
   L.push('')
-  L.push('三条省事的取证路径（**先走第 1 条，它不用重启也不用派探针**）：')
-  L.push('1. 日志行 `[AgentTask] agent lookup failed | requested="X" | available=[...]`——那行 `available` 就是本形态的现成仪器，直接看"宿主到底加载了哪些 agent"。')
-  L.push('2. 自定义 agent 定义（非插件）的项目级目录是 `<工作区>/.codebuddy/agents/*.md`，用户级是 `(CODEBUDDY_CONFIG_DIR || ~/.codebuddy)/agents/*.md`；**不是 `.workbuddy/agents/`**（2026-09-22 实测放错目录，宿主从未读它）。')
-  L.push('3. 五个工种的落点仍是**待建**：`references/roles/` 下的件是派工文本、不是 agent 定义，往里加 frontmatter **不会有任何效果**——')
-  L.push('照抄去测只会得到"加了没反应"，然后误判成"deny 不生效"。而新建 `agents/<工种>.md` 这条路**尚未验证宿主能按名派**')
-  L.push('（`Task(subagent_type=X)` 按名查表，查不到即硬错）。**先证明能派，再谈封。**')
+  L.push('**★ 红测必须用中性同形探针，不要借本座。**WB 侧第一版让"主笔去调它自己被禁的工具"，它**以纪律为由拒发**——')
+  L.push('**人格纪律与机器 deny 是混淆变量**，那样测出来的"拒"分不清是谁干的。')
+  L.push('另：**主笔本座至今没有机械读数**（两次自守拒发）⇒ 口径只能写"机制已实测成立（同形配置）"，**不许写成"主笔已被机器封死"**。')
+  L.push('')
+  L.push('**★ 两条省事的取证路径（先走第 1 条，不用重启也不用派探针）**：')
+  L.push('1. 日志行 `[AgentTask] agent lookup failed | requested="X" | available=[...]`——那行 `available` 就是现成仪器，直接看"宿主这一刻加载了哪些 agent"。')
+  L.push('2. 用户级目录＝app 进程环境变量的 `CODEBUDDY_CONFIG_DIR` 下的 `agents/`（**本机该变量指向宿主自己的配置目录 `.workbuddy`** ⇒ 实为 `~/.workbuddy/agents/`）；')
+  L.push('   **以环境变量为准，不要照抄本条的字面值**——换个装法就会分叉。（本节不写机器绝对路径：包内文档零机器路径是硬门。）')
+  L.push('')
+  L.push('**★ 五个工种的落点＝待建**：`references/roles/` 下的件是派工文本、不是 agent 定义（往里加 frontmatter 不会有任何效果）。')
+  L.push('要建就建成**项目级定义**（路径同上）；且**建之前先过耦合不变量**——本形态 MCP 只能经 `ToolSearch`→`DeferExecuteTool` 到达，')
+  L.push('**封发现面的角色必须同时封掉全部 MCP 面能力**（生成器会在装配期拦下不满足者）。')
   L.push('')
   for (const rid of roleIds) {
     const r = TABLE.roles[rid]
@@ -576,8 +616,8 @@ function codebuddyDoc() {
     const isAgentDef = f.startsWith('agents/')
     L.push('- **' + r.zh + '**（' + f + '，形态 ' + r.codebuddy.form + '）：`disallowedTools: [' + names.join(', ') + ']`')
     L.push('  - 落点：' + (isAgentDef
-      ? '**是 agent 定义**（`agents/` 下的件），且**0.1.7 起已带前言块**（`name`/`description`，并在 plugin.json 的 `agents` 里登记）。做红测时把上面那行 deny 临时加进该前言块，跑完撤掉；改完**必须重启**才生效（agent 定义不热加载）'
-      : '**待建**——`' + f + '` 是派工文本、不是 agent 定义，往里加 frontmatter 无效果（见本节开头）'))
+      ? '**包内 `agents/` 不是注册载体**（组件装载器不枚举专家包）。本行是**人格文本的权威来源**；要让它真的生效，需把同一份文本投放成**项目级定义** `<工作区>/.codebuddy/agents/<name>.md`（投放即生效、不用重启；见本节开头）'
+      : '**待建**——`' + f + '` 是派工文本、不是 agent 定义。要建就建成**项目级定义**（路径同左）；建前先过耦合不变量：封发现面者必须封掉全部 MCP 面能力'))
   }
   L.push('')
   L.push('预期：加上之后该 agent 调这些工具应当直接失败或被拒。**若照样能调通，说明本形态的 deny 不生效**——那就要如实降级到"纪律约束"，并把这条写进交付说明，而不是当它生效了。')
