@@ -27,10 +27,12 @@ const CARD = 'preset-starter/protocols/读者画像卡.md'
 const READER = 'wb-expert-starter/references/roles/reader.md'
 const SKILL = 'wb-expert-starter/skills/novel-editorial/SKILL.md'
 
-/** flat 形态假仓：守卫认的标记（wb-expert-starter + lib）齐，四个源面各一份拷贝。 */
+/** flat 形态假仓：守卫认的标记（wb-expert-starter + lib）齐，源面各一份拷贝。
+ *  `craft/` 也要拷——④（写手侧数字四分界）的扫描面就在它里面；不拷的话 ④ 会走
+ *  "本根没有参照卡目录 ⇒ 登记为跳过"，于是**没有一条用例真的碰过 ④ 的判据**。 */
 function fakeRepo() {
   const d = mkdtempSync(path.join(tmpdir(), 'nf-txt-'))
-  for (const sub of ['lib', 'roles', 'preset-starter', 'wb-expert-starter']) {
+  for (const sub of ['lib', 'roles', 'preset-starter', 'wb-expert-starter', 'craft']) {
     cpSync(path.join(PLUGIN, sub), path.join(d, sub), { recursive: true })
   }
   return d
@@ -56,12 +58,58 @@ function patchAll(root, rel, old, next) {
 }
 
 // ── 正向：真仓必须安静通过（守卫不许变成永远红）
-test('真仓三组不变量成立：exit 0，且三组都打印出来（不靠退出码掩盖局部）', () => {
+test('真仓四组不变量成立：exit 0，且四组都打印出来（不靠退出码掩盖局部）', () => {
   const r = run(PLUGIN)
   assert.equal(r.status, 0, '真仓应全部成立：' + both(r))
-  for (const group of ['① 禁模式', '② 同句', '③ 同数']) {
-    assert.match(r.stdout, new RegExp(group), '三组都要出现在输出里：' + group)
+  for (const group of ['① 禁模式', '② 同句', '③ 同数', '④ 写手侧数字']) {
+    assert.match(r.stdout, new RegExp(group), '四组都要出现在输出里：' + group)
   }
+})
+
+// ── ④ 写手侧数字四分界（派工包里不许出现"会被当成目标"的量）
+// 判据只拉一条线：卡里出现百分比，或"占比/中位/句均/平均句长"右侧紧邻数字。
+test('④ 卡里写回百分比指标 ⇒ exit 1 且点名文件与行号', () => {
+  const d = fakeRepo()
+  try {
+    const rel = 'craft/author-cards/民俗考据-水怪悬疑.md'
+    writeFileSync(p(d, rel), readFileSync(p(d, rel), 'utf8') + '\n- 对话占比 ≥ 35%\n')
+    const r = run(d)
+    assert.equal(r.status, 1, '该红：' + both(r))
+    assert.match(r.stderr + r.stdout, /写手侧数字/, '要说清是④ 命中')
+    assert.match(r.stderr + r.stdout, /民俗考据-水怪悬疑\.md:\d+/, '要点到文件与行号')
+  } finally { rmSync(d, { recursive: true, force: true }) }
+})
+
+test('④ 分布统计带数字（无百分号）⇒ exit 1——只堵 % 会漏掉"句长中位 8–9"这类写法', () => {
+  const d = fakeRepo()
+  try {
+    const rel = 'craft/author-cards/轮回副本-团队求生.md'
+    writeFileSync(p(d, rel), readFileSync(p(d, rel), 'utf8') + '\n- 句长中位 8–9 字\n')
+    const r = run(d)
+    assert.equal(r.status, 1, '该红：' + both(r))
+    assert.match(r.stderr + r.stdout, /句长中位|中位 8/, '要把命中的那段指标打出来：' + both(r))
+  } finally { rmSync(d, { recursive: true, force: true }) }
+})
+
+test('④ 散文里说"凑比例"不算违规 ⇒ exit 0（判据是"指标"这个形状，不是那几个字）', () => {
+  const d = fakeRepo()
+  try {
+    const rel = 'craft/author-cards/民俗考据-水怪悬疑.md'
+    writeFileSync(p(d, rel), readFileSync(p(d, rel), 'utf8') + '\n- 卡里不写指标：写手会去凑比例、牺牲真语域。\n')
+    const r = run(d)
+    assert.equal(r.status, 0, '普通用词不该被打红（第一版宽判踩过这个坑）：' + both(r))
+  } finally { rmSync(d, { recursive: true, force: true }) }
+})
+
+test('④ 卡目录不存在 ⇒ 登记为跳过（exit 0），且**不写成"全部成立"**', () => {
+  const d = fakeRepo()
+  try {
+    rmSync(p(d, 'craft'), { recursive: true, force: true })
+    const r = run(d)
+    assert.equal(r.status, 0, '没有卡目录不该红（它只是没查）：' + both(r))
+    assert.match(r.stdout, /登记为跳过/, '要说清这一条未查：' + both(r))
+    assert.doesNotMatch(r.stdout, /四组不变量全部成立/, '跳过不许写成"全部成立"——那正是"把没查伪装成查过了"')
+  } finally { rmSync(d, { recursive: true, force: true }) }
 })
 
 // ── ① 禁模式
