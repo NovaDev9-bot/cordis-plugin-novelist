@@ -51,35 +51,61 @@ function die(msg, hint) {
   process.exit(2)
 }
 
-// ── 仓根：与 wb-package-check / build-wb-expert 同源的判据（取最外层命中者）
-function findRoot(start) {
+// ── 两种运行形态（2026-09-23 补 · 起因＝WB 侧 §5.2 实测：装机侧按我们给的两条命令跑不起来）
+// ① **仓侧**（有真源 `roles/tool-face.json`，即开发/门禁场合）：全功能——渲、装、陈旧门，
+//    并且**能回答"这份派生件是否等于真源"**（那一步由生成器 `--check` 负责）。
+// ② **包侧**（只有装配产物、没有 `roles/`，即拿到专家包的人）：**渲、装、陈旧门照旧能跑**，
+//    名单与"永不渲入的名字"都从派生件里读；但**核不了**两件事——"派生件是否等于真源"、
+//    "名单里某个名字属于哪一格能力"（两件都缺同一个东西：真源）。
+//    ⇒ **包侧模式必须在输出里明说它核不了什么**：否则装机侧会把"全绿"读成"与真源一致"，
+//      而那正是本项目反复栽的"绿了，但绿的不是你以为的那件事"。
+function findRepoRoot(start) {
   let cur = path.resolve(start)
   for (;;) {
-    const isPlugin = existsSync(path.join(cur, 'wb-expert-starter')) && existsSync(path.join(cur, 'lib'))
-    if (isPlugin) return cur
+    if (existsSync(path.join(cur, 'roles', 'tool-face.json'))) return cur
     const up = path.dirname(cur)
     if (up === cur) return null
     cur = up
   }
 }
-const ROOT = path.resolve(opt('--root') || process.env.NF_REPO_ROOT || findRoot(HERE) || '')
-if (!ROOT || !existsSync(path.join(ROOT, 'roles', 'tool-face.json'))) {
-  die('找不到插件仓根（含 roles/tool-face.json 的那一层）', '用 --root <插件仓根> 或环境变量 NF_REPO_ROOT 指定')
+/** 包侧形态的判据：`references/carrier-deny.json` 所在的那一层就是包根（装配产物的布局）。 */
+function findPackageRoot(start) {
+  let cur = path.resolve(start)
+  for (;;) {
+    const ledger = path.join(cur, 'references', 'carrier-deny.json')
+    if (existsSync(ledger)) return { root: cur, ledger }
+    const up = path.dirname(cur)
+    if (up === cur) return null
+    cur = up
+  }
 }
-const PKG = path.join(ROOT, 'wb-expert-starter')
+const EXPLICIT = opt('--root') || process.env.NF_REPO_ROOT
+const ROOT = path.resolve(EXPLICIT || findRepoRoot(HERE) || '')
+const REPO_MODE = !!ROOT && existsSync(path.join(ROOT, 'roles', 'tool-face.json'))
+const PKG_ROOT = REPO_MODE ? path.join(ROOT, 'wb-expert-starter') : (findPackageRoot(EXPLICIT || HERE) || {}).root
+const MODE = REPO_MODE ? 'repo' : 'package'
+if (!PKG_ROOT) {
+  die('两种形态都没命中：既找不到真源（含 `roles/tool-face.json` 的那一层），也找不到装配产物（含 `references/carrier-deny.json` 的那一层）',
+    '仓侧用 --root <插件仓根>；包侧用 --root <专家包目录>（或直接 cd 进包里跑）')
+}
 const sha256 = (t) => createHash('sha256').update(t, 'utf8').digest('hex').slice(0, 16)
 
-// 能力表先读（坐标写死在表里，不写进本脚本源码：路径含中文，而约定一致性棘轮禁止代码里出现中文路径字面量）
-const TABLE = (() => {
-  try { return JSON.parse(readFileSync(path.join(ROOT, 'roles', 'tool-face.json'), 'utf8')) } catch (e) {
-    die('能力表读不了：' + e.message)
-  }
-})()
-const LEDGER_PATH = TABLE.hosts && TABLE.hosts.codebuddy && TABLE.hosts.codebuddy.carrier_ledger
-if (!LEDGER_PATH) die('能力表缺 hosts.codebuddy.carrier_ledger——它是"宿主载体封名单在哪"的唯一声明', '补进 roles/tool-face.json 后重跑生成器')
-const LEDGER = path.join(PKG, LEDGER_PATH)
+// 能力表只在**仓侧**存在（包侧没有 `roles/`）——判据不是"那个目录在不在"，而是这次跑在哪种形态
+const TABLE = REPO_MODE
+  ? (() => {
+      try { return JSON.parse(readFileSync(path.join(ROOT, 'roles', 'tool-face.json'), 'utf8')) } catch (e) {
+        die('能力表读不了：' + e.message)
+      }
+    })()
+  : null
+// 派生件坐标：仓侧从真源读（那是唯一声明）；包侧按装配产物的固定布局推——**并且在输出里明说这是推出来的**
+const LEDGER_REL = TABLE
+  ? (TABLE.hosts && TABLE.hosts.codebuddy && TABLE.hosts.codebuddy.carrier_ledger)
+  : path.join('references', 'carrier-deny.json')
+if (TABLE && !LEDGER_REL) die('能力表缺 hosts.codebuddy.carrier_ledger——它是"宿主载体封名单在哪"的唯一声明', '补进 roles/tool-face.json 后重跑生成器')
+const LEDGER = path.join(PKG_ROOT, LEDGER_REL)
 if (!existsSync(LEDGER)) {
-  die('缺宿主载体封名单派生件：' + LEDGER_PATH,
+  die('缺宿主载体封名单派生件：' + LEDGER_REL,
     '先跑生成器：node roles/build-tool-face.mjs（本件由生成器吐，不许安装器自己算）')
 }
 
@@ -94,22 +120,38 @@ if (!PAYLOAD || !PAYLOAD.roles || !Object.keys(PAYLOAD.roles).length) die('宿�
 // 它能被手改、能被半截写入、能从旧版本捡回来。写盘的那一方必须自己判一次，否则"只渲 enforced"
 // 就只是一句关于生成器的承诺，不是关于**这次装的东西**的保证。
 {
-  const ok = new Set(), forbidden = new Set()
-  for (const cap of Object.values(TABLE.capabilities || {})) {
-    for (const leaf of Object.values(cap.codebuddy || {})) {
-      if (!leaf || typeof leaf !== 'object') continue
-      for (const n of leaf.tools || []) ok.add(n)
-      for (const n of leaf.ineffective || []) forbidden.add(n)   // 实测拦不住的真名字（C 桶）
-      for (const n of leaf.costly || []) forbidden.add(n)        // 拦得住但有代价（B 桶）：按纪律也不进名单
-      for (const n of leaf.candidates || []) forbidden.add(n)    // 只是候选，没核过
+  const forbidden = new Set(), ok = new Set()
+  let okSource = ''
+  if (REPO_MODE) {
+    for (const cap of Object.values(TABLE.capabilities || {})) {
+      for (const leaf of Object.values(cap.codebuddy || {})) {
+        if (!leaf || typeof leaf !== 'object') continue
+        for (const n of leaf.tools || []) ok.add(n)
+        for (const n of leaf.ineffective || []) forbidden.add(n)   // 实测拦不住的真名字（C 桶）
+        for (const n of leaf.costly || []) forbidden.add(n)        // 拦得住但有代价（B 桶）：按纪律也不进名单
+        for (const n of leaf.candidates || []) forbidden.add(n)    // 只是候选，没核过
+      }
     }
+    if (!ok.size) die('能力表里没有任何 CodeBuddy 工具名（0 件不等于没问题）')
+    okSource = '能力表里任何一处的 tools'
+  } else {
+    // 包侧：没有真源，"永不渲入的名字"只能来自派生件自带的那一节。**缺了就必须拒跑**——
+    // 少这一节，这道核对会退化成"每个名字都在它自己的并集里"的恒真式（表观全绿、实际没核）。
+    const f = PAYLOAD._forbidden
+    if (!Array.isArray(f) || !f.length) {
+      die('包侧形态缺 `_forbidden`（派生件里那份"永不渲入名单"的名字集）——没它这道拒渲核对形同虚设',
+        '包侧算不出它（需要真源）⇒ 在仓里重跑生成器，让派生件带上这一节')
+    }
+    for (const n of f) forbidden.add(n)
+    for (const e of Object.values(PAYLOAD.roles)) for (const n of e.denyNames || []) ok.add(n)
+    okSource = '本件各角色名单的并集（**弱判据：只说明"这份件自洽"，不说明"这个名字属于哪一格能力"**）'
   }
-  if (!ok.size) die('能力表里没有任何 CodeBuddy 工具名（0 件不等于没问题）')
   for (const [rid, entry] of Object.entries(PAYLOAD.roles)) {
     for (const n of entry.denyNames || []) {
-      if (forbidden.has(n)) die('角色 ' + rid + ' 的封名单里有「' + n + '」——它是**已实测拦不住 / 仅候选**的名字（能力表里落在 ineffective/candidates）⇒ 拒渲。' +
+      if (forbidden.has(n)) die('角色 ' + rid + ' 的封名单里有「' + n + '」——它是**已实测拦不住 / 拦得有代价 / 仅候选**的名字（' +
+        (REPO_MODE ? '能力表里落在 ineffective/costly/candidates' : '派生件 `_forbidden`') + '）⇒ 拒渲。' +
         '写进去只会得到虚假的约束感：名单上看着封了，调用照跑。', '重跑生成器 node roles/build-tool-face.mjs；生成器还吐它，那是生成器的 bug')
-      if (!ok.has(n)) die('角色 ' + rid + ' 的封名单里有「' + n + '」——能力表里任何一处的 tools 都没有这个名字（拼错了？还是抄了别的宿主的名字？）⇒ 拒渲。' +
+      if (!ok.has(n)) die('角色 ' + rid + ' 的封名单里有「' + n + '」——' + okSource + ' 里都没有这个名字（拼错了？还是抄了别的宿主的名字？）⇒ 拒渲。' +
         '本形态的教训：名字不存在时宿主**不报错**，那条 deny 是静默空转。')
     }
     for (const e of entry.exempted || []) {
@@ -134,13 +176,21 @@ const DIR_HOW = DIR_FLAG
 
 // ── 渲染（正文源 → 前言块 + 正文）
 const ANCHOR = '## 人格'
+// 渲染来源的**布局标记**：写进载体、`--check` 时读回来。
+// 为什么必须有它（2026-09-23 实测当场撞出来的）：装配器会把「源仓坐标」改写成「包内坐标」，
+// 于是**同一个人格在两个布局下渲出来不是逐字相同**。没有这个标记，包侧 `--check` 会把
+// 「换了个布局渲的」报成「陈旧」，而读的人会照着提示**重装**——那会把载体静默换成另一种坐标。
+const LAYOUT = REPO_MODE ? '仓内' : '包内'
 function render(rid, entry) {
   if (!entry.agentdef) die('角色 ' + rid + ' 没登记 codebuddy.agentdef——' +
     '没登记载体就不许装（"装到哪"没答，装出来的东西没人读）', '在 ' + PAYLOAD._source + ' 里补 agentdef 后重跑生成器')
   if (!entry.sourceText) die('角色 ' + rid + ' 没登记 codebuddy.file（正文源）')
   if (!entry.description) die('角色 ' + rid + ' 缺 codebuddy.description——前言块的 description 是宿主查表时显示的那句话，空着等于没名字')
 
-  const src = [path.join(PKG, entry.sourceText), path.join(ROOT, entry.sourceText)].find((c) => existsSync(c))
+  // 正文源的解析顺序随形态：包侧只在包内找（`ROOT` 在包侧是"用户给的 --root"，指过去可能撞上不相关目录里的同名文件）
+  const cands = [path.join(PKG_ROOT, entry.sourceText)]
+  if (REPO_MODE) cands.push(path.join(ROOT, entry.sourceText))
+  const src = cands.find((c) => existsSync(c))
   if (!src) die('正文源不存在：' + entry.sourceText + '（包模板与仓根下都找不到）')
   const text = readFileSync(src, 'utf8')
   const at = text.indexOf('\n' + ANCHOR)
@@ -159,6 +209,9 @@ function render(rid, entry) {
     '',
     '> 本文件由 `scripts/install-wb-agents.mjs` 从包内真源渲染：**人格**来自 `roles/persona/`（生成件），' +
       '**封名单**来自 `roles/tool-face.json` 的能力表。**勿手改**——改了 `--check` 会报陈旧。',
+    '> 渲染来源：**' + LAYOUT + '** · 正文源 `' + entry.sourceText + '`（源文本 sha256 ' + sha256(text) + '）。' +
+      '⚠ 这个标记是给 `--check` 用的：**装配器会把源仓坐标改写成包内坐标**，所以同一个人格在两个布局下**不是逐字相同**；' +
+      '有了它，`--check` 才能把「换布局渲的」与「真陈旧」分开，而不是让人照着一句"重装"把载体悄悄换成另一种坐标。',
     '> 包内那份 `' + entry.sourceText + '` 是**人格文本的权威来源**，它**不带封名单**（官方校验器禁止 `disallowedTools` 出现在包内 MD）；' +
       '封名单只活在宿主载体里，也就是本文件。',
     '',
@@ -182,7 +235,16 @@ if (opt('--print')) {
 
 // ── 输出：每个角色一句话 + 缺口 + 豁免（都要看得见）
 console.log('[install-wb-agents] 载体目录：' + DIR + '（来自' + DIR_HOW + '）')
-console.log('[install-wb-agents] 名单来源：' + LEDGER_PATH + '（生成件）')
+console.log('[install-wb-agents] 名单来源：' + LEDGER_REL + '（生成件）')
+console.log('[install-wb-agents] 运行形态：' + (REPO_MODE
+  ? '仓侧（有真源 `roles/tool-face.json`）——可核「派生件 == 真源」？**不核**：那是生成器 `--check` 的活，本工具只消费派生件'
+  : '包侧（只有装配产物，没有 `roles/`）'))
+if (!REPO_MODE) {
+  console.log('  ⚠ 包侧形态**核不了**两件事，别把这里的全绿读成"与真源一致"：')
+  console.log('     ① 这份派生件是否等于真源（那需要 `roles/`，本机没有）；')
+  console.log('     ② 名单里某个名字属于哪一格能力（同一个原因）⇒ 本模式只剩"' + '「不含永不渲入的名字」' + '"这一道硬核对。')
+  console.log('     要核这两件：在带真源的仓里跑 `node roles/build-tool-face.mjs --check`。')
+}
 console.log('')
 for (const p of plan) {
   const e = p.entry
@@ -214,19 +276,35 @@ console.log('')
 
 // ── --check：陈旧门（只读）
 if (CHECK) {
-  let drift = 0, missing = 0
+  let drift = 0, missing = 0, crossLayout = 0
+  // 名单行是**布局无关**的那一半（它由真源派生、装配器不改它）⇒ 跨布局时也能严格比。
+  const denyOf = (t) => { const m = t.match(/^disallowedTools: \[(.*)\]$/m); return m ? m[1] : '(无名单)' }
+  const layoutOf = (t) => { const m = t.match(/渲染来源：\*\*(仓内|包内)\*\*/); return m ? m[1] : null }
   for (const p of plan) {
     if (!existsSync(p.dest)) { console.log('  ✗ 缺文件：' + path.basename(p.dest) + '（还没装过）'); missing++; continue }
     const onDisk = readFileSync(p.dest, 'utf8')
-    if (onDisk === p.content) console.log('  ✓ ' + path.basename(p.dest) + ' 与真源一致（**盘上**）')
-    else { console.log('  ✗ ' + path.basename(p.dest) + ' **与真源不一致**（改了真源没重装、或有人手改过载体）'); drift++ }
+    const name = path.basename(p.dest)
+    if (onDisk === p.content) { console.log('  ✓ ' + name + ' 与真源一致（**盘上**·' + LAYOUT + '）'); continue }
+    // 不完全相同：先看**承重的那一半**（名单）。名单不一致＝真陈旧，红。
+    if (denyOf(onDisk) !== denyOf(p.content)) {
+      console.log('  ✗ ' + name + ' **名单与真源不一致**（真陈旧：改了真源没重装，或有人手改过载体）'); drift++; continue
+    }
+    // 名单一致、内容不同：要么是同一布局下正文段改过（真陈旧），要么是**换布局渲的**（不是陈旧）。
+    const lp = layoutOf(onDisk)
+    if (lp && lp !== LAYOUT) {
+      console.log('  · ' + name + ' **名单一致**；正文段**跨布局未比**（本机这份是「' + lp + '」渲的，本次按「' + LAYOUT +
+        '」比对）——装配器会把源仓坐标改写成包内坐标，两个布局下正文段本就不逐字相同。**这不是陈旧，别照"重装"提示把它换掉**')
+      crossLayout++; continue
+    }
+    console.log('  ✗ ' + name + ' **与真源不一致**（同布局、名单相同、正文段不同：改了真源没重装，或有人手改过载体）'); drift++
   }
   if (drift || missing) {
     console.log('\n✗ 陈旧/缺失 ' + (drift + missing) + ' 件。跑一次不带 --check 的安装：')
     console.log('  node scripts/install-wb-agents.mjs --dir "' + DIR + '"')
     process.exit(1)
   }
-  console.log('\n✓ 全部 ' + plan.length + ' 件与真源一致（陈旧门通过，**仅指盘上**）')
+  console.log('\n✓ 全部 ' + plan.length + ' 件通过（陈旧门通过，**仅指盘上**）' +
+    (crossLayout ? '；其中 ' + crossLayout + ' 件是**跨布局**比对（名单严格比过、正文段未比——见上「·」行）' : ''))
   console.log('  ⚠ 本门验不出"宿主内存里是不是还在用旧的那一版"：**改动已有定义要重启宿主才生效**。')
   console.log('    改过的件若要确认真的在跑，唯一办法是重启后看派工回执里的 `SELF=`／`OBL=` 原文或再取一次工具面读数。')
   process.exit(0)

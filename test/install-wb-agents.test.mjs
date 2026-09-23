@@ -38,6 +38,16 @@ function fakeRepo({ ledger } = {}) {
   if (ledger) writeFileSync(path.join(d, LEDGER_REL), JSON.stringify(ledger, null, 2) + '\n')
   return d
 }
+/** 造一个"装机侧"的假包：装配产物的布局（顶层 references/ ＋ agents/），**没有 roles/** */
+function fakePackage({ ledger } = {}) {
+  const d = mkdtempSync(path.join(tmpdir(), 'nf-wbpkg-'))
+  cpSync(path.join(PLUGIN, 'wb-expert-starter'), d, { recursive: true })
+  if (!existsSync(path.join(d, 'references', 'carrier-deny.json'))) {
+    throw new Error('夹具前提不成立：包模板里应当有 references/carrier-deny.json（装配产物的布局）')
+  }
+  if (ledger) writeFileSync(path.join(d, 'references', 'carrier-deny.json'), JSON.stringify(ledger, null, 2) + '\n')
+  return d
+}
 const run = (root, args) => spawnSync(process.execPath, [SCRIPT, '--root', root, ...args], { encoding: 'utf8' })
 const both = (r) => String(r.stdout || '') + String(r.stderr || '')
 
@@ -238,4 +248,71 @@ test('安装器把三类"没进名单"的出口分开印出来（B 桶 / C 桶 /
     assert.match(out2, /fs\.read/, '要点名是哪一格能力（否则读者不知道该去封谁）')
     assert.match(out2, /仍然开着/, '要说清后果：名字没进名单之前，那件工具对本座仍然开着')
   } finally { rmSync(d2, { recursive: true, force: true }) }
+})
+
+// ── 2026-09-23：包侧模式（WB 侧 §5.2 实测：装机侧按我们给的两条命令一条都跑不起来）
+//
+// 现场：装机侧只有装配产物、**没有 `roles/`**，而旧版安装器把"含 `roles/tool-face.json` 的那一层"
+// 当成仓根 ⇒ 装机侧一条命令都跑不了 ⇒ **拿到包的人无法独立核对他机上装的东西**。
+// 本组锁三件：①包侧能渲/能装/能跑陈旧门；②**包侧必须明说它核不了什么**（否则"全绿"会被读成"与真源一致"）；
+// ③**跨布局不许被报成"陈旧"**——装配器会改写源仓坐标，两个布局下正文段本就不逐字相同，
+//   不区分的话，读的人会照着"重装"提示把载体悄悄换成另一种坐标。
+test('包侧模式：无 roles/ 也能跑，且必须明说它核不了什么', () => {
+  const d = fakePackage()
+  const carrier = path.join(d, 'carrier')
+  try {
+    const r = run(d, ['--dir', carrier])
+    const out = both(r)
+    assert.equal(r.status, 0, '包侧必须能装：' + out)
+    assert.match(out, /运行形态：包侧/, '要说清这次跑在哪种形态（读者才知道手里的"绿"是哪一种绿）')
+    assert.match(out, /核不了/, '包侧核不了什么必须印出来——否则"全绿"会被读成"与真源一致"')
+    assert.match(out, /这份派生件是否等于真源/, '要点名第一条核不了的：派生件 vs 真源')
+    assert.match(out, /属于哪一格能力/, '要点名第二条核不了的：名字的归属')
+    // 载体要带布局标记，否则陈旧门没法把"跨布局"与"真陈旧"分开
+    const files = readdirSync(carrier).filter((f) => f.endsWith('.md'))
+    assert.equal(files.length, 7, '七件都要渲出来：' + files.join('/'))
+    assert.match(readFileSync(path.join(carrier, 'reader.md'), 'utf8'), /渲染来源：\*\*包内\*\*/, '载体必须记下渲染来源的布局')
+  } finally { rmSync(d, { recursive: true, force: true }) }
+})
+
+test('陈旧门：跨布局报「·」且不红；同布局正文段不同才是真陈旧', () => {
+  const pkg = fakePackage()
+  const repo = fakeRepo()
+  const dirA = path.join(pkg, 'carrierA')
+  const dirB = path.join(repo, 'carrierB')
+  try {
+    // ① 仓侧渲一份（标记"仓内"），再拿包侧去 --check ⇒ 应报"跨布局未比"且 **exit 0**
+    assert.equal(run(repo, ['--dir', dirB]).status, 0, '仓侧先装一份')
+    const cross = run(pkg, ['--dir', dirB, '--check'])
+    const outC = both(cross)
+    assert.equal(cross.status, 0, '跨布局**不是**陈旧，不许红（红了会诱导人重装、把坐标悄悄换掉）：' + outC)
+    assert.match(outC, /名单一致/, '跨布局时**名单**那半仍必须严格比（它是布局无关的承重面）')
+    assert.match(outC, /跨布局未比/, '要说清哪半没比、为什么')
+    assert.match(outC, /这不是陈旧/, '要正面否掉"陈旧"这个读法')
+
+    // ② 同布局、名单相同、正文段被人动过 ⇒ 真陈旧，必须红
+    assert.equal(run(pkg, ['--dir', dirA]).status, 0, '包侧装一份')
+    writeFileSync(path.join(dirA, 'reader.md'), readFileSync(path.join(dirA, 'reader.md'), 'utf8') + '\n手改的一行\n')
+    const drift = run(pkg, ['--dir', dirA, '--check'])
+    assert.equal(drift.status, 1, '同布局正文段不同＝真陈旧，必须 exit 1：' + both(drift))
+    assert.match(both(drift), /正文段不同/, '要指出是哪一种不一致')
+
+    // ③ 名单被动过 ⇒ 也红（承重面不一致；这一半跨布局也要比——见 ①）
+    writeFileSync(path.join(dirA, 'proofer.md'),
+      readFileSync(path.join(dirA, 'proofer.md'), 'utf8').replace(/^disallowedTools: \[/m, 'disallowedTools: [Read, '))
+    const drift2 = run(pkg, ['--dir', dirA, '--check'])
+    assert.equal(drift2.status, 1, '名单不一致必须 exit 1：' + both(drift2))
+    assert.match(both(drift2), /名单与真源不一致/, '要说清是承重那半变了')
+  } finally { rmSync(pkg, { recursive: true, force: true }); rmSync(repo, { recursive: true, force: true }) }
+})
+
+test('包侧缺 `_forbidden` ⇒ 拒跑（少了它那道拒渲核对就形同虚设）', () => {
+  const led = realLedger()
+  delete led._forbidden
+  const d = fakePackage({ ledger: led })
+  try {
+    const r = run(d, ['--dir', path.join(d, 'carrier'), '--check'])
+    assert.equal(r.status, 2, '缺 _forbidden 必须 exit 2（不许"没有就跳过"）：' + both(r))
+    assert.match(both(r), /_forbidden/, '要点名缺的是哪一节')
+  } finally { rmSync(d, { recursive: true, force: true }) }
 })

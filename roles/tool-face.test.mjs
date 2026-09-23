@@ -607,3 +607,72 @@ test('运行时工具面读数里的每个名字都必须已在 known_tools（�
     assert.ok(known.has(n), '这条教训的来源名字必须在 known_tools 里：' + n)
   }
 })
+
+// ── 2026-09-23：`Edit` → `Write` 的宿主连带行为（WB 侧第三封的发现，推翻了我文档里一句话）
+//
+// 现场：我文档里写「本形态写面是半开的：只封得住 `Edit`，`Write` 一直开着」，实测**是反的**——
+// 禁 `Edit` 会**连带摘掉 `Write`**（反向不成立）⇒ 四个盲角色的写面**是关的**。
+// 但这条**不是我们设计出来的**：能力表里 `fs.edit` 与 `fs.write` 是两格，隔离现在**挂在一条
+// 未文档化的宿主行为上**——宿主哪天不连带了，写面会**静默变宽**，而所有文档还写着「已封」。
+// 所以本组锁三件：①这条行为必须印进文档＋给出哨兵名；②旧口径不许再留在产出里；③它要进派生件
+// （装机侧只看按角色那一节，会以为写面是关的而不知道那是宿主给的）。
+test('文档必须印出「禁 Edit 连带摘掉 Write」，且旧口径「写面半开」不许再留在产出里', () => {
+  const d = fakeRepo()
+  cpSync(path.join(PLUGIN, 'wb-expert-starter', 'references'), path.join(d, 'wb-expert-starter', 'references'), { recursive: true })
+  try {
+    const r = run(d, ['--host', 'codebuddy'])
+    assert.equal(r.status, 0, '应能生成：' + both(r))
+    const doc = readFileSync(path.join(d, 'wb-expert-starter', 'references', '宿主工具面.md'), 'utf8')
+    assert.match(doc, /禁 `Edit` 会连带把 `Write` 一起摘掉/, '这条宿主行为必须印进文档——隔离现在就挂在它上面')
+    assert.match(doc, /zz-np-fsedit-0923/, '要给出常驻哨兵的名字（宿主哪天不连带了，那条会立刻变红）')
+    assert.match(doc, /写面不是半开的/, '写面那句已被实测推翻 ⇒ 必须改成正确的那句')
+    assert.ok(!doc.includes('外取面与写面都是半开'), '旧口径（写面半开）不许再留在产出的文档里')
+    // 名单那半仍是名单：四个盲角色里有 `Edit`（正是它连带关掉写面）
+    assert.match(doc, /`disallowedTools: \[[^\]]*Edit[^\]]*\]`/, '盲角色名单里要有 `Edit`')
+  } finally { rmSync(d, { recursive: true, force: true }) }
+})
+
+// ── 2026-09-23：派生件的三节宿主级台账（答 WB 侧 §5.1「`host.ui` 为什么不在件里」）
+test('派生件必须带 couplings / _forbidden / unclaimed 三节，且都是现算的', () => {
+  const d = fakeRepo()
+  cpSync(path.join(PLUGIN, 'wb-expert-starter', 'references'), path.join(d, 'wb-expert-starter', 'references'), { recursive: true })
+  try {
+    const r = run(d, ['--host', 'codebuddy'])
+    assert.equal(r.status, 0, '应能生成：' + both(r))
+    const led = JSON.parse(readFileSync(path.join(d, 'wb-expert-starter', 'references', 'carrier-deny.json'), 'utf8'))
+    // ① 宿主级连带行为要进件：装机侧只看"按角色"那节，会以为写面是关的而不知道那是宿主给的
+    assert.ok(led.couplings && led.couplings['fs.edit（禁 `Edit`）'], 'couplings 里要带 Edit→Write 那条')
+    // ② "永不渲入名单"的名字集：装机侧靠它做 fail-closed（没有真源也算得出来）
+    for (const n of ['Write', 'WebFetch', 'PowerShell', 'automation_update', 'present_files']) {
+      assert.ok(led._forbidden.includes(n), '_forbidden 缺 ' + n)
+    }
+    // ③ 未被任何角色认领的能力：现算。`host.ui` 必须在内——那正是 §5.1 问的那一格
+    const un = new Map(led.unclaimed.map((u) => [u.cid, u]))
+    assert.ok(un.has('host.ui'), 'host.ui 没有任何角色认领 ⇒ 必须出现在 unclaimed 里（这就是「它为什么不在件里」的答案）')
+    assert.deepEqual(un.get('host.ui').ineffective, ['present_files', 'read_me', 'show_widget'],
+      '要如实带出它是整格 C 桶（不是 status:unknown——那会把「有名字但封不住」说成「没查清」）')
+    assert.ok(un.has('team.admin'), 'team.admin 也没人认领（只有主编可能用到，而主编不封任何能力）')
+    assert.ok(!un.has('ledger.write'), '有人认领的能力不许出现在 unclaimed 里（否则这一节退化成"把所有能力列一遍"）')
+  } finally { rmSync(d, { recursive: true, force: true }) }
+})
+
+test('_forbidden 算成空集 ⇒ 拒绝生成（空集让装机侧那道拒渲核对形同虚设）', () => {
+  const t = realTable()
+  for (const cap of Object.values(t.capabilities)) {
+    for (const [k, leaf] of Object.entries(cap.codebuddy || {})) {
+      if (!leaf || typeof leaf !== 'object') continue
+      delete leaf.ineffective; delete leaf.costly; delete leaf.candidates
+      // 整格缺口的叶形会被清成 `{}`（形状不认识 ⇒ 那是另一条红）——补一个等价状态，让本次只测"空集"这一件事
+      if (!Array.isArray(leaf.tools) && !leaf.status) {
+        cap.codebuddy[k] = { status: 'none', why: '测试夹具：只为让 _forbidden 算成空集' }
+      }
+    }
+  }
+  const d = fakeRepo({ table: t })
+  cpSync(path.join(PLUGIN, 'wb-expert-starter', 'references'), path.join(d, 'wb-expert-starter', 'references'), { recursive: true })
+  try {
+    const r = run(d, ['--host', 'codebuddy'])
+    assert.equal(r.status, 2, '空集必须 exit 2：' + both(r))
+    assert.match(both(r), /永不渲入名单/, '报错要说清空的是哪一节')
+  } finally { rmSync(d, { recursive: true, force: true }) }
+})
