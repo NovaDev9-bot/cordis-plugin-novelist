@@ -453,6 +453,22 @@ function faceOf(roleId, host) {
 }
 const roleIds = Object.keys(TABLE.roles)
 
+// 「**没有任何角色认领的能力**」＝ 没有任何角色的**有效** deny 里出现过的能力（现算）。
+// 为什么要有它：WB 侧 §5.1 问「`automation.write` 进了派生件、`host.ui` 没进，为什么」——
+// 答案是"派生件原本只有按角色那一节，而 `host.ui` 不在任何角色名单里 ⇒ 它没有落点可去"。
+// 但**"没有角色要封它"本身是个事实，不该因此从产出里消失**（那正是「未归类＝默认敞开且没人知道」的另一面）。
+// 两处要用（文档 §三b 尾 ＋ 派生件 `unclaimed` 节）⇒ **一处实现，不许各算一遍**。
+function unclaimedCapabilities() {
+  const claimed = new Set()
+  for (const rid of roleIds) {
+    const r = TABLE.roles[rid]
+    const ex = new Set((Array.isArray(r.codebuddy && r.codebuddy.denyExempt) ? r.codebuddy.denyExempt : [])
+      .map((e) => e && e.cap).filter(Boolean))
+    for (const c of (r.deny || [])) if (!ex.has(c)) claimed.add(c)
+  }
+  return CAP_ORDER.filter((cid) => !claimed.has(cid))
+}
+
 // ── 3. DSH 侧：两份预设的外科改写 + 反向核对
 const knownByHost = { dsh: new Set(), codebuddy: new Set() }
 for (const cid of CAP_ORDER) {
@@ -756,6 +772,19 @@ function codebuddyDoc() {
     L.push('')
     for (const n of (dr.bucket_notes || [])) L.push(n)
     L.push('')
+    // §三b 尾：**没有任何角色认领的能力**（现算）。WB 侧 §5.1 问的"host.ui 为什么不在任何名单里"，
+    // 答案要落在这份文档里——不能让读者去猜是漏了还是有意。
+    {
+      const un = unclaimedCapabilities()
+      L.push('**没有任何角色认领的能力（现算）**：' + (un.length
+        ? un.map((cid) => '`' + cid + '`（' + TABLE.capabilities[cid].zh + '）').join('、') +
+          ' —— 它们在本宿主下的名字**不会出现在任何一座的名单里**。分两种，别混：' +
+          '①**按设计不需要封**（如 `host.ui` 的交付/自述/展示面：不与书数据打交道，登记进能力表只为**不让它们成为「未归类名字」**）；' +
+          '②**只有主编可能用到、而主编不封任何能力**（如 `team.admin`）。' +
+          '**这就是「它为什么不在任何名单里」的答案**——不必去猜是漏了还是有意。'
+        : '本次为空（每个能力都至少被一个角色认领）。'))
+      L.push('')
+    }
   }
   // ── 三c. 四座盲角色的"盲"不是同一个强度（2026-09-23 WB 侧逐座对账时发现）
   // 声明在能力表（roles[].isolation），条款号经生成器核对**真的在人格真源里**才渲出来——
@@ -901,7 +930,11 @@ function codebuddyDoc() {
   L.push('')
   L.push('**★ 红测必须用中性同形探针，不要借本座。**WB 侧第一版让"主笔去调它自己被禁的工具"，它**以纪律为由拒发**——')
   L.push('**人格纪律与机器 deny 是混淆变量**，那样测出来的"拒"分不清是谁干的。')
-  L.push('另：**主笔本座至今没有机械读数**（两次自守拒发）⇒ 口径只能写"机制已实测成立（同形配置）"，**不许写成"主笔已被机器封死"**。')
+  L.push('**★ 主笔（作者座）的口径（2026-09-23 升级）**：本座读数**已取到**（WB 侧换问法：**只让它列名、不让它调任何工具**，这样纪律与机器拦不会混成同一变量）——')
+  L.push('直接可调用面 **21 名**（`Bash` 与本包绑的 8 个 MCP 写入口**都不在其中**）、deferred 注册池 **68 名含全部 15 个 `mcp__novelist__*`**（落账名**可见**）。')
+  L.push('⇒ 口径＝**机器两层（挂载期摘名 ＋ 调用期拒绝）＋ 纪律一层**。**仍不许写「主笔已被机器封死」**：`Write`／`Edit` 在本座开着（有意），且落账名可见。')
+  L.push('⚠ 两条标注要一起抄：①21 名与 68 名池都是**本座自陈枚举**（非宿主硬返回）；②调用期那半仍是**同形探针**，不是本座自测。')
+  L.push('⚠ 另：**探针必须附基线**（WB 侧 09-23 加的一条纪律）——单座自陈没有对照时，既不能证「封住了」，也不能证「从未有过」；这是本项目「自陈不是读数」的镜像。')
   L.push('')
   L.push('**★ 两条省事的取证路径（先走第 1 条，不用重启也不用派探针）**：')
   L.push('1. 日志行 `[AgentTask] agent lookup failed | requested="X" | available=[...]`——那行 `available` 就是现成仪器，直接看"宿主这一刻加载了哪些 agent"。')
@@ -1111,6 +1144,46 @@ if (wants('codebuddy')) {
       skipped,
     }
   }
+  // ── 两节宿主级台账（2026-09-23）：起因是 WB 侧 §5.1 的质疑——"`automation.write` 进了派生件、
+  // `host.ui` 没进，两者对『是否与该座相关』是同级的，至少是口径不一"。
+  // `forbiddenNames` 让**装机侧**（没有真源 `roles/`）也能 fail-closed 核对；
+  // `unclaimedCaps` 让"这个能力为什么不在任何名单里"**在件里就有答案**，不必让读者猜是漏了还是有意。
+  const forbiddenNames = new Set()
+  for (const cid of CAP_ORDER) {
+    for (const leaf of Object.values(TABLE.capabilities[cid].codebuddy || {})) {
+      if (!leaf || typeof leaf !== 'object') continue
+      for (const n of leaf.ineffective || []) forbiddenNames.add(n)
+      for (const n of leaf.costly || []) forbiddenNames.add(n)
+      for (const n of leaf.candidates || []) forbiddenNames.add(n)
+    }
+  }
+  if (!forbiddenNames.size) {
+    die('派生件自证失败：算出来的「永不渲入名单」名字集是空的——空集比报错更危险：'
+      + '它会让装机侧那道 fail-closed 核对形同虚设（而且装机侧没有真源可以对照，只能采信这份件）')
+  }
+  const unclaimedCaps = unclaimedCapabilities().map((cid) => {
+    const cap = TABLE.capabilities[cid]
+    const v = leafOf(cap, 'codebuddy', FORMS[0])
+    const out = { cid, zh: cap.zh }
+    // 三种叶形都要如实带出来：渲得进名单的（tools）／整格缺口（ineffective、costly）／没有取值（status）。
+    // 只写 status 会把 `host.ui` 印成 `unknown`——而它其实**有名字、只是实测封不住**，那是两件不同的事。
+    if (v && Array.isArray(v.tools)) out.tools = v.tools
+    else if (v && Array.isArray(v.ineffective)) out.ineffective = v.ineffective
+    else if (v && Array.isArray(v.costly)) out.costly = v.costly
+    else out.status = (v && v.status) || 'unknown'
+    if (v && v.why) out.why = v.why
+    return out
+  })
+  // 空数组是**合法**状态（每个能力都有角色认领）——与"扫不到就报绿"不同：这里的 0 可达且可解释。
+  // 但**不许静默**：件里要带一句人话说明，读者不必去猜是漏了还是真没有。
+  const unclaimedNote = unclaimedCaps.length
+    ? '**没有任何角色认领的能力**（现算，不是手写）：这些能力在本宿主下的名字不会出现在任何一座的名单里。'
+      + '分两种，别混：①**按设计不需要封**（如 `host.ui` 的交付/自述/展示面——它们不与书数据打交道，'
+      + '登记进能力表只为**不让它们成为「未归类名字」**）；②**只有主编可能用到、而主编不封任何能力**（如 `team.admin`）。'
+      + '列出来是为了让"它为什么不在任何名单里"**在件里就有答案**，而不是要读者去猜是漏了还是有意。'
+    : '**没有任何角色认领的能力：本次为空**（每个能力都至少被一个角色认领）——'
+      + '这是可达且可解释的状态，不是"扫不到"；若它长期为空，说明这个字段可以删掉，而不是留着当一个永远空的出口。'
+
   const payload = {
     _generated_by: 'roles/build-tool-face.mjs',
     _source: REL_TABLE,
@@ -1118,6 +1191,21 @@ if (wants('codebuddy')) {
       '跑生成器重生成。为什么单列一份：包内 agent 定义**不许**带 disallowedTools（官方校验器做子串判断，' +
       '`disallowedTools:` 含 `tools:` ⇒ 渲进包内 MD 立刻不合规），所以封名单只能由宿主载体承载，' +
       '而载体是派生件——派生件必须由生成器给，不许安装器自己再算一遍（那就是第二份实现）。',
+    // ── 宿主级两节（2026-09-23 补，起因是 WB 侧 §5.1 的质疑：「`automation.write` 进了派生件、`host.ui` 没进，
+    // 两者对『是否与该座相关』是同级的，至少是口径不一」）。
+    // 答案是：这份件原本**只有按角色分的一节**（每座渲什么、跳什么），而 `host.ui` 不在任何角色名单里
+    // ⇒ 它没有"落点"可去。**但"没有角色要封它"本身是个事实，不该因此从件里消失**（那就是本项目
+    // 「未归类＝默认敞开且没人知道」的另一个面）。故补两节：宿主级连带行为 ＋ 未被任何角色认领的能力。
+    couplings: TABLE.hosts.codebuddy.couplings || {},
+    _couplings_note: '**禁一条会顺带影响什么**（宿主级事实，不属于任何单个角色）。为什么必须进这份件：' +
+      '写面隔离现在就挂在 `fs.edit` → `Write` 那条**未文档化的宿主连带行为**上——装机侧若只看按角色那一节，' +
+      '会以为写面是关的而不知道它是**宿主给的**；宿主哪天不连带，隔离静默变宽，而件里一个字都不会变。',
+    _forbidden: [...forbiddenNames].sort(),
+    _forbidden_note: '**任何时候都不许渲进名单的名字**（实测拦不住／拦得有代价／只是候选）。带着它，安装器在' +
+      '**没有真源（`roles/tool-face.json`）的装机侧**也能做 fail-closed 核对——否则装机侧只能采信这份件，' +
+      '无法判断"名单里这个字是不是本来就不该渲"。',
+    unclaimed: unclaimedCaps,
+    _unclaimed_note: unclaimedNote,
     roles,
   }
   const next = JSON.stringify(payload, null, 2) + '\n'

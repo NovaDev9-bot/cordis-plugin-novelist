@@ -55,7 +55,7 @@
     },
     "codebuddy": {
       "enforcement": "proven-mechanism",
-      "enforcement_note": "WorkBuddy/CodeBuddy 形态：**机制已实测、载体已建（7 份，由 `scripts/install-wb-agents.mjs` 从能力表渲进宿主载体目录）**。① **落点不在插件包内**——宿主组件装载器**不枚举专家包**（2026-09-22 宿主日志：11 个插件各有 `Loaded plugin components for X: N agent(s)`，本包一次都没出现；同日志 `[AgentManager] volatile plugin agent override updated: chief-editor (source=novel-forge-editorial@my-experts)` 说明专家包只走「**单槽绑定 lead**」这条路）⇒ 包内 `agents/` 那两份**不是注册载体**（0.1.7 补的前言块与 `agents` 登记，对这条装载器不生效——它们的真实用途是**人格文本的权威来源**）。② **真正的落点是项目级自定义 agent 定义**：`<工作区>/.codebuddy/agents/*.md`；用户级＝app 进程环境变量 `CODEBUDDY_CONFIG_DIR` 下的 `agents/`（**本机该变量指向宿主自己的配置目录 `.workbuddy`**）；⇒ **用户级实为「宿主配置目录/agents/」**，本机是 `~/.workbuddy/agents/`——**不要照抄 `~/.codebuddy/agents/`**（那是我 09-22 早先写错的一处，已更正）；**换台机器以环境变量为准，不要以本条的字面值为准**。③ **实测三件（WB 侧 `[硬返回]`）**：能派 ✓（`Task(subagent_type=\"author\")` 一次成功）、**人格注入** ✓（自报并准确引用 `AUTH-01…19` 条款号）、**deny 拦得住** ✓（中性同形探针 `disallowedTools:[mcp__novelist__novel_chapter]` → `Error: Permission to use mcp__novelist__novel_chapter has been denied.`，拦在权限层、未到工具本体）。④ **分层如实记**：deny 读数来自**同形配置的中性座位**；**主笔本座无机械读数**（两次自守拒发，读数 `REFUSED-BY-SELF`）⇒ 对外口径只能是「机制已实测成立（同形配置）」，**不许写成「主笔已被机器封死」**。⑤ **热加载是两句话，不是一句（2026-09-23 WB 侧同文件 A/B 定案）**：**新增一份新定义（新路径）＝即时生效**（同会话内零重启即可派起来）；**改动已有定义的内容＝不生效，必须重启**（`AgentLoader.loadFromPaths` 有一条按路径的 `already loaded, skipping` 去重，内容冻结在**首次读取的那一版**）。⇒ 纪律照这个写：**「改真源 → 重跑安装器 → 重启宿主 → 重跑 `--check` 验哈希」；只有「新增一份新角色」才不需重启。** ⚠ 另注：`--check` **只管盘上**（载体文件与真源一不一致），**验不出宿主内存里那一版**——两件事必须分开说，否则会出「`--check` 全绿、跑的还是上一版」的假绿灯。⑥ **本包当前生效的 deny ＝ 7 份载体**（2026-09-22 B1：七个角色各一份，封名单由安装器渲；包内那两份定义**仍然不带**封名单——官方校验器禁止）。判据：WB 侧 09-22 实跑 ＋ 宿主日志；**仓侧未独立复现该读数**（本机无法驱动该宿主的 agent 回合），但三处宿主源码事实（`getProjectAgentsDir` 写死 `.codebuddy`／`parseAgentFile` 读 `disallowedTools`／`AgentTask` 把 `agentConfig.disallowedTools` 并进子会话）已由仓侧**独立读源码坐实**。",
+      "enforcement_note": "WorkBuddy/CodeBuddy 形态：**机制已实测、载体已建（7 份，由 `scripts/install-wb-agents.mjs` 从能力表渲进宿主载体目录）**。① **落点不在插件包内**——宿主组件装载器**不枚举专家包**（2026-09-22 宿主日志：11 个插件各有 `Loaded plugin components for X: N agent(s)`，本包一次都没出现；同日志 `[AgentManager] volatile plugin agent override updated: chief-editor (source=novel-forge-editorial@my-experts)` 说明专家包只走「**单槽绑定 lead**」这条路）⇒ 包内 `agents/` 那两份**不是注册载体**（0.1.7 补的前言块与 `agents` 登记，对这条装载器不生效——它们的真实用途是**人格文本的权威来源**）。② **真正的落点是项目级自定义 agent 定义**：`<工作区>/.codebuddy/agents/*.md`；用户级＝app 进程环境变量 `CODEBUDDY_CONFIG_DIR` 下的 `agents/`（**本机该变量指向宿主自己的配置目录 `.workbuddy`**）；⇒ **用户级实为「宿主配置目录/agents/」**，本机是 `~/.workbuddy/agents/`——**不要照抄 `~/.codebuddy/agents/`**（那是我 09-22 早先写错的一处，已更正）；**换台机器以环境变量为准，不要以本条的字面值为准**。③ **实测三件（WB 侧 `[硬返回]`）**：能派 ✓（`Task(subagent_type=\"author\")` 一次成功）、**人格注入** ✓（自报并准确引用 `AUTH-01…19` 条款号）、**deny 拦得住** ✓（中性同形探针 `disallowedTools:[mcp__novelist__novel_chapter]` → `Error: Permission to use mcp__novelist__novel_chapter has been denied.`，拦在权限层、未到工具本体）。④ **分层如实记（2026-09-23 口径升级：主笔本座读数已取到 ⇒「机器两层 ＋ 纪律一层」）**：①**挂载期·本座读数**（形式同 `TOOLS=`，仍是**自陈枚举**、非宿主硬返回）：主笔直接工具面 **21 名**，`Bash` 与 8 个 MCP 写入口**都不在其中**；同时它报 **deferred 注册池 68 名、含全部 15 个 `mcp__novelist__*`** ⇒ **落账名对本座可见**（**可见 ≠ 可执行**）。②**调用期·同形探针**：经 `DeferExecuteTool` 到达被禁名同样得 `Permission to use … has been denied.`（同形探针读数，**不是本座自测**——本座这次按要求**没试调任何被禁名**，所以没把「座位纪律」与「机器拦」混成同一变量）。③**纪律层**：本座按人格纪律自守。⚠ **仍不许写「主笔已被机器封死」**：`Write`／`Edit` 在本座**开着**（主笔要写交付件），且落账名**可见**。⑤ **热加载是两句话，不是一句（2026-09-23 WB 侧同文件 A/B 定案）**：**新增一份新定义（新路径）＝即时生效**（同会话内零重启即可派起来）；**改动已有定义的内容＝不生效，必须重启**（`AgentLoader.loadFromPaths` 有一条按路径的 `already loaded, skipping` 去重，内容冻结在**首次读取的那一版**）。⇒ 纪律照这个写：**「改真源 → 重跑安装器 → 重启宿主 → 重跑 `--check` 验哈希」；只有「新增一份新角色」才不需重启。** ⚠ 另注：`--check` **只管盘上**（载体文件与真源一不一致），**验不出宿主内存里那一版**——两件事必须分开说，否则会出「`--check` 全绿、跑的还是上一版」的假绿灯。⑥ **本包当前生效的 deny ＝ 7 份载体**（2026-09-22 B1：七个角色各一份，封名单由安装器渲；包内那两份定义**仍然不带**封名单——官方校验器禁止）。判据：WB 侧 09-22 实跑 ＋ 宿主日志；**仓侧未独立复现该读数**（本机无法驱动该宿主的 agent 回合），但三处宿主源码事实（`getProjectAgentsDir` 写死 `.codebuddy`／`parseAgentFile` 读 `disallowedTools`／`AgentTask` 把 `agentConfig.disallowedTools` 并进子会话）已由仓侧**独立读源码坐实**。",
       "artifact": "dsh-native/plugin-novelist/wb-expert-starter/references/宿主工具面.md",
     "carrier_ledger": "references/carrier-deny.json",
     "carrier_ledger_note": "**包内相对**坐标（与各角色的 codebuddy.file / agentdef 同一基准，不再走 mono 剥前缀那套）。它是安装器唯一的名单来源：宿主载体怎么渲由这份派生件说了算，安装器自己再算一遍就是第二份实现。文件名用 ASCII：约定一致性棘轮的判据是**非文档件的文件名不许含中文**（2026-09-22 实测：中文名当场把 cjk_paths_in_code 从 0 顶到 1），而那条守卫的注释写明「不往豁免清单里加前缀」——所以改名，不加豁免。",
@@ -78,7 +78,25 @@
           "how": "派工只问四行（SELF=／OBL=／TOOLS=／DENY=）、不给业务任务——这样 TOOLS= 才是**纯净的工具面读数**，不被业务动作干扰",
           "form": "subagent",
           "names": ["automation_update", "present_files", "read_me", "show_widget", "Read", "Write", "Edit", "Glob", "Grep", "Bash", "PowerShell", "TaskCreate", "TaskGet", "TaskUpdate", "TaskList", "TaskOutput", "WebFetch", "WebSearch", "Skill", "SendMessage", "ToolSearch", "DeferExecuteTool"],
-          "note": "**本表最硬的一类证据**（宿主直接返回，不是模型自述）。同批还取了四个盲/半盲角色的工具面：reader 与 calibrator **逐字相同**、proofer 与 dissector 比它们**多一个 `Read`**；四个座位的**残留面**＝写面（`Write`／`Edit`）＋外取面（`WebFetch`／`WebSearch`）＋`Skill`＋`automation_update`＋`present_files`／`read_me`／`show_widget` ＋ `Task*` 一族——**这些名字在本表里此前一个都没有**（见 capabilities 新增的四格）。"
+          "note": "**本表最硬的一类证据**（宿主直接返回，不是模型自述）。同批还取了四个盲/半盲角色的工具面：reader 与 calibrator **逐字相同**、proofer 与 dissector 比它们**多一个 `Read`**；四个座位的**残留面**＝写面（`Write`／`Edit`）＋外取面（`WebFetch`／`WebSearch`）＋`Skill`＋`automation_update`＋`present_files`／`read_me`／`show_widget` ＋ `Task*` 一族——**这些名字在本表里此前一个都没有**（见 capabilities 新增的四格）。",
+          "count_note": "同一形态、未封任何名字的**基线＝22 名**（WB 侧 09-23 多次取到）。⚠ 对方 09-23 首封的正文里把这个数写成「21」而**列出来的正好是 22 个名字**——我按列出来的那份登记（22），并把这次口径不一留在案上：**同一个数在同一句里两个值，是本项目最贵的那类形状**。"
+        },
+        {
+          "when": "2026-09-23T18:0x+08:00",
+          "by": "WB 侧组合探针（zz-combo-probe-0923：项目级新路径、零重启；前言块**逐字照抄试读员生产名单**）",
+          "how": "这是本批的「重启前gate」——四个盲角色名单新增 `Edit`／`Skill`／`WebSearch` 三个名字，而它们的读数原先**都取自「只封它一个」的探针座**；D 桶报错名字不固定 ⇒ 不许拿单名读数反推组合安全。探针只问五行（`ALIVE=`／`READ=`／`BASH=`／`TOOLSEARCH=`／`NEWNAMES=`）",
+          "form": "subagent",
+          "names": ["automation_update", "present_files", "read_me", "show_widget", "PowerShell", "TaskCreate", "TaskGet", "TaskUpdate", "TaskList", "TaskOutput", "WebFetch"],
+          "note": "**组合安全：一次派工同时摘掉 10 个非 MCP 被禁名（含 3 个新增名）＋1 个连带名（`Write`），座位照常起、照常交回执、零 `Tool … not found`** —— 正是 09-22 那次「座位起不来」的反面。**算式闭合**（WB 侧复算，我不采信自报）：基线 22 − 10 个非 MCP 被禁名（Read/Edit/Glob/Grep/Bash/WebSearch/Skill/ToolSearch/DeferExecuteTool/SendMessage）− 1 个连带名（Write）＝ **11**，与探针自报的 11 名差集为空；三个新增名一个不在，而它们在基线里都在。⚠ **探针自陈它「是无效样本」的那段被我方驳回**：它**没有对照**，不知道未封任何名字的同类座位**含**这三个名字——基线一摆，`ABSENT` 就只能是 deny 的效果。这条正是本项目「自陈不是读数」的**镜像**：**单座自陈没有对照时，既不能证「封住了」，也不能证「从未有过」** ⇒ 纪律：**探针必须附基线**（对照即谓词）。",
+          "probe_selfreport_note": "探针原文自陈：『本座位同样不持有 Read／Bash／ToolSearch……拿这个座位去回填「组合是否会让座位起不来」是无效样本——它的清单本来就短于那三个名字，deny 与不 deny 在这里读数恒等。』——**谨慎值得记，结论不成立**（缺对照）。"
+        },
+        {
+          "when": "2026-09-23T18:0x+08:00",
+          "by": "WB 侧主笔本座（author-1-b0b5）——**只让它列名、不让它调任何工具**（避免把「人格纪律」与「机器 deny」混成同一变量）",
+          "how": "§七·5 那条长期欠账的换问法：只问清单、不问行为。本座**未调用任何工具、未读写文件**，因此这次读数**没有**混淆变量",
+          "form": "teammate",
+          "names": ["automation_update", "present_files", "read_me", "show_widget", "Read", "Write", "Edit", "Glob", "Grep", "PowerShell", "TaskCreate", "TaskGet", "TaskUpdate", "TaskList", "TaskOutput", "WebFetch", "WebSearch", "Skill", "SendMessage", "ToolSearch", "DeferExecuteTool"],
+          "note": "**主笔本座的直接可调用面＝21 名**：`Bash` 与 8 个 MCP 写入口**都不在其中** ✓（正是本包渲进它名单的那些）；`Write`／`Edit` **都在** ✓（有意——主笔要写交付件）。另报 **deferred 注册池 68 名，含全部 15 个 `mcp__novelist__*`**（含被禁的 8 个写入口）⇒ **落账名可见、但可见 ≠ 可执行**（调用期由同形探针那条读数兜住）。⚠ **两条诚实标注**：①这 21 名与本座未提供的 68 名池**都是本座自陈枚举**（非宿主硬返回），强度与 `TOOLS=` 同类；②调用期那半仍是**同形探针**，不是本座自测。⇒ 口径升为「**机器两层（挂载期摘名 ＋ 调用期拒绝）＋ 纪律一层**」，**仍不许写「主笔已被机器封死」**。"
         }
       ],
       "deny_readings": {
@@ -114,7 +132,7 @@
           "★ **D 桶的报错名字不固定**：单测 `Write`→报 `Write`；单测 `WebFetch`→报 `WebFetch`；09-22 三件同写→报 `Read`。⇒ 那条报文只能当「**该次派工被降级**」的信号，**不许反推「哪个名字有毒」**。",
           "★ **B 与 A 的差别不在「封没封住」，在「封的时候动静多大」**：B 桶实际也把名字摘掉了（`列举=不在`），隔离**成立**；代价是宿主层报错＋框架记 `failed`。⇒ **生产 deny 里根本不放 B 桶名字**，除非确有必要且上层能容忍 `failed`（有「失败即停」的钩子会误伤，这条未测）。",
           "★ **C 桶的四个名字 ＋ `PowerShell` 都不许渲**：渲了不报错、也不拦——**表观与「已封」完全一样**。它们**只许走「缺口」出口如实印出来**（生成器与安装器都印）。",
-          "★ 本形态**外取面与写面都是半开**：`WebFetch`（B）与 `Write`（B）能封但有代价 ⇒ 不渲；于是外取面只封住 `WebSearch`、写面只封住 `Edit`。两处缺口都必须在载体文档里印出来——**看着封了而其实半开，比明说没封更危险**。"
+          "★ 本形态**外取面是半开的**：`WebFetch`（B 桶）能封但有代价 ⇒ 不渲，于是外取面只封住 `WebSearch`。⚠ **写面不是半开的**——那条口径 2026-09-23 已被实测推翻：盲角色的名单里有 `Edit`，而**禁 `Edit` 会连带摘掉 `Write`** ⇒ 四个盲角色的**写面是关的**（逐条读数见 hosts.codebuddy.couplings；常驻哨兵 `zz-np-fsedit-0923`）。**但这不等于「本包封住了写面」**：那是宿主的一次未文档化连带行为，宿主不这么干时写面会静默变宽。两处缺口都必须在载体文档里印出来——**看着封了而其实半开，比明说没封更危险；而把宿主给的隔离说成自己设计出来的，比两者都危险**。"
         ]
       },
       "nonexistent_tools_verified": ["Task", "read_image", "pwsh"],
@@ -140,7 +158,8 @@
       ],
       "couplings": {
         "novel_event（档案员保留的那件）": "**粒度警告（2026-09-20 第三方实测）**：deny 只有**整工具**粒度，没有 op 级语法，宿主侧 disallowedTools 同样整名匹配 ⇒ 保留 novel_event ＝把 op=append（往事件带写）一并给它。原先文档写「保留 novel_event read」是把意图写成了事实，已改。要在硬面上只给读，只能改连接器侧——宿主层做不到（这也与本项目 REC-04 的结论同源：没有可机器验证的身份，就别在宿主层假装能按角色收权）。",
-        "DeferExecuteTool": "它同时是 Workflow 的执行器（宿主 DEFER_EXECUTE 会分派 WORKFLOW）⇒ deny 它可能**连带废掉 Workflow 面**。故不把 Workflow 与它合成一条能力：合成的后果是「看着只禁了发现，实际连编排一起禁」，而这种连带在名单里看不出来。"
+        "DeferExecuteTool": "它同时是 Workflow 的执行器（宿主 DEFER_EXECUTE 会分派 WORKFLOW）⇒ deny 它可能**连带废掉 Workflow 面**。故不把 Workflow 与它合成一条能力：合成的后果是「看着只禁了发现，实际连编排一起禁」，而这种连带在名单里看不出来。",
+        "fs.edit（禁 `Edit`）": "**⚠ 未文档化的宿主连带行为（2026-09-23 实测，WB 侧五条读数）**：**禁 `Edit` 会连带把 `Write` 一起摘掉，反向不成立。** 读数：①**基线**（同一形态、未封任何名字）工具面 **22** 名，`Edit`／`Write` **都在**；②`zz-np-write`（deny 只含 `Write`）→ 21 名、`Edit` **在**、`Write` 不在；③`zz-np-edit`（deny 含 `Edit`）→ 20 名、`Edit` 不在、**`Write` 也不在**；④**决断探针 `zz-np-fsedit-0923`（deny 只含 `Edit`）**→ `COUNT=20`／`WRITE=不在`／`EDIT=不在`；⑤**组合探针**（25 名、含 `Edit`、**不含** `Write`）→ 工具面 **11** 名，`Write` 同样不在，且**零 `Tool … not found`**、座位照常起。⇒ **三条推论，三条都必须跟着这条读数一起读**：⑴四个盲角色的名单里**有** `Edit` ⇒ 它们的**写面实际是关的**（`Write` 被连带摘掉）——**这不是本包设计出来的，是宿主给的**：隔离**挂在这条未文档化行为上**，宿主哪天不再连带，写面会**静默变弱**，而所有文档还都写着「已封」（⇒ 常驻哨兵＝项目级 `zz-np-fsedit-0923`，跑一次约 10 秒，期望 `COUNT=20`／`WRITE=不在`／`EDIT=不在`）；⑵**不能**用「只封 `Write`」达到关写面——那只摘 `Write`、把 `Edit` 留下；⑶`author`（主笔）名单里**没有** `Edit` ⇒ 它的 `Write` **开着**，**这是有意的**（主笔要写交付件）。⚠ 所以本条要**反过来读**：写面隔离的证据力全部来自这条第三方行为，**不由本包保证**。"
       }
     }
   },
@@ -195,14 +214,14 @@
     "fs.write": {
       "zh": "写文件",
       "dsh": { "tools": ["write"], "note": "" },
-      "codebuddy": { "*": { "costly": ["Write"], "why": "**2026-09-23 二分完成：单名 `Write` ＝ B 桶**（名字摘掉、宿主报 `Tool Write not found in agent <座>`、**该次派工被框架记 `failed`**）⇒ 不渲：**生产名单不放 B 桶名字**（代价是每次派工被记失败；上层若有「失败即停」的钩子会误伤——**未测**）。⚠ 于是本形态**写面是半开的**：只封得住 `Edit`，`Write` 一直开着；这条缺口必须印在载体文档里，**不许让「名单里有 Edit」被读成「写面已封」**。主笔本形态必须能写交付件（与 DSH 侧一致：那边 write 是允许项、不封）。" } }
+      "codebuddy": { "*": { "costly": ["Write"], "why": "**2026-09-23 二分完成：单名 `Write` ＝ B 桶**（名字摘掉、宿主报 `Tool Write not found in agent <座>`、**该次派工被框架记 `failed`**）⇒ 不渲：**生产名单不放 B 桶名字**（代价是每次派工被记失败；上层若有「失败即停」的钩子会误伤——**未测**）。⚠ **本格不渲还有第二重原因**：在本宿主上**禁 `Edit` 会连带摘掉 `Write`**（读数见 hosts.codebuddy.couplings）⇒ 名单里有 `Edit` 的四个盲角色，写面**已经是关的**，本格无需再渲；`author` 名单里没有 `Edit` ⇒ 它的 `Write` **开着**，**那是有意的**（主笔要写交付件）。⚠ **不许把它读成「设计如此」**：写面隔离靠的是一条**未文档化的宿主连带行为**，**不由本包保证**。" } }
     },
     "fs.edit": {
       "zh": "改文件",
       "dsh": { "tools": ["edit"], "note": "" },
       "codebuddy": {
         "teammate": { "status": "none", "why": "**实测团队成员形态缺 `Edit`** ⇒ 本形态下这条 deny 是**空操作**（没有工具可禁，禁了不报错也不生效）。且主笔本形态必须能写交付件。DSH 侧照旧封——那边主笔「只交提案、不落账」，`edit` 是落账旁路；**那条理由随宿主变，故按形态分列而不是照搬**。" },
-        "*": { "tools": ["Edit"], "note": "**2026-09-23 二分完成**：单名 `Edit` ＝ **A 桶、干净生效**（`Error: Permission to use Edit has been denied.`），WB 侧桶表把它列为「可以，首选」⇒ 明确可渲。这同时**消掉一处宿主间分叉**：DSH 侧五个工种早就封 `edit`，本形态此前一格都没封。⚠ 两条如实标注：①**「本形态全名单 ＋ `Edit`」这个组合未经测量**（读数取自只封它一个的探针座）⇒ 落一份**重启前必须先跑**的组合探针（见载体文档 §七）；②`NotebookEdit` 是同一能力的另一面，但**不在本形态实测工具面里**（21 名基线没有它）⇒ 不渲（渲了是空操作），登记在此备查。" }
+        "*": { "tools": ["Edit"], "note": "**2026-09-23 二分完成**：单名 `Edit` ＝ **A 桶、干净生效**（`Error: Permission to use Edit has been denied.`），WB 侧桶表把它列为「可以，首选」⇒ 明确可渲。这同时**消掉一处宿主间分叉**：DSH 侧五个工种早就封 `edit`，本形态此前一格都没封。⚠ 两条如实标注：①**「本形态全名单 ＋ `Edit`」这个组合未经测量**（读数取自只封它一个的探针座）⇒ 落一份**重启前必须先跑**的组合探针（见载体文档 §七）；②`NotebookEdit` 是同一能力的另一面，但**不在本形态实测工具面里**（22 名基线没有它）⇒ 不渲（渲了是空操作）。⚠ **2026-09-23 新读数（连带，重要）**：在本宿主上**禁 `Edit` 会连带摘掉 `Write`**（反向不成立）⇒ 四个盲角色渲了这一格之后，**写面实际是关的**，这也让 `fs.write` 那格不必再渲。**但这条隔离挂在一个未文档化的宿主行为上**（常驻哨兵＝项目级 `zz-np-fsedit-0923`）——逐条读数与三条推论见 `hosts.codebuddy.couplings`。" }
       }
     },
     "fs.search": {
