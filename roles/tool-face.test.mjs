@@ -408,3 +408,73 @@ test('派工文本的工具面生成区：手改即红；缺标记即拒（第�
   assert.match(both(ok), /references[\/\\]roles[\/\\]reader\.md/, '结果里应点名派工文本')
   rmSync(d, { recursive: true, force: true })
 })
+
+// ── 2026-09-23：WB 侧读数逼出来的一族缺陷——"登记了但没生效"必须留痕
+//
+// 现场形状：四个盲角色的 deny 里写着 `fs.write`／`fs.edit`，而这两格在 CodeBuddy 下是
+// `unknown`（不许渲，理由见表），于是**名字一个也没渲出去、文档里也一个字没提**。
+// 表观＝"看着配过"，实际＝那几个工具对本座一直开着——**静默少封一个名字**，
+// 与静默封错一个名字同罪（两者都表现为"没报错"）。
+// 这条测试锁的是"有意图就必须有出口"：渲得进去的走名单，渲不进去的必须在文档里印出来。
+test('deny 里登记了、本形态渲不进去的能力 ⇒ 必须在文档里印成"未生效"（不许静默少封）', () => {
+  const docRel = ['wb-expert-starter', 'references', '宿主工具面.md']
+
+  // ① 真表：`fs.write`／`fs.edit` 是 unknown 且被盲角色 deny ⇒ 必须各有一行"未生效"
+  const d = fakeRepo()
+  // 假仓是 flat 形态、只造空目录；把真仓的 references/ 拷进去（产出目录 + 派工文本都要在）
+  cpSync(path.join(PLUGIN, 'wb-expert-starter', 'references'), path.join(d, 'wb-expert-starter', 'references'), { recursive: true })
+  try {
+    const r = run(d, ['--host', 'codebuddy'])
+    assert.equal(r.status, 0, '应能生成：' + both(r))
+    const doc = readFileSync(path.join(d, ...docRel), 'utf8')
+    const pending = doc.split('\n').filter((l) => l.includes('意图已登记、本形态尚未生效'))
+    assert.ok(pending.length > 0, '渲不进去的 deny 必须在文档里印出来，否则读文档的人以为已经封了')
+    assert.ok(pending.some((l) => l.includes('fs.write')), '要点名是哪一格能力（fs.write 缺失）')
+    assert.ok(pending.some((l) => l.includes('fs.edit')), '要点名是哪一格能力（fs.edit 缺失）')
+    // ② 反向：**渲得进去**的能力不许被误报成"未生效"——否则这条出口会退化成"所有 deny 都印一遍"
+    assert.ok(!pending.some((l) => l.includes('fs.read')), 'fs.read 是可渲染的，不该出现在"未生效"里')
+    assert.ok(!pending.some((l) => l.includes('shell.exec')), 'shell.exec 是可渲染的，不该出现在"未生效"里')
+  } finally {
+    rmSync(d, { recursive: true, force: true })
+  }
+
+  // ③ 负例（能红）：把一格能力从"未核实"改成"可渲染"，那格就**不该**再走"未生效"出口
+  const t = realTable()
+  t.capabilities['fs.edit'].codebuddy['*'] = { tools: ['Edit'], note: '测试夹具：假装已核实可渲' }
+  const d2 = fakeRepo({ table: t })
+  cpSync(path.join(PLUGIN, 'wb-expert-starter', 'references'), path.join(d2, 'wb-expert-starter', 'references'), { recursive: true })
+  try {
+    const r2 = run(d2, ['--host', 'codebuddy'])
+    assert.equal(r2.status, 0, '应能生成：' + both(r2))
+    const doc2 = readFileSync(path.join(d2, ...docRel), 'utf8')
+    const pending2 = doc2.split('\n').filter((l) => l.includes('意图已登记、本形态尚未生效'))
+    assert.ok(!pending2.some((l) => l.includes('fs.edit')), '已改成可渲的能力不该再出现在"未生效"里（出口失灵）')
+    // 而且它应当真的以名字形态渲进各座名单
+    assert.match(doc2, /`Edit`/, '改成可渲之后应真的渲出名字')
+  } finally {
+    rmSync(d2, { recursive: true, force: true })
+  }
+})
+
+// ── 2026-09-23：工具面读数必须回灌本表（"文档清单 ≠ 运行时清单"）
+//
+// 现场形状：宿主官方 tools-reference 里**没有** `automation_update`／`present_files`／`read_me`／
+// `show_widget`／`Skill` 这五个名字，而它们在运行时工具面里**都在**。它们此前从没进过 known_tools
+// ⇒ 既没被归类、也没被封、也没人发现（未归类＝默认敞开且不留痕迹）。
+// 本表因此要求：**每次拿到的运行时工具面读数，都要能在 known_tools 里对上号**。
+test('运行时工具面读数里的每个名字都必须已在 known_tools（新名字出现＝表已落后）', () => {
+  const t = realTable()
+  const known = new Set(t.hosts.codebuddy.known_tools || [])
+  const readings = t.hosts.codebuddy.tool_face_readings || []
+  assert.ok(readings.length > 0, '至少要有一条运行时读数登记（它是"文档清单≠运行时清单"这条教训的载体）')
+  const missing = []
+  for (const r of readings) {
+    assert.ok(Array.isArray(r.names) && r.names.length, '读数必须带 names：' + JSON.stringify(r.when))
+    for (const n of r.names) if (!known.has(n)) missing.push(n + '（读数 ' + r.when + '）')
+  }
+  assert.deepEqual(missing, [], '读数里有 known_tools 认不得的名字——表落后于宿主的真实工具面：' + missing.join('、'))
+  // 反向也要有一条：这条教训的来源名字必须真的在清单里（防"读数登记了但名字没补进去"）
+  for (const n of ['automation_update', 'present_files', 'read_me', 'show_widget', 'Skill']) {
+    assert.ok(known.has(n), '这条教训的来源名字必须在 known_tools 里：' + n)
+  }
+})

@@ -186,6 +186,12 @@ for (const p of plan) {
   for (const s of e.skipped) {
     if (s.status === 'ineffective') {
       console.log('      ⚠ 缺口：「' + (s.names || []).join('」「') + '」实测**拦不住**（写进去它照样执行）⇒ 不渲，如实标注')
+    } else if (s.status) {
+      // 2026-09-23 补：登记了却渲不进去的**意图**也要印出来。
+      // 不印＝这一座看起来"该封的都封了"，实际那几个工具对它一直开着（静默少封一个名字）。
+      console.log('      ⚠ 意图已登记、**尚未生效**（' + s.status + '）：' + s.cid +
+        (s.candidates && s.candidates.length ? '（候选名 ' + s.candidates.join('/') + '）' : '') +
+        ' ⇒ 名字没进名单之前，该工具对本座**仍然开着**')
     }
   }
 }

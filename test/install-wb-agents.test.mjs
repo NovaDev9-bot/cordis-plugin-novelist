@@ -197,3 +197,27 @@ test('安装只写自己的 7 件，不碰同目录别人的文件', () => {
     assert.ok(!t.includes('# 派工文本'), '载体不该把"派工文本"的用法头带进去——那是给主编看的，不是给这个 agent 看的')
   } finally { rmSync(d, { recursive: true, force: true }) }
 })
+
+// ── ⑨ 2026-09-23：登记了却渲不进去的**意图**，必须在输出里印出来
+//
+// 现场形状（WB 侧读数逼出来的）：四个盲角色的 deny 里写着 `fs.write`／`fs.edit`，而这两格在
+// CodeBuddy 下是 `unknown`（不许渲）⇒ **名字一个都没渲出去、输出里也一个字没提**。
+// 表观＝"看着配过"，实际＝那几个工具对本座一直开着：**静默少封一个名字**，
+// 与静默封错一个名字同罪（两者都表现为"没报错"）。
+test('安装器把"登记了但本形态没生效"的意图印出来（不许静默少封一个名字）', () => {
+  const d = fakeRepo()
+  const carrier = path.join(d, 'carrier')
+  try {
+    const r = run(d, ['--dir', carrier, '--check'])   // --check 也会打这份摘要
+    const out = both(r)
+    assert.match(out, /意图已登记/, '渲不进去的 deny 必须在输出里印出来，否则读的人以为已经封了')
+    assert.match(out, /fs\.write/, '要点名是哪一格能力（否则读者不知道该去封谁）')
+    assert.match(out, /仍然开着/, '要说清后果：名字没进名单之前，那件工具对本座仍然开着')
+    // 两条出口不许互相吃掉：实测拦不住（ineffective）仍走"缺口"那一条
+    assert.match(out, /PowerShell/, 'ineffective 仍必须走缺口那一条')
+    // 反向：**已渲进名单**的能力不许被误报成"未生效"（否则这条出口退化成"所有 deny 都印一遍"）
+    const pending = out.split('\n').filter((l) => l.includes('意图已登记'))
+    assert.ok(!pending.some((l) => /fs\.read|shell\.exec|ledger\.write/.test(l)),
+      '可渲染的能力不该出现在"未生效"里：' + pending.join(' | '))
+  } finally { rmSync(d, { recursive: true, force: true }) }
+})

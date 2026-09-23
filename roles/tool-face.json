@@ -67,9 +67,20 @@
       "known_tools": [
         "Agent", "Bash", "Edit", "Glob", "Grep", "PowerShell", "Read", "Write", "WebFetch", "WebSearch",
         "NotebookEdit", "SendMessage", "TaskCreate", "TaskGet", "TaskList", "TaskOutput", "TaskStop", "TaskUpdate",
-        "TeamCreate", "TeamDelete", "Workflow", "ToolSearch", "DeferExecuteTool", "REPL"
+        "TeamCreate", "TeamDelete", "Workflow", "ToolSearch", "DeferExecuteTool", "REPL",
+        "automation_update", "present_files", "read_me", "show_widget", "Skill"
       ],
-      "known_tools_note": "官方 tools-reference 的模型可见内置工具真名（2026-09-20 核实；`SendMessage` 由 2026-09-21 运行时硬返回坐实——见 evidence）。CodeBuddy 列里出现不在本清单的名字＝拼错了或抄错了宿主，生成器直接拒绝（R-c：不许静默空转）。",
+      "known_tools_note": "本宿主**模型可见内置工具真名**。**两个来源缺一不可**：①**官方 tools-reference**（2026-09-20 由 WB 侧提供 docId=0218529670178036e200025d1c13158e）②**运行时实测工具面**（`[硬返回]`，逐次登记在 tool_face_readings）。**为什么要两个**：2026-09-23 实测证明**文档清单 ≠ 运行时清单**——探针的工具面里有 5 个名字（`automation_update`／`present_files`／`read_me`／`show_widget`／`Skill`）**官方文档里没有**，而它们在此之前**从没进过本表**：既没被归类、也没被封、也没人发现。**未归类＝默认敞开且不留痕迹**，这是本表最容易被绕过的一种缺口形状（补记：本清单只保证「本表认得的真名」，不保证「宿主只有这些名字」——所以每次拿到新的工具面读数都要照它核一遍）。CodeBuddy 列里出现不在本清单的名字＝拼错了或抄错了宿主，生成器直接拒绝（R-c：不许静默空转）。",
+      "tool_face_readings": [
+        {
+          "when": "2026-09-23T12:20+08:00",
+          "by": "WB 侧中立探针（zz-deny-probe-0923：同会话内新建、零重启）",
+          "how": "派工只问四行（SELF=／OBL=／TOOLS=／DENY=）、不给业务任务——这样 TOOLS= 才是**纯净的工具面读数**，不被业务动作干扰",
+          "form": "subagent",
+          "names": ["automation_update", "present_files", "read_me", "show_widget", "Read", "Write", "Edit", "Glob", "Grep", "Bash", "PowerShell", "TaskCreate", "TaskGet", "TaskUpdate", "TaskList", "TaskOutput", "WebFetch", "WebSearch", "Skill", "SendMessage", "ToolSearch", "DeferExecuteTool"],
+          "note": "**本表最硬的一类证据**（宿主直接返回，不是模型自述）。同批还取了四个盲/半盲角色的工具面：reader 与 calibrator **逐字相同**、proofer 与 dissector 比它们**多一个 `Read`**；四个座位的**残留面**＝写面（`Write`／`Edit`）＋外取面（`WebFetch`／`WebSearch`）＋`Skill`＋`automation_update`＋`present_files`／`read_me`／`show_widget` ＋ `Task*` 一族——**这些名字在本表里此前一个都没有**（见 capabilities 新增的四格）。"
+        }
+      ],
       "nonexistent_tools_verified": ["Task", "read_image", "pwsh"],
       "nonexistent_tools_note": "从 DSH 名单直抄会**静默空转**的三个名字（官方清单里没有它们）。`Task`：只有 Task* 六件；`read_image`：图像并入 Read；`pwsh`：真名是 PowerShell。",
       "inert_tools_verified": [
@@ -84,7 +95,8 @@
       "evidence": [
         "官方 tools-reference（2026-09-20 由 WB 侧提供 docId=0218529670178036e200025d1c13158e）：内置工具真名清单见 known_tools；插件 agent 的 tools / disallowedTools 受支持，permissionMode 与 hooks 与 mcpServers 被静默忽略",
         "**运行时实测（WB 侧回执 2026-09-20 18:4x，三条已跑完）**：MCP 工具名形如 `mcp__<server>__<tool>`（主编与子代理两处交叉一致，server=novelist）",
-        "**运行时实测**：`ToolSearch` 与 `DeferExecuteTool` 在**普通子代理与团队成员两种形态都在**；子代理用 DeferExecuteTool 执行 `mcp__novelist__novel_guide` 成功（返回 v7.14 全文 → 非幻觉），且 ToolSearch 能列出 `mcp__novelist__novel_chapter`（唯一写入口）与 novel_init → **发现面就是绕过面**",
+        "**运行时实测**：`ToolSearch` 与 `DeferExecuteTool` 在**普通子代理与团队成员两种形态都在**；子代理用 DeferExecuteTool 执行 `mcp__novelist__novel_guide` 成功（返回 v7.14 全文 → 非幻觉），且 ToolSearch 能列出 `mcp__novelist__novel_chapter`（唯一写入口）与 novel_init → 当时据此判**「发现面就是绕过面」**",
+        "**运行时实测（2026-09-23，中性同形探针）**：**「发现面就是绕过面」被推翻／收窄**——被 deny 的名字**经 `DeferExecuteTool` 到达时同样被拒**。探针原始报文：`CALL=DENIED` ／ `RAW=Error: Permission to use mcp__novelist__novel_chapter has been denied.`，且探针自述它**只能**经 `DeferExecuteTool` 到达该名字（它不在工具面里）⇒ **deny 判在「按名字执行」那一层，不只在「列不列出来」那一层**。⇒ 正确口径：**发现面 ≠ 绕过面；上一轮那句降级为「只对未封名字成立」**（未封的名字当然翻得出来、也当然调得动）。这条同时把「主笔落账隔离」从「名字层真封死＋纪律层」里的那条疑虑关掉了。",
         "**运行时实测**：`Agent` 对子代理缺席（`Tool Agent not found in agent general-purpose.`）、`TeamCreate` 缺席（`Tool \"TeamCreate\" is not available in the current environment or configuration.`）；裸 `Task` 三形态都不存在 ⇒ 把「禁 Agent/TeamCreate」当加固子代理隔离的手段是**空操作**",
         "**运行时实测（2026-09-21）**：`SendMessage` 真名坐实（强行发起调用拿到宿主硬返回），且**在 subagent 形态下惰性**——见 inert_tools_verified。它是 `agent.message` 那一格从 unverified 翻成已核实名的判据。",
         "**运行时实测**：宿主在配置解析后**追加注入**工具（maybeInjectSendMessage / maybeInjectExitPlanMode）⇒ **白名单不可靠**（会被宿主往上加东西），必须用 deny 形态",
@@ -178,13 +190,41 @@
         "subagent": { "status": "none", "why": "同上（实测缺席）" }
       }
     },
-    "fanout": {
-      "zh": "多代理编排脚本",
-      "dsh": { "status": "none", "why": "本预设未挂 dsh-tool-workflow / dsh-tool-ralph；挂了才算这个能力存在（挂了而没登记＝反向红测报红）" },
-      "codebuddy": {
-        "*": { "status": "unverified", "candidates": ["Workflow"], "why": "主编座位确认有（延迟加载）；成员/普通子代理形态是否存在**未测**（WB 回执 §六 列为未测项）" }
-      }
-    },
+      "fanout": {
+        "zh": "多代理编排脚本",
+        "dsh": { "status": "none", "why": "本预设未挂 dsh-tool-workflow / dsh-tool-ralph；挂了才算这个能力存在（挂了而没登记＝反向红测报红）" },
+        "codebuddy": {
+          "*": { "status": "unverified", "candidates": ["Workflow"], "why": "主编座位确认有（延迟加载）；成员/普通子代理形态是否存在**未测**（WB 回执 §六 列为未测项）" }
+        }
+      },
+      "web.fetch": {
+        "zh": "主动取外部内容（检索与抓取）",
+        "dsh": { "tools": ["web_search", "web_fetch"], "note": "由 @deepseek-ai/dsh-tool-web 提供" },
+        "codebuddy": {
+          "*": { "status": "unverified", "candidates": ["WebFetch", "WebSearch"], "why": "**名字已实测存在**（2026-09-23 工具面读数），但**写进 disallowedTools 引不引得住未测**；且它与 `Write`/`Edit` 的三项组合已实测会让 agent **直接起不来**（见 fs.write 那条），二分之前不许渲。**为什么它值得单列一格**（2026-09-23 WB 侧点出）：对盲读角色，这是**输入隔离的未建模旁路**——不是让它看到我们的稿，是**它能往自己的输入里灌别的东西**，而盲读的全部价值就是「它的读感只来自派工包」。" }
+        }
+      },
+      "automation.write": {
+        "zh": "建自动化（会在之后自动跑 prompt）",
+        "dsh": { "status": "none", "why": "DSH 无「自动化」层：本项目里定时/长跑是 create_goal 与 job_*（已各占一格），不是可自建的自动化条目" },
+        "codebuddy": {
+          "*": { "status": "unverified", "candidates": ["automation_update"], "why": "**名字已实测存在**（2026-09-23 工具面读数），可 deny 性未测。**为什么值得单列一格**（WB 侧点出）：它是**持续面**——一次调用之后会在未来某个时刻自动跑起来，晚于任何一次派工验收；这类面不封，等于把一个不在账上的动作留在了系统里。" }
+        }
+      },
+      "skill.exec": {
+        "zh": "加载技能（技能可能带脚本或更多能力）",
+        "dsh": { "tools": ["skill"], "note": "**本项目定过：不列入任何角色 deny**——技能给的是流程说明，不是账本内容" },
+        "codebuddy": {
+          "*": { "status": "unverified", "candidates": ["Skill"], "why": "**名字已实测存在**（2026-09-23 工具面读数），可 deny 性未测。**当前口径＝与 DSH 同侧：不封**（理由同上：技能是流程说明）。WB 侧 2026-09-23 提出「技能可能带脚本/更多能力」，若要收这个口，那是**跨宿主的口径变更**（DSH 侧同步改），不是本形态单独能定的——先要理由。" }
+        }
+      },
+      "host.ui": {
+        "zh": "宿主 UI／交付面（向界面交付文件、自我介绍、显示组件）",
+        "dsh": { "status": "none", "why": "DSH 的对应物是 present（`@deepseek-ai/dsh-tool-present`）；本预设未挂，故不存在" },
+        "codebuddy": {
+          "*": { "status": "unverified", "candidates": ["present_files", "read_me", "show_widget"], "why": "**三个名字都已实测存在**（2026-09-23 工具面读数）但**官方文档清单里一个都没有**——正是这条实测逼出「文档清单 ≠ 运行时清单」。它们**不与书数据打交道**（交付面/自述面/展示面），本项目**没有角色需要封它们**；登记在此**只为不让它们成为未归类名字**——未归类＝默认敞开且没人知道（本格的实际作用是**把它从「没人发现」变成「已归类、判定为不封」**）。" }
+        }
+      },
     "team.admin": {
       "zh": "建/删队友",
       "dsh": { "status": "none", "why": "DSH 没有「队友」这一层：子代理是即用即弃的派工对象，没有建/删概念" },
@@ -251,7 +291,7 @@
       "blind": true,
       "dsh": { "entry": "nf-role-reader", "toolName": "nf_reader", "backgroundMode": "one-shot" },
       "codebuddy": { "file": "references/roles/reader.md", "agentdef": "agents/reader.md", "form": "subagent", "seat": null, "maxTurns": 50, "description": "试读员：盲读仪器——只读派工包，交读感记录与成对判，不给写作建议。" },
-      "deny": ["ledger.write", "ledger.read", "tape.write", "ledger.ask", "decision.write", "retrieval", "fs.read", "fs.write", "fs.edit", "fs.search", "shell.exec", "image.read", "spawn", "tool.search", "tool.invoke", "agent.message"],
+      "deny": ["ledger.write", "ledger.read", "tape.write", "ledger.ask", "decision.write", "retrieval", "fs.read", "fs.write", "fs.edit", "fs.search", "shell.exec", "image.read", "spawn", "tool.search", "tool.invoke", "agent.message", "web.fetch", "automation.write"],
       "why": "纯盲仪器：一切输入只来自派工包文本；封工具索引/执行（@2026-09-20 Owner 批① + WB 运行时实测：发现面是绕过面），封跨代理发消息（盲仪器不该有对外通道）"
     },
     "calibrator": {
@@ -260,7 +300,7 @@
       "blind": true,
       "dsh": { "entry": "nf-role-calibrator", "toolName": "nf_calibrator", "backgroundMode": "one-shot" },
       "codebuddy": { "file": "references/roles/calibrator.md", "agentdef": "agents/calibrator.md", "form": "subagent", "seat": null, "maxTurns": 50, "description": "结构校准员：盲读仪器——判结构九类病与节拍落点，只报观察、不改文。" },
-      "deny": ["ledger.write", "ledger.read", "tape.write", "ledger.ask", "decision.write", "retrieval", "fs.read", "fs.write", "fs.edit", "fs.search", "shell.exec", "image.read", "spawn", "tool.search", "tool.invoke", "agent.message"],
+      "deny": ["ledger.write", "ledger.read", "tape.write", "ledger.ask", "decision.write", "retrieval", "fs.read", "fs.write", "fs.edit", "fs.search", "shell.exec", "image.read", "spawn", "tool.search", "tool.invoke", "agent.message", "web.fetch", "automation.write"],
       "why": "同试读员：九类结构病只看正文本身，多一条取数通道就等于多一个污染源"
     },
     "proofer": {
@@ -269,7 +309,7 @@
       "blind": true,
       "dsh": { "entry": "nf-role-proofer", "toolName": "nf_proof", "backgroundMode": "one-shot" },
       "codebuddy": { "file": "references/roles/proofer.md", "agentdef": "agents/proofer.md", "form": "subagent", "seat": null, "maxTurns": 50, "description": "校对员：盲读仪器——查错字/标点/称谓/前后矛盾，逐条给坐标，不改文。" },
-      "deny": ["ledger.write", "ledger.read", "tape.write", "ledger.ask", "decision.write", "retrieval", "fs.write", "fs.edit", "fs.search", "shell.exec", "image.read", "spawn", "tool.search", "tool.invoke", "agent.message"],
+      "deny": ["ledger.write", "ledger.read", "tape.write", "ledger.ask", "decision.write", "retrieval", "fs.write", "fs.edit", "fs.search", "shell.exec", "image.read", "spawn", "tool.search", "tool.invoke", "agent.message", "web.fetch", "automation.write"],
       "why": "保留 read 作受控单文件通道（主编指哪读哪），其余同盲角色"
     },
     "dissector": {
@@ -278,7 +318,7 @@
       "blind": true,
       "dsh": { "entry": "nf-role-dissector", "toolName": "nf_dissector", "backgroundMode": "one-shot" },
       "codebuddy": { "file": "references/roles/dissector.md", "agentdef": "agents/dissector.md", "form": "subagent", "seat": null, "maxTurns": 50, "description": "拆书员：拆锚书的结构与节拍，产出可移植清单（不参与本书写作）。" },
-      "deny": ["ledger.write", "ledger.read", "tape.write", "ledger.ask", "decision.write", "retrieval", "fs.edit", "fs.search", "shell.exec", "image.read", "spawn", "tool.search", "tool.invoke", "agent.message"],
+      "deny": ["ledger.write", "ledger.read", "tape.write", "ledger.ask", "decision.write", "retrieval", "fs.edit", "fs.search", "shell.exec", "image.read", "spawn", "tool.search", "tool.invoke", "agent.message", "web.fetch", "automation.write"],
       "why": "保留 read+write（读章文件、写批次记录）；同属派工包边界角色，故与盲角色同列（Owner 批①的字面集合是试读/校准/校对三个，拆书员与 agent.message 为同族加固，撤只需删这两个位置）"
     }
   }
