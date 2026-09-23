@@ -45,12 +45,9 @@
       "skipped": [
         {
           "cid": "fs.edit",
-          "status": "unknown",
-          "why": "**2026-09-22 实测：同 fs.write，禁止渲染**（三项组合致命、未二分）。原注保留：NotebookEdit 是同一能力的另一面（写单元格）；团队成员形态实测缺 Edit——故这一条在 teammate 形态本就是空操作。",
-          "candidates": [
-            "Edit",
-            "NotebookEdit"
-          ]
+          "status": "none",
+          "why": "**实测团队成员形态缺 `Edit`** ⇒ 本形态下这条 deny 是**空操作**（没有工具可禁，禁了不报错也不生效）。且主笔本形态必须能写交付件。DSH 侧照旧封——那边主笔「只交提案、不落账」，`edit` 是落账旁路；**那条理由随宿主变，故按形态分列而不是照搬**。",
+          "candidates": []
         },
         {
           "cid": "shell.exec",
@@ -111,9 +108,12 @@
         "mcp__novelist__novel_search",
         "mcp__novelist__novel_guide",
         "Read",
+        "Edit",
         "Glob",
         "Grep",
         "Bash",
+        "WebSearch",
+        "Skill",
         "ToolSearch",
         "DeferExecuteTool",
         "SendMessage"
@@ -122,20 +122,11 @@
       "skipped": [
         {
           "cid": "fs.write",
-          "status": "unknown",
-          "why": "**2026-09-22 实测：不许渲进名单**——`Write`+`Edit`+`WebFetch` 三项同时写进 `disallowedTools` 时 **agent 直接起不来**（`Error: Failed to execute task … Tool Read not found in agent …`）；三项之一**未二分到底** ⇒ 二分之前禁止渲染（渲出来的不是「更严」，是「这个座位没了」）。且主笔本形态必须能写交付件。DSH 侧不受影响（那边 write 是允许项）。",
-          "candidates": [
+          "status": "costly",
+          "names": [
             "Write"
-          ]
-        },
-        {
-          "cid": "fs.edit",
-          "status": "unknown",
-          "why": "**2026-09-22 实测：同 fs.write，禁止渲染**（三项组合致命、未二分）。原注保留：NotebookEdit 是同一能力的另一面（写单元格）；团队成员形态实测缺 Edit——故这一条在 teammate 形态本就是空操作。",
-          "candidates": [
-            "Edit",
-            "NotebookEdit"
-          ]
+          ],
+          "why": "**2026-09-23 二分完成：单名 `Write` ＝ B 桶**（名字摘掉、宿主报 `Tool Write not found in agent <座>`、**该次派工被框架记 `failed`**）⇒ 不渲：**生产名单不放 B 桶名字**（代价是每次派工被记失败；上层若有「失败即停」的钩子会误伤——**未测**）。⚠ 于是本形态**写面是半开的**：只封得住 `Edit`，`Write` 一直开着；这条缺口必须印在载体文档里，**不许让「名单里有 Edit」被读成「写面已封」**。主笔本形态必须能写交付件（与 DSH 侧一致：那边 write 是允许项、不封）。"
         },
         {
           "cid": "shell.exec",
@@ -159,20 +150,19 @@
         },
         {
           "cid": "web.fetch",
-          "status": "unverified",
-          "why": "**名字已实测存在**（2026-09-23 工具面读数），但**写进 disallowedTools 引不引得住未测**；且它与 `Write`/`Edit` 的三项组合已实测会让 agent **直接起不来**（见 fs.write 那条），二分之前不许渲。**为什么它值得单列一格**（2026-09-23 WB 侧点出）：对盲读角色，这是**输入隔离的未建模旁路**——不是让它看到我们的稿，是**它能往自己的输入里灌别的东西**，而盲读的全部价值就是「它的读感只来自派工包」。",
-          "candidates": [
-            "WebFetch",
-            "WebSearch"
-          ]
+          "status": "costly",
+          "names": [
+            "WebFetch"
+          ],
+          "why": "**2026-09-23 二分完成**：`WebSearch` ＝ **A 桶**（`Error: Permission to use WebSearch has been denied.`）⇒ 渲；`WebFetch` ＝ **B 桶**（名字摘掉，但该次派工被框架记 `failed`）⇒ **不渲，只当缺口印**。**为什么它值得单列一格**（WB 侧点出）：对盲读角色这是**输入隔离的未建模旁路**——不是让它看到我们的稿，是**它能往自己的输入里灌别的东西**，而盲读的全部价值就是「它的读感只来自派工包」。⚠ 于是**外取面本形态是半开的**：`WebFetch` 仍然开着，本形态靠 CORE-01 纪律层挡（「不调用任何工具去查账本/大纲/伏笔/事件带」）。"
         },
         {
           "cid": "automation.write",
-          "status": "unverified",
-          "why": "**名字已实测存在**（2026-09-23 工具面读数），可 deny 性未测。**为什么值得单列一格**（WB 侧点出）：它是**持续面**——一次调用之后会在未来某个时刻自动跑起来，晚于任何一次派工验收；这类面不封，等于把一个不在账上的动作留在了系统里。",
-          "candidates": [
+          "status": "ineffective",
+          "names": [
             "automation_update"
-          ]
+          ],
+          "why": "**2026-09-23 实测：C 桶——写了等于没写**（名字仍在工具面里，调用**真成功**：`{\"type\":\"automation_update_tool_result\",\"mode\":\"list\",\"success\":true,…,\"automations\":[]}`）⇒ **不渲**，只许走「缺口」出口如实印出来。**为什么值得单列一格**（WB 侧点出）：它是**持续面**——一次调用之后会在未来某个时刻自动跑起来，**晚于任何一次派工验收**；这类面封不住，等于把一个不在账上的动作留在了系统里。"
         }
       ]
     },
@@ -200,9 +190,12 @@
         "mcp__novelist__novel_search",
         "mcp__novelist__novel_guide",
         "Read",
+        "Edit",
         "Glob",
         "Grep",
         "Bash",
+        "WebSearch",
+        "Skill",
         "ToolSearch",
         "DeferExecuteTool",
         "SendMessage"
@@ -211,20 +204,11 @@
       "skipped": [
         {
           "cid": "fs.write",
-          "status": "unknown",
-          "why": "**2026-09-22 实测：不许渲进名单**——`Write`+`Edit`+`WebFetch` 三项同时写进 `disallowedTools` 时 **agent 直接起不来**（`Error: Failed to execute task … Tool Read not found in agent …`）；三项之一**未二分到底** ⇒ 二分之前禁止渲染（渲出来的不是「更严」，是「这个座位没了」）。且主笔本形态必须能写交付件。DSH 侧不受影响（那边 write 是允许项）。",
-          "candidates": [
+          "status": "costly",
+          "names": [
             "Write"
-          ]
-        },
-        {
-          "cid": "fs.edit",
-          "status": "unknown",
-          "why": "**2026-09-22 实测：同 fs.write，禁止渲染**（三项组合致命、未二分）。原注保留：NotebookEdit 是同一能力的另一面（写单元格）；团队成员形态实测缺 Edit——故这一条在 teammate 形态本就是空操作。",
-          "candidates": [
-            "Edit",
-            "NotebookEdit"
-          ]
+          ],
+          "why": "**2026-09-23 二分完成：单名 `Write` ＝ B 桶**（名字摘掉、宿主报 `Tool Write not found in agent <座>`、**该次派工被框架记 `failed`**）⇒ 不渲：**生产名单不放 B 桶名字**（代价是每次派工被记失败；上层若有「失败即停」的钩子会误伤——**未测**）。⚠ 于是本形态**写面是半开的**：只封得住 `Edit`，`Write` 一直开着；这条缺口必须印在载体文档里，**不许让「名单里有 Edit」被读成「写面已封」**。主笔本形态必须能写交付件（与 DSH 侧一致：那边 write 是允许项、不封）。"
         },
         {
           "cid": "shell.exec",
@@ -248,20 +232,19 @@
         },
         {
           "cid": "web.fetch",
-          "status": "unverified",
-          "why": "**名字已实测存在**（2026-09-23 工具面读数），但**写进 disallowedTools 引不引得住未测**；且它与 `Write`/`Edit` 的三项组合已实测会让 agent **直接起不来**（见 fs.write 那条），二分之前不许渲。**为什么它值得单列一格**（2026-09-23 WB 侧点出）：对盲读角色，这是**输入隔离的未建模旁路**——不是让它看到我们的稿，是**它能往自己的输入里灌别的东西**，而盲读的全部价值就是「它的读感只来自派工包」。",
-          "candidates": [
-            "WebFetch",
-            "WebSearch"
-          ]
+          "status": "costly",
+          "names": [
+            "WebFetch"
+          ],
+          "why": "**2026-09-23 二分完成**：`WebSearch` ＝ **A 桶**（`Error: Permission to use WebSearch has been denied.`）⇒ 渲；`WebFetch` ＝ **B 桶**（名字摘掉，但该次派工被框架记 `failed`）⇒ **不渲，只当缺口印**。**为什么它值得单列一格**（WB 侧点出）：对盲读角色这是**输入隔离的未建模旁路**——不是让它看到我们的稿，是**它能往自己的输入里灌别的东西**，而盲读的全部价值就是「它的读感只来自派工包」。⚠ 于是**外取面本形态是半开的**：`WebFetch` 仍然开着，本形态靠 CORE-01 纪律层挡（「不调用任何工具去查账本/大纲/伏笔/事件带」）。"
         },
         {
           "cid": "automation.write",
-          "status": "unverified",
-          "why": "**名字已实测存在**（2026-09-23 工具面读数），可 deny 性未测。**为什么值得单列一格**（WB 侧点出）：它是**持续面**——一次调用之后会在未来某个时刻自动跑起来，晚于任何一次派工验收；这类面不封，等于把一个不在账上的动作留在了系统里。",
-          "candidates": [
+          "status": "ineffective",
+          "names": [
             "automation_update"
-          ]
+          ],
+          "why": "**2026-09-23 实测：C 桶——写了等于没写**（名字仍在工具面里，调用**真成功**：`{\"type\":\"automation_update_tool_result\",\"mode\":\"list\",\"success\":true,…,\"automations\":[]}`）⇒ **不渲**，只许走「缺口」出口如实印出来。**为什么值得单列一格**（WB 侧点出）：它是**持续面**——一次调用之后会在未来某个时刻自动跑起来，**晚于任何一次派工验收**；这类面封不住，等于把一个不在账上的动作留在了系统里。"
         }
       ]
     },
@@ -288,9 +271,12 @@
         "mcp__novelist__novel_context",
         "mcp__novelist__novel_search",
         "mcp__novelist__novel_guide",
+        "Edit",
         "Glob",
         "Grep",
         "Bash",
+        "WebSearch",
+        "Skill",
         "ToolSearch",
         "DeferExecuteTool",
         "SendMessage"
@@ -299,20 +285,11 @@
       "skipped": [
         {
           "cid": "fs.write",
-          "status": "unknown",
-          "why": "**2026-09-22 实测：不许渲进名单**——`Write`+`Edit`+`WebFetch` 三项同时写进 `disallowedTools` 时 **agent 直接起不来**（`Error: Failed to execute task … Tool Read not found in agent …`）；三项之一**未二分到底** ⇒ 二分之前禁止渲染（渲出来的不是「更严」，是「这个座位没了」）。且主笔本形态必须能写交付件。DSH 侧不受影响（那边 write 是允许项）。",
-          "candidates": [
+          "status": "costly",
+          "names": [
             "Write"
-          ]
-        },
-        {
-          "cid": "fs.edit",
-          "status": "unknown",
-          "why": "**2026-09-22 实测：同 fs.write，禁止渲染**（三项组合致命、未二分）。原注保留：NotebookEdit 是同一能力的另一面（写单元格）；团队成员形态实测缺 Edit——故这一条在 teammate 形态本就是空操作。",
-          "candidates": [
-            "Edit",
-            "NotebookEdit"
-          ]
+          ],
+          "why": "**2026-09-23 二分完成：单名 `Write` ＝ B 桶**（名字摘掉、宿主报 `Tool Write not found in agent <座>`、**该次派工被框架记 `failed`**）⇒ 不渲：**生产名单不放 B 桶名字**（代价是每次派工被记失败；上层若有「失败即停」的钩子会误伤——**未测**）。⚠ 于是本形态**写面是半开的**：只封得住 `Edit`，`Write` 一直开着；这条缺口必须印在载体文档里，**不许让「名单里有 Edit」被读成「写面已封」**。主笔本形态必须能写交付件（与 DSH 侧一致：那边 write 是允许项、不封）。"
         },
         {
           "cid": "shell.exec",
@@ -336,20 +313,19 @@
         },
         {
           "cid": "web.fetch",
-          "status": "unverified",
-          "why": "**名字已实测存在**（2026-09-23 工具面读数），但**写进 disallowedTools 引不引得住未测**；且它与 `Write`/`Edit` 的三项组合已实测会让 agent **直接起不来**（见 fs.write 那条），二分之前不许渲。**为什么它值得单列一格**（2026-09-23 WB 侧点出）：对盲读角色，这是**输入隔离的未建模旁路**——不是让它看到我们的稿，是**它能往自己的输入里灌别的东西**，而盲读的全部价值就是「它的读感只来自派工包」。",
-          "candidates": [
-            "WebFetch",
-            "WebSearch"
-          ]
+          "status": "costly",
+          "names": [
+            "WebFetch"
+          ],
+          "why": "**2026-09-23 二分完成**：`WebSearch` ＝ **A 桶**（`Error: Permission to use WebSearch has been denied.`）⇒ 渲；`WebFetch` ＝ **B 桶**（名字摘掉，但该次派工被框架记 `failed`）⇒ **不渲，只当缺口印**。**为什么它值得单列一格**（WB 侧点出）：对盲读角色这是**输入隔离的未建模旁路**——不是让它看到我们的稿，是**它能往自己的输入里灌别的东西**，而盲读的全部价值就是「它的读感只来自派工包」。⚠ 于是**外取面本形态是半开的**：`WebFetch` 仍然开着，本形态靠 CORE-01 纪律层挡（「不调用任何工具去查账本/大纲/伏笔/事件带」）。"
         },
         {
           "cid": "automation.write",
-          "status": "unverified",
-          "why": "**名字已实测存在**（2026-09-23 工具面读数），可 deny 性未测。**为什么值得单列一格**（WB 侧点出）：它是**持续面**——一次调用之后会在未来某个时刻自动跑起来，晚于任何一次派工验收；这类面不封，等于把一个不在账上的动作留在了系统里。",
-          "candidates": [
+          "status": "ineffective",
+          "names": [
             "automation_update"
-          ]
+          ],
+          "why": "**2026-09-23 实测：C 桶——写了等于没写**（名字仍在工具面里，调用**真成功**：`{\"type\":\"automation_update_tool_result\",\"mode\":\"list\",\"success\":true,…,\"automations\":[]}`）⇒ **不渲**，只许走「缺口」出口如实印出来。**为什么值得单列一格**（WB 侧点出）：它是**持续面**——一次调用之后会在未来某个时刻自动跑起来，**晚于任何一次派工验收**；这类面封不住，等于把一个不在账上的动作留在了系统里。"
         }
       ]
     },
@@ -376,24 +352,18 @@
         "mcp__novelist__novel_context",
         "mcp__novelist__novel_search",
         "mcp__novelist__novel_guide",
+        "Edit",
         "Glob",
         "Grep",
         "Bash",
+        "WebSearch",
+        "Skill",
         "ToolSearch",
         "DeferExecuteTool",
         "SendMessage"
       ],
       "exempted": [],
       "skipped": [
-        {
-          "cid": "fs.edit",
-          "status": "unknown",
-          "why": "**2026-09-22 实测：同 fs.write，禁止渲染**（三项组合致命、未二分）。原注保留：NotebookEdit 是同一能力的另一面（写单元格）；团队成员形态实测缺 Edit——故这一条在 teammate 形态本就是空操作。",
-          "candidates": [
-            "Edit",
-            "NotebookEdit"
-          ]
-        },
         {
           "cid": "shell.exec",
           "status": "ineffective",
@@ -416,20 +386,19 @@
         },
         {
           "cid": "web.fetch",
-          "status": "unverified",
-          "why": "**名字已实测存在**（2026-09-23 工具面读数），但**写进 disallowedTools 引不引得住未测**；且它与 `Write`/`Edit` 的三项组合已实测会让 agent **直接起不来**（见 fs.write 那条），二分之前不许渲。**为什么它值得单列一格**（2026-09-23 WB 侧点出）：对盲读角色，这是**输入隔离的未建模旁路**——不是让它看到我们的稿，是**它能往自己的输入里灌别的东西**，而盲读的全部价值就是「它的读感只来自派工包」。",
-          "candidates": [
-            "WebFetch",
-            "WebSearch"
-          ]
+          "status": "costly",
+          "names": [
+            "WebFetch"
+          ],
+          "why": "**2026-09-23 二分完成**：`WebSearch` ＝ **A 桶**（`Error: Permission to use WebSearch has been denied.`）⇒ 渲；`WebFetch` ＝ **B 桶**（名字摘掉，但该次派工被框架记 `failed`）⇒ **不渲，只当缺口印**。**为什么它值得单列一格**（WB 侧点出）：对盲读角色这是**输入隔离的未建模旁路**——不是让它看到我们的稿，是**它能往自己的输入里灌别的东西**，而盲读的全部价值就是「它的读感只来自派工包」。⚠ 于是**外取面本形态是半开的**：`WebFetch` 仍然开着，本形态靠 CORE-01 纪律层挡（「不调用任何工具去查账本/大纲/伏笔/事件带」）。"
         },
         {
           "cid": "automation.write",
-          "status": "unverified",
-          "why": "**名字已实测存在**（2026-09-23 工具面读数），可 deny 性未测。**为什么值得单列一格**（WB 侧点出）：它是**持续面**——一次调用之后会在未来某个时刻自动跑起来，晚于任何一次派工验收；这类面不封，等于把一个不在账上的动作留在了系统里。",
-          "candidates": [
+          "status": "ineffective",
+          "names": [
             "automation_update"
-          ]
+          ],
+          "why": "**2026-09-23 实测：C 桶——写了等于没写**（名字仍在工具面里，调用**真成功**：`{\"type\":\"automation_update_tool_result\",\"mode\":\"list\",\"success\":true,…,\"automations\":[]}`）⇒ **不渲**，只许走「缺口」出口如实印出来。**为什么值得单列一格**（WB 侧点出）：它是**持续面**——一次调用之后会在未来某个时刻自动跑起来，**晚于任何一次派工验收**；这类面封不住，等于把一个不在账上的动作留在了系统里。"
         }
       ]
     }

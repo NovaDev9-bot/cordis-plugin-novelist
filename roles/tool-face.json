@@ -55,7 +55,7 @@
     },
     "codebuddy": {
       "enforcement": "proven-mechanism",
-      "enforcement_note": "WorkBuddy/CodeBuddy 形态：**机制已实测、载体已建（7 份，由 `scripts/install-wb-agents.mjs` 从能力表渲进宿主载体目录）**。① **落点不在插件包内**——宿主组件装载器**不枚举专家包**（2026-09-22 宿主日志：11 个插件各有 `Loaded plugin components for X: N agent(s)`，本包一次都没出现；同日志 `[AgentManager] volatile plugin agent override updated: chief-editor (source=novel-forge-editorial@my-experts)` 说明专家包只走「**单槽绑定 lead**」这条路）⇒ 包内 `agents/` 那两份**不是注册载体**（0.1.7 补的前言块与 `agents` 登记，对这条装载器不生效——它们的真实用途是**人格文本的权威来源**）。② **真正的落点是项目级自定义 agent 定义**：`<工作区>/.codebuddy/agents/*.md`；用户级＝app 进程环境变量 `CODEBUDDY_CONFIG_DIR` 下的 `agents/`（**本机该变量指向宿主自己的配置目录 `.workbuddy`**）；⇒ **用户级实为「宿主配置目录/agents/」**，本机是 `~/.workbuddy/agents/`——**不要照抄 `~/.codebuddy/agents/`**（那是我 09-22 早先写错的一处，已更正）；**换台机器以环境变量为准，不要以本条的字面值为准**。③ **实测三件（WB 侧 `[硬返回]`）**：能派 ✓（`Task(subagent_type=\"author\")` 一次成功）、**人格注入** ✓（自报并准确引用 `AUTH-01…19` 条款号）、**deny 拦得住** ✓（中性同形探针 `disallowedTools:[mcp__novelist__novel_chapter]` → `Error: Permission to use mcp__novelist__novel_chapter has been denied.`，拦在权限层、未到工具本体）。④ **分层如实记**：deny 读数来自**同形配置的中性座位**；**主笔本座无机械读数**（两次自守拒发，读数 `REFUSED-BY-SELF`）⇒ 对外口径只能是「机制已实测成立（同形配置）」，**不许写成「主笔已被机器封死」**。⑤ **热加载**：插件 agent 定义随组件加载（改了要重启）；**项目级自定义定义当次生效**（实测不需重启）——两条不同的路，别混。⑥ **本包当前生效的 deny ＝ 7 份载体**（2026-09-22 B1：七个角色各一份，封名单由安装器渲；包内那两份定义**仍然不带**封名单——官方校验器禁止）。判据：WB 侧 09-22 实跑 ＋ 宿主日志；**仓侧未独立复现该读数**（本机无法驱动该宿主的 agent 回合），但三处宿主源码事实（`getProjectAgentsDir` 写死 `.codebuddy`／`parseAgentFile` 读 `disallowedTools`／`AgentTask` 把 `agentConfig.disallowedTools` 并进子会话）已由仓侧**独立读源码坐实**。",
+      "enforcement_note": "WorkBuddy/CodeBuddy 形态：**机制已实测、载体已建（7 份，由 `scripts/install-wb-agents.mjs` 从能力表渲进宿主载体目录）**。① **落点不在插件包内**——宿主组件装载器**不枚举专家包**（2026-09-22 宿主日志：11 个插件各有 `Loaded plugin components for X: N agent(s)`，本包一次都没出现；同日志 `[AgentManager] volatile plugin agent override updated: chief-editor (source=novel-forge-editorial@my-experts)` 说明专家包只走「**单槽绑定 lead**」这条路）⇒ 包内 `agents/` 那两份**不是注册载体**（0.1.7 补的前言块与 `agents` 登记，对这条装载器不生效——它们的真实用途是**人格文本的权威来源**）。② **真正的落点是项目级自定义 agent 定义**：`<工作区>/.codebuddy/agents/*.md`；用户级＝app 进程环境变量 `CODEBUDDY_CONFIG_DIR` 下的 `agents/`（**本机该变量指向宿主自己的配置目录 `.workbuddy`**）；⇒ **用户级实为「宿主配置目录/agents/」**，本机是 `~/.workbuddy/agents/`——**不要照抄 `~/.codebuddy/agents/`**（那是我 09-22 早先写错的一处，已更正）；**换台机器以环境变量为准，不要以本条的字面值为准**。③ **实测三件（WB 侧 `[硬返回]`）**：能派 ✓（`Task(subagent_type=\"author\")` 一次成功）、**人格注入** ✓（自报并准确引用 `AUTH-01…19` 条款号）、**deny 拦得住** ✓（中性同形探针 `disallowedTools:[mcp__novelist__novel_chapter]` → `Error: Permission to use mcp__novelist__novel_chapter has been denied.`，拦在权限层、未到工具本体）。④ **分层如实记**：deny 读数来自**同形配置的中性座位**；**主笔本座无机械读数**（两次自守拒发，读数 `REFUSED-BY-SELF`）⇒ 对外口径只能是「机制已实测成立（同形配置）」，**不许写成「主笔已被机器封死」**。⑤ **热加载是两句话，不是一句（2026-09-23 WB 侧同文件 A/B 定案）**：**新增一份新定义（新路径）＝即时生效**（同会话内零重启即可派起来）；**改动已有定义的内容＝不生效，必须重启**（`AgentLoader.loadFromPaths` 有一条按路径的 `already loaded, skipping` 去重，内容冻结在**首次读取的那一版**）。⇒ 纪律照这个写：**「改真源 → 重跑安装器 → 重启宿主 → 重跑 `--check` 验哈希」；只有「新增一份新角色」才不需重启。** ⚠ 另注：`--check` **只管盘上**（载体文件与真源一不一致），**验不出宿主内存里那一版**——两件事必须分开说，否则会出「`--check` 全绿、跑的还是上一版」的假绿灯。⑥ **本包当前生效的 deny ＝ 7 份载体**（2026-09-22 B1：七个角色各一份，封名单由安装器渲；包内那两份定义**仍然不带**封名单——官方校验器禁止）。判据：WB 侧 09-22 实跑 ＋ 宿主日志；**仓侧未独立复现该读数**（本机无法驱动该宿主的 agent 回合），但三处宿主源码事实（`getProjectAgentsDir` 写死 `.codebuddy`／`parseAgentFile` 读 `disallowedTools`／`AgentTask` 把 `agentConfig.disallowedTools` 并进子会话）已由仓侧**独立读源码坐实**。",
       "artifact": "dsh-native/plugin-novelist/wb-expert-starter/references/宿主工具面.md",
     "carrier_ledger": "references/carrier-deny.json",
     "carrier_ledger_note": "**包内相对**坐标（与各角色的 codebuddy.file / agentdef 同一基准，不再走 mono 剥前缀那套）。它是安装器唯一的名单来源：宿主载体怎么渲由这份派生件说了算，安装器自己再算一遍就是第二份实现。文件名用 ASCII：约定一致性棘轮的判据是**非文档件的文件名不许含中文**（2026-09-22 实测：中文名当场把 cjk_paths_in_code 从 0 顶到 1），而那条守卫的注释写明「不往豁免清单里加前缀」——所以改名，不加豁免。",
@@ -81,6 +81,42 @@
           "note": "**本表最硬的一类证据**（宿主直接返回，不是模型自述）。同批还取了四个盲/半盲角色的工具面：reader 与 calibrator **逐字相同**、proofer 与 dissector 比它们**多一个 `Read`**；四个座位的**残留面**＝写面（`Write`／`Edit`）＋外取面（`WebFetch`／`WebSearch`）＋`Skill`＋`automation_update`＋`present_files`／`read_me`／`show_widget` ＋ `Task*` 一族——**这些名字在本表里此前一个都没有**（见 capabilities 新增的四格）。"
         }
       ],
+      "deny_readings": {
+        "_note": [
+          "**一个名字写进 `disallowedTools` 之后到底会怎样**——2026-09-23 WB 侧九条全取到（我们点名的 5 个 ＋ 他们补测的 4 个），逐条给机器报文。",
+          "为什么它必须记成**读数**：四桶的分界是**机器报文**（宿主层返回 ＋ `TOOLS=` 清单），不是模型自述。同轮就抓到一例反证——初稿把「通知未到」读成了「回执不存在」，据此推出的「B 桶两座行为有差别」**不成立**（`WebFetch` 的回执是后到的）。",
+          "★ 这张表是**能不能拿 deny 当门守**的唯一判据：只有 A 桶名字可以进生产名单；B 桶能封但每次派工被框架记 `failed`；C 桶**写了等于没写**（名字仍在、调用真执行）；D 桶组合让座位直接起不来。",
+          "★ 与各能力的耦合是**机器强制的**（生成器角色工具面第 ③ 条）：`tools` 里的名字必须落在 A 桶（或本形态惰性），`costly` 必须是 B 桶，`ineffective` 必须是 C 桶——否则装配期报红。这条是为了让「往名单里塞一个封不住的名字」在生成的**那一刻**就失败，而不是等下一次红测。"
+        ],
+        "buckets": {
+          "A": "**干净生效**：名字从工具面**摘掉**；调用得 `Error: Permission to use X has been denied.`（拦在权限层，未到工具本体）",
+          "B": "**生效但有代价**：名字**摘掉了**（`列举=不在`），但宿主报 `Tool X not found in agent <座>`，**该次派工被框架记 `failed`**",
+          "C": "**完全不生效**：名字**仍在**工具面里，调用**真执行成功**（写了等于没写）",
+          "D": "**组合致命**：座位**起不来**——09-22 实测 `Write`＋`Edit`＋`WebFetch` 三项同写 ⇒ `Error: Failed to execute task … Tool Read not found in agent …`"
+        },
+        "names": [
+          { "name": "WebSearch", "bucket": "A", "raw": "`Error: Permission to use WebSearch has been denied.`" },
+          { "name": "Edit", "bucket": "A", "raw": "`Error: Permission to use Edit has been denied.`", "note": "**单名读数**。九条里唯一一条直接决定名单的一格：`Edit` 单写＝A 桶。⚠ 但它是**在只封它一个的探针座上**取到的；**「盲角色那 24 名全名单 ＋ `Edit`」这个组合未经测量**（见 buckets.D 的名字不稳定性）。故本形态按**分形态**取值：subagent 渲它，teammate 记 none（实测该形态缺 `Edit`）。" },
+          { "name": "Skill", "bucket": "A", "raw": "`Error: Permission to use Skill has been denied.`" },
+          { "name": "WebFetch", "bucket": "B", "raw": "框架层：`Tool WebFetch not found in agent zz-np-webfetch.`（记 `failed`）；座内注入：`## Model error retry: Tool Not Found / You attempted to call a tool named \"WebFetch\" but it does not exist in the current tool set.`（**该座仍交回了回执**）" },
+          { "name": "Write", "bucket": "B", "raw": "宿主层：`Tool Write not found in agent zz-np-write.`；座内注入：同上形（框架记 `failed`；**该座仍交回了回执**）" },
+          { "name": "automation_update", "bucket": "C", "raw": "`{\"type\":\"automation_update_tool_result\",\"mode\":\"list\",\"success\":true,\"message\":\"Automations listed\",\"automations\":[]}`——**调用真成功**" },
+          { "name": "present_files", "bucket": "C", "raw": "`{\"kind\":\"present_files_result\",\"presented\":[<靶文件>],\"skipped\":[],\"previewed\":[]}`——**调用真成功**（原文里那一段是**绝对路径**，此处按「包内文档零机器绝对路径」硬门把它换成占位符；报文其余部分逐字未改）" },
+          { "name": "read_me", "bucket": "C", "raw": "真返回了设计规范正文（组件规范全文）——**调用真成功**" },
+          { "name": "show_widget", "bucket": "C", "raw": "`widget payload prepared`——**调用真成功**" }
+        ],
+        "bulk_attested": {
+          "_why": "这批名字的桶位来自 WB 侧 2026-09-23 的**桶表标注**（`§2.2` 四桶表）与更早几轮的原始报文，**不是本轮逐条重取的五行读数**。单列出来是为了不让它们混进上面那张逐条表里充硬证据——同时它们仍要参与生成器的桶位耦合核对（否则「渲了 A 桶名」这条规则只对九条有效，对最常渲的那批失效）。",
+          "A": ["Read", "Glob", "Grep", "Bash", "ToolSearch", "DeferExecuteTool", "mcp__novelist__*"],
+          "C": ["PowerShell"]
+        },
+        "bucket_notes": [
+          "★ **D 桶的报错名字不固定**：单测 `Write`→报 `Write`；单测 `WebFetch`→报 `WebFetch`；09-22 三件同写→报 `Read`。⇒ 那条报文只能当「**该次派工被降级**」的信号，**不许反推「哪个名字有毒」**。",
+          "★ **B 与 A 的差别不在「封没封住」，在「封的时候动静多大」**：B 桶实际也把名字摘掉了（`列举=不在`），隔离**成立**；代价是宿主层报错＋框架记 `failed`。⇒ **生产 deny 里根本不放 B 桶名字**，除非确有必要且上层能容忍 `failed`（有「失败即停」的钩子会误伤，这条未测）。",
+          "★ **C 桶的四个名字 ＋ `PowerShell` 都不许渲**：渲了不报错、也不拦——**表观与「已封」完全一样**。它们**只许走「缺口」出口如实印出来**（生成器与安装器都印）。",
+          "★ 本形态**外取面与写面都是半开**：`WebFetch`（B）与 `Write`（B）能封但有代价 ⇒ 不渲；于是外取面只封住 `WebSearch`、写面只封住 `Edit`。两处缺口都必须在载体文档里印出来——**看着封了而其实半开，比明说没封更危险**。"
+        ]
+      },
       "nonexistent_tools_verified": ["Task", "read_image", "pwsh"],
       "nonexistent_tools_note": "从 DSH 名单直抄会**静默空转**的三个名字（官方清单里没有它们）。`Task`：只有 Task* 六件；`read_image`：图像并入 Read；`pwsh`：真名是 PowerShell。",
       "inert_tools_verified": [
@@ -159,12 +195,15 @@
     "fs.write": {
       "zh": "写文件",
       "dsh": { "tools": ["write"], "note": "" },
-      "codebuddy": { "*": { "status": "unknown", "candidates": ["Write"], "why": "**2026-09-22 实测：不许渲进名单**——`Write`+`Edit`+`WebFetch` 三项同时写进 `disallowedTools` 时 **agent 直接起不来**（`Error: Failed to execute task … Tool Read not found in agent …`）；三项之一**未二分到底** ⇒ 二分之前禁止渲染（渲出来的不是「更严」，是「这个座位没了」）。且主笔本形态必须能写交付件。DSH 侧不受影响（那边 write 是允许项）。" } }
+      "codebuddy": { "*": { "costly": ["Write"], "why": "**2026-09-23 二分完成：单名 `Write` ＝ B 桶**（名字摘掉、宿主报 `Tool Write not found in agent <座>`、**该次派工被框架记 `failed`**）⇒ 不渲：**生产名单不放 B 桶名字**（代价是每次派工被记失败；上层若有「失败即停」的钩子会误伤——**未测**）。⚠ 于是本形态**写面是半开的**：只封得住 `Edit`，`Write` 一直开着；这条缺口必须印在载体文档里，**不许让「名单里有 Edit」被读成「写面已封」**。主笔本形态必须能写交付件（与 DSH 侧一致：那边 write 是允许项、不封）。" } }
     },
     "fs.edit": {
       "zh": "改文件",
       "dsh": { "tools": ["edit"], "note": "" },
-      "codebuddy": { "*": { "status": "unknown", "candidates": ["Edit", "NotebookEdit"], "why": "**2026-09-22 实测：同 fs.write，禁止渲染**（三项组合致命、未二分）。原注保留：NotebookEdit 是同一能力的另一面（写单元格）；团队成员形态实测缺 Edit——故这一条在 teammate 形态本就是空操作。" } }
+      "codebuddy": {
+        "teammate": { "status": "none", "why": "**实测团队成员形态缺 `Edit`** ⇒ 本形态下这条 deny 是**空操作**（没有工具可禁，禁了不报错也不生效）。且主笔本形态必须能写交付件。DSH 侧照旧封——那边主笔「只交提案、不落账」，`edit` 是落账旁路；**那条理由随宿主变，故按形态分列而不是照搬**。" },
+        "*": { "tools": ["Edit"], "note": "**2026-09-23 二分完成**：单名 `Edit` ＝ **A 桶、干净生效**（`Error: Permission to use Edit has been denied.`），WB 侧桶表把它列为「可以，首选」⇒ 明确可渲。这同时**消掉一处宿主间分叉**：DSH 侧五个工种早就封 `edit`，本形态此前一格都没封。⚠ 两条如实标注：①**「本形态全名单 ＋ `Edit`」这个组合未经测量**（读数取自只封它一个的探针座）⇒ 落一份**重启前必须先跑**的组合探针（见载体文档 §七）；②`NotebookEdit` 是同一能力的另一面，但**不在本形态实测工具面里**（21 名基线没有它）⇒ 不渲（渲了是空操作），登记在此备查。" }
+      }
     },
     "fs.search": {
       "zh": "文件发现与内容搜索",
@@ -201,28 +240,28 @@
         "zh": "主动取外部内容（检索与抓取）",
         "dsh": { "tools": ["web_search", "web_fetch"], "note": "由 @deepseek-ai/dsh-tool-web 提供" },
         "codebuddy": {
-          "*": { "status": "unverified", "candidates": ["WebFetch", "WebSearch"], "why": "**名字已实测存在**（2026-09-23 工具面读数），但**写进 disallowedTools 引不引得住未测**；且它与 `Write`/`Edit` 的三项组合已实测会让 agent **直接起不来**（见 fs.write 那条），二分之前不许渲。**为什么它值得单列一格**（2026-09-23 WB 侧点出）：对盲读角色，这是**输入隔离的未建模旁路**——不是让它看到我们的稿，是**它能往自己的输入里灌别的东西**，而盲读的全部价值就是「它的读感只来自派工包」。" }
+          "*": { "tools": ["WebSearch"], "costly": ["WebFetch"], "note": "**2026-09-23 二分完成**：`WebSearch` ＝ **A 桶**（`Error: Permission to use WebSearch has been denied.`）⇒ 渲；`WebFetch` ＝ **B 桶**（名字摘掉，但该次派工被框架记 `failed`）⇒ **不渲，只当缺口印**。**为什么它值得单列一格**（WB 侧点出）：对盲读角色这是**输入隔离的未建模旁路**——不是让它看到我们的稿，是**它能往自己的输入里灌别的东西**，而盲读的全部价值就是「它的读感只来自派工包」。⚠ 于是**外取面本形态是半开的**：`WebFetch` 仍然开着，本形态靠 CORE-01 纪律层挡（「不调用任何工具去查账本/大纲/伏笔/事件带」）。" }
         }
       },
       "automation.write": {
         "zh": "建自动化（会在之后自动跑 prompt）",
         "dsh": { "status": "none", "why": "DSH 无「自动化」层：本项目里定时/长跑是 create_goal 与 job_*（已各占一格），不是可自建的自动化条目" },
         "codebuddy": {
-          "*": { "status": "unverified", "candidates": ["automation_update"], "why": "**名字已实测存在**（2026-09-23 工具面读数），可 deny 性未测。**为什么值得单列一格**（WB 侧点出）：它是**持续面**——一次调用之后会在未来某个时刻自动跑起来，晚于任何一次派工验收；这类面不封，等于把一个不在账上的动作留在了系统里。" }
+          "*": { "ineffective": ["automation_update"], "why": "**2026-09-23 实测：C 桶——写了等于没写**（名字仍在工具面里，调用**真成功**：`{\"type\":\"automation_update_tool_result\",\"mode\":\"list\",\"success\":true,…,\"automations\":[]}`）⇒ **不渲**，只许走「缺口」出口如实印出来。**为什么值得单列一格**（WB 侧点出）：它是**持续面**——一次调用之后会在未来某个时刻自动跑起来，**晚于任何一次派工验收**；这类面封不住，等于把一个不在账上的动作留在了系统里。" }
         }
       },
       "skill.exec": {
         "zh": "加载技能（技能可能带脚本或更多能力）",
-        "dsh": { "tools": ["skill"], "note": "**本项目定过：不列入任何角色 deny**——技能给的是流程说明，不是账本内容" },
+        "dsh": { "tools": ["skill"], "note": "由 @deepseek-ai/dsh-tool-skill 提供（**已核实本预设确实挂了它**：`tool-skill` 条目——故把它写进 deny 不会触发 `tools.restrict()` 抛未知名字）。⚠ **口径已于 2026-09-23 变更（跨宿主同步改）**：原口径「技能给的是流程说明，不列入任何角色 deny」在**盲角色**身上不成立——四个盲角色现全部封它，理由是技能是**流程注入面**：盲角色拿到的是**新的指令文本**，比 WebFetch 灌数据更直接（同精神于本项目早先那条「盲角色连 novel_guide 也封：手册里写着流程与账本结构」）。主笔与档案员不封。" },
         "codebuddy": {
-          "*": { "status": "unverified", "candidates": ["Skill"], "why": "**名字已实测存在**（2026-09-23 工具面读数），可 deny 性未测。**当前口径＝与 DSH 同侧：不封**（理由同上：技能是流程说明）。WB 侧 2026-09-23 提出「技能可能带脚本/更多能力」，若要收这个口，那是**跨宿主的口径变更**（DSH 侧同步改），不是本形态单独能定的——先要理由。" }
+          "*": { "tools": ["Skill"], "note": "**2026-09-23 实测：A 桶、干净生效**（`Error: Permission to use Skill has been denied.`）⇒ 可渲。**它是四格残留面里唯一封得住的一个**（外取/自动化/宿主 UI 那三格分别是 B 与 C 桶），且收它是跨宿主同口径的动作（DSH 侧同一批改）。" }
         }
       },
       "host.ui": {
         "zh": "宿主 UI／交付面（向界面交付文件、自我介绍、显示组件）",
         "dsh": { "status": "none", "why": "DSH 的对应物是 present（`@deepseek-ai/dsh-tool-present`）；本预设未挂，故不存在" },
         "codebuddy": {
-          "*": { "status": "unverified", "candidates": ["present_files", "read_me", "show_widget"], "why": "**三个名字都已实测存在**（2026-09-23 工具面读数）但**官方文档清单里一个都没有**——正是这条实测逼出「文档清单 ≠ 运行时清单」。它们**不与书数据打交道**（交付面/自述面/展示面），本项目**没有角色需要封它们**；登记在此**只为不让它们成为未归类名字**——未归类＝默认敞开且没人知道（本格的实际作用是**把它从「没人发现」变成「已归类、判定为不封」**）。" }
+          "*": { "ineffective": ["present_files", "read_me", "show_widget"], "why": "**2026-09-23 实测：三个名字全是 C 桶——写了等于没写**（`present_files` 真把文件呈现了、`read_me` 真返回了设计规范正文、`show_widget` 真返回 `widget payload prepared`）。**三个名字官方文档清单里一个都没有**——正是这条实测逼出「文档清单 ≠ 运行时清单」。它们**不与书数据打交道**（交付面/自述面/展示面），本项目**没有角色需要封它们**；登记在此的**唯一目的**是把它们从「**未归类＝默认敞开且没人知道**」变成「**已归类、判定为不封、且判定为封不住**」。" }
         }
       },
     "team.admin": {
@@ -291,8 +330,9 @@
       "blind": true,
       "dsh": { "entry": "nf-role-reader", "toolName": "nf_reader", "backgroundMode": "one-shot" },
       "codebuddy": { "file": "references/roles/reader.md", "agentdef": "agents/reader.md", "form": "subagent", "seat": null, "maxTurns": 50, "description": "试读员：盲读仪器——只读派工包，交读感记录与成对判，不给写作建议。" },
-      "deny": ["ledger.write", "ledger.read", "tape.write", "ledger.ask", "decision.write", "retrieval", "fs.read", "fs.write", "fs.edit", "fs.search", "shell.exec", "image.read", "spawn", "tool.search", "tool.invoke", "agent.message", "web.fetch", "automation.write"],
-      "why": "纯盲仪器：一切输入只来自派工包文本；封工具索引/执行（@2026-09-20 Owner 批① + WB 运行时实测：发现面是绕过面），封跨代理发消息（盲仪器不该有对外通道）"
+      "deny": ["ledger.write", "ledger.read", "tape.write", "ledger.ask", "decision.write", "retrieval", "fs.read", "fs.write", "fs.edit", "fs.search", "shell.exec", "image.read", "spawn", "tool.search", "tool.invoke", "agent.message", "web.fetch", "automation.write", "skill.exec"],
+      "isolation": { "strength": "零读盘", "clauses": ["CORE-01"], "why": "只读派工包＝**读盘面全封**（fs.read/fs.search 都在 deny 里）。「零读盘」不等于「无文件工具」——是宿主层把读这一列整个摘掉，加上 CORE-01 这条纪律。**别与另外两座打包说**：本形态四座盲角色的隔离强度实测有三档（见载体文档 §七·盲读强度表）。" },
+      "why": "纯盲仪器：一切输入只来自派工包文本；封工具索引/执行（@2026-09-20 Owner 批① + WB 运行时实测：发现面是绕过面），封跨代理发消息（盲仪器不该有对外通道）；**2026-09-23 补封外取面/自动化面/技能面**——三格都是「输入通道」：外取把别的内容灌进来、自动化把动作留到验收之后、技能灌的是**指令文本**（比灌数据更直接）。"
     },
     "calibrator": {
       "zh": "结构校准员",
@@ -300,8 +340,9 @@
       "blind": true,
       "dsh": { "entry": "nf-role-calibrator", "toolName": "nf_calibrator", "backgroundMode": "one-shot" },
       "codebuddy": { "file": "references/roles/calibrator.md", "agentdef": "agents/calibrator.md", "form": "subagent", "seat": null, "maxTurns": 50, "description": "结构校准员：盲读仪器——判结构九类病与节拍落点，只报观察、不改文。" },
-      "deny": ["ledger.write", "ledger.read", "tape.write", "ledger.ask", "decision.write", "retrieval", "fs.read", "fs.write", "fs.edit", "fs.search", "shell.exec", "image.read", "spawn", "tool.search", "tool.invoke", "agent.message", "web.fetch", "automation.write"],
-      "why": "同试读员：九类结构病只看正文本身，多一条取数通道就等于多一个污染源"
+      "deny": ["ledger.write", "ledger.read", "tape.write", "ledger.ask", "decision.write", "retrieval", "fs.read", "fs.write", "fs.edit", "fs.search", "shell.exec", "image.read", "spawn", "tool.search", "tool.invoke", "agent.message", "web.fetch", "automation.write", "skill.exec"],
+      "isolation": { "strength": "零读盘", "clauses": ["CORE-01", "CAL-01"], "why": "与试读员同档：只收到正文本身，不查账本。CAL-01 是它自己的那条（「你只收到正文本身，不知道大纲、写作意图、旧稿与任何检测结果（纯盲）」）——对外说这一座的盲读时，**引它自己的条款，别只引共用那条**。" },
+      "why": "同试读员：九类结构病只看正文本身，多一条取数通道就等于多一个污染源。**2026-09-23 与外取/自动化/技能三格同步补封**（同 reader 的理由）。"
     },
     "proofer": {
       "zh": "校对员",
@@ -309,8 +350,9 @@
       "blind": true,
       "dsh": { "entry": "nf-role-proofer", "toolName": "nf_proof", "backgroundMode": "one-shot" },
       "codebuddy": { "file": "references/roles/proofer.md", "agentdef": "agents/proofer.md", "form": "subagent", "seat": null, "maxTurns": 50, "description": "校对员：盲读仪器——查错字/标点/称谓/前后矛盾，逐条给坐标，不改文。" },
-      "deny": ["ledger.write", "ledger.read", "tape.write", "ledger.ask", "decision.write", "retrieval", "fs.write", "fs.edit", "fs.search", "shell.exec", "image.read", "spawn", "tool.search", "tool.invoke", "agent.message", "web.fetch", "automation.write"],
-      "why": "保留 read 作受控单文件通道（主编指哪读哪），其余同盲角色"
+      "deny": ["ledger.write", "ledger.read", "tape.write", "ledger.ask", "decision.write", "retrieval", "fs.write", "fs.edit", "fs.search", "shell.exec", "image.read", "spawn", "tool.search", "tool.invoke", "agent.message", "web.fetch", "automation.write", "skill.exec"],
+      "isolation": { "strength": "单文件受限读（纪律层单保险）", "clauses": ["CORE-01", "PROOF-02"], "why": "**与另外三座不同档：它保留 `read`**。理由是它的活必须看受审文件正文，而「单次只读**一个**受审文件」这条限制**在宿主层做不出来**（deny 只有整工具粒度，没有「只许读一个文件」的写法）⇒ 这一档的真实强度＝**机器只封到「有读工具」，封不到「能读几个」**，剩下的全靠 PROOF-02 这条纪律。与 DSH 侧同口径（那边 proofer 也不 deny `read`）。" },
+      "why": "保留 read 作受控单文件通道（主编指哪读哪），其余同盲角色。**2026-09-23 与外取/自动化/技能三格同步补封**（同 reader 的理由）。"
     },
     "dissector": {
       "zh": "拆书员",
@@ -318,8 +360,9 @@
       "blind": true,
       "dsh": { "entry": "nf-role-dissector", "toolName": "nf_dissector", "backgroundMode": "one-shot" },
       "codebuddy": { "file": "references/roles/dissector.md", "agentdef": "agents/dissector.md", "form": "subagent", "seat": null, "maxTurns": 50, "description": "拆书员：拆锚书的结构与节拍，产出可移植清单（不参与本书写作）。" },
-      "deny": ["ledger.write", "ledger.read", "tape.write", "ledger.ask", "decision.write", "retrieval", "fs.edit", "fs.search", "shell.exec", "image.read", "spawn", "tool.search", "tool.invoke", "agent.message", "web.fetch", "automation.write"],
-      "why": "保留 read+write（读章文件、写批次记录）；同属派工包边界角色，故与盲角色同列（Owner 批①的字面集合是试读/校准/校对三个，拆书员与 agent.message 为同族加固，撤只需删这两个位置）"
+      "deny": ["ledger.write", "ledger.read", "tape.write", "ledger.ask", "decision.write", "retrieval", "fs.edit", "fs.search", "shell.exec", "image.read", "spawn", "tool.search", "tool.invoke", "agent.message", "web.fetch", "automation.write", "skill.exec"],
+      "isolation": { "strength": "读锚书（工作必需）", "clauses": ["CORE-01", "DISS-01"], "why": "**四座里读面最开的一座**：它保留 `read`＋`write`（DISS-01 要求它对主编指派的锚书章节文件逐章解剖、并写出 jsonl 批次记录）⇒ 它的「盲」不是「不读盘」，而是**读什么由主编指派**。DISS-01 是它的依据条款，对外说明这一座时**必须引它**，不许拿「四座盲读隔离」一句打包（那会把三档强度混成一种）。" },
+      "why": "保留 read+write（读章文件、写批次记录）；同属派工包边界角色，故与盲角色同列（Owner 批①的字面集合是试读/校准/校对三个，拆书员与 agent.message 为同族加固，撤只需删这两个位置）。**2026-09-23 与外取/自动化/技能三格同步补封**（同 reader 的理由）。"
     }
   }
 }

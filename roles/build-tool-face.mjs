@@ -80,6 +80,58 @@ const HOSTS = ['dsh', 'codebuddy']
 const FORMS = Object.keys((TABLE.hosts.codebuddy || {}).forms || {})
 const knownTools = new Set(TABLE.hosts.codebuddy ? TABLE.hosts.codebuddy.known_tools || [] : [])
 const ghostTools = new Set(TABLE.hosts.codebuddy ? TABLE.hosts.codebuddy.nonexistent_tools_verified || [] : [])
+// ── 桶位台账（deny_readings）：**一个名字写进 deny 之后到底会怎样**，是"能不能渲进名单"的唯一判据。
+// 2026-09-23 WB 侧实测：同一张名单里三种名字命运完全不同——A 桶真拦得住、B 桶拦得住但每次派工被
+// 框架记 `failed`、C 桶**写了等于没写**（名字还在、调用真执行）。少了这道核，"往名单里塞一个封不住
+// 的名字"要等下一次红测才被发现，而它的表观与"已封"完全一样。
+const BUCKETS = new Set(['A', 'B', 'C', 'D'])
+const bucketOf = new Map()      // 工具名 → 'A'|'B'|'C'|'D'
+const inertNames = new Set()    // 存在、但本形态下不可用（渲它无害也无用，故与"没桶位"区分开）
+for (const t of (TABLE.hosts.codebuddy ? TABLE.hosts.codebuddy.inert_tools_verified || [] : [])) {
+  if (t && typeof t.tool === 'string') inertNames.add(t.tool)
+}
+// MCP 一族走通配：表里登记一条 `mcp__novelist__*`，15 个真名不必逐个抄一遍
+// （逐个抄＝同一事实 15 处各活一次，加一个工具就漏一处）
+function bucketFor(name) {
+  if (bucketOf.has(name)) return bucketOf.get(name)
+  if (name.startsWith('mcp__')) return bucketOf.get('mcp__novelist__*') || null
+  return null
+}
+// 表合法性的累积错误（checkLeaf 与各段核对都往里写，最后一次性报）。声明提前到这里：
+// 下面的「人格条款号」核对也要用它，而它在文件里的书写位置晚于本节。
+const errs = []
+// ── 人格真源里的条款号（code → 正文）：`isolation.clauses` 引的条款必须**真的存在**。
+// 为什么从人格真源现读、而不在能力表里抄一份条款正文：抄一份＝同一事实两处各活一次；人格改了条款，
+// 能力表那份不会跟着变，而**引用对不上时没有任何东西会报错**（这条坑本项目已经踩过多次）。
+const personaCodes = new Map()      // code → { who: [角色/文件名], text: 段正文 }
+{
+  let files = []
+  const dir = path.join(PLUGIN, 'roles', 'persona')
+  try { files = fsSync.readdirSync(dir).filter((f) => f.endsWith('.json')).sort() } catch { /* 目录缺失＝下面核对全数报红，不静默通过 */ }
+  for (const f of files) {
+    let j = null
+    try { j = JSON.parse(fsSync.readFileSync(path.join(dir, f), 'utf8')) } catch (e) {
+      errs.push('人格真源 ' + f + ' 解析不了：' + e.message); continue
+    }
+    const who = f.replace(/\.json$/, '')
+    for (const s of (j.segments || [])) {
+      if (!s || typeof s.code !== 'string' || !s.code.trim()) continue
+      const text = String(s.text || '').replace(/\s+/g, ' ').trim()
+      const hit = personaCodes.get(s.code)
+      if (!hit) { personaCodes.set(s.code, { who: [who], text }); continue }
+      hit.who.push(who)
+      if (hit.text !== text) {
+        errs.push('条款「' + s.code + '」在人格真源里有两份**正文不同**的拷贝（' + hit.who.join('/') + '）——' +
+          '同一条款号两种说法，引用它的人拿到哪一份取决于读哪份文件')
+      }
+    }
+  }
+  if (!personaCodes.size) {
+    errs.push('人格真源里读不到任何条款号（roles/persona/*.json 的 segments[].code）——' +
+      'isolation 引条款的核对会因此**全数失效**（空集比报错更危险）')
+  }
+}
+
 // ── 推导的原语（提到校验之前：重复登记核对必须按**宿主 × 形态**做，而形态只有解析后才定得下来）
 const CAP_ORDER = Object.keys(TABLE.capabilities)
 // 解析到"该能力在该宿主该形态下"的那条取值：CodeBuddy 侧键是形态（显式形态优先，`*` 兜底）。
@@ -89,7 +141,7 @@ function leafOf(cap, host, form) {
   return cb[form] !== undefined ? cb[form] : cb['*']
 }
 // ── 1. 表自身的合法性（fail-closed：形状不对就不许往下走）
-const errs = []
+// （`errs` 的声明在上面的「桶位台账」一节——人格条款号核对那一段也要用它。）
 // 工具名 → 能力：**按宿主 × 形态分桶**。同一名字出现在同一能力的不同形态列里是合法的
 // （三形态工具面本就不同：seat 有 Agent、subagent 没有），而落到**同一形态**上的两个能力
 // 同时持有它，就是"两处真源"——deny 一个会静默连坐另一个。
@@ -100,6 +152,32 @@ const mcpNames = []     // codebuddy 列里形如 mcp__<server>__<tool> 的名�
 const MCP_CAPS = ['ledger.write', 'ledger.read', 'tape.write', 'ledger.ask', 'decision.write', 'retrieval']
 const reportedDupe = new Set()   // 'host:form:工具名'——同一格同一名字只报一次（下面两条通道会同时命中同一处）
 const ownerKey = (host, form) => host + ':' + (host === 'dsh' ? '*' : form)
+// 缺口名的公共核对（`ineffective` / `costly`）：名字必须真、且**桶位必须与所在的格子一致**。
+// 为什么按"所在格子"核而不是只核存在性：这两格是两种不同的缺口——`costly` 拦得住但有代价（B 桶）、
+// `ineffective` 根本拦不住（C 桶）。放错格子＝把 B 说成 C，而下一个人会照这个结论做决定。
+function checkGapNames(v, ctx, keys) {
+  for (const k of keys) {
+    const arr = v[k]
+    if (arr === undefined) continue
+    if (!Array.isArray(arr) || !arr.length) {
+      errs.push(ctx + '.' + k + ' 必须是至少一项的数组（它是"实测拦不住 / 拦得有代价的真名字"，不是名单）')
+      continue
+    }
+    const want = k === 'ineffective' ? 'C' : 'B'
+    for (const n of arr) {
+      if (Array.isArray(v.tools) && v.tools.includes(n)) {
+        errs.push(ctx + ' 的「' + n + '」同时落在 tools 与 ' + k + ' 里——两者互斥（一个名字要么渲进名单，要么只当缺口）')
+      }
+      if (ghostTools.has(n)) errs.push(ctx + '.' + k + ' 里写着已核实**不存在**的名字「' + n + '」——不存在的东西当不了缺口')
+      else if (knownTools.size && !knownTools.has(n)) errs.push(ctx + '.' + k + ' 里的「' + n + '」不在 hosts.codebuddy.known_tools 里——它必须是**真名字**（"封不住的真名字"才有资格当缺口公开）')
+      const got = bucketOf.get(n)
+      if (got && got !== want) {
+        errs.push(ctx + '.' + k + ' 里的「' + n + '」在 deny_readings 里是 ' + got + ' 桶，与它所在的格子不符（' + k + ' ⇒ 应为 ' + want + ' 桶）——把 B 说成 C 比不说更糟')
+      }
+    }
+  }
+}
+
 function checkLeaf(v, ctx, host, form, cid) {
   if (v === undefined) {
     errs.push(ctx + ' 缺取值——缺失没有类型：数组＝这些工具名，{"status":"none"}＝本宿主没有这个能力，{"status":"unverified","why":"…"}＝说不清（必须带 why）')
@@ -133,17 +211,17 @@ function checkLeaf(v, ctx, host, form, cid) {
         reportedDupe.add(key + ':' + n)
       }
       toolOwners[key].set(n, cid)    }
-    // ineffective＝**真名字、但实测拦不住**（2026-09-22：`PowerShell` 写进 deny 仍在工具面里、
-    // 且调用真的执行了）。它与 tools 互斥，渲染器不渲它，但**必须列进文档当缺口**——
-    // 静默列进去＝虚假的约束感；静默丢掉＝下一个人会再写一次。
-    if (v.ineffective !== undefined) {
-      if (!Array.isArray(v.ineffective) || !v.ineffective.length) errs.push(ctx + '.ineffective 必须是至少一项的数组（它是"实测拦不住的真名字"，不是名单）')
-      else for (const n of v.ineffective) {
-        if (v.tools.includes(n)) errs.push(ctx + ' 的「' + n + '」同时落在 tools 与 ineffective 里——两者互斥（一个名字要么封得住，要么实测封不住）')
-        if (ghostTools.has(n)) errs.push(ctx + '.ineffective 里写着已核实**不存在**的名字「' + n + '」')
-        else if (knownTools.size && !knownTools.has(n)) errs.push(ctx + '.ineffective 里的「' + n + '」不在 hosts.codebuddy.known_tools 里——它必须是**真名字**（"拦不住的真名字"才有资格当缺口公开）')
-      }
+    // 桶位耦合同样要核（见角色核对之后那道渲染面核对）——这里只做"缺口名必须与桶一致"。
+    checkGapNames(v, ctx, ['ineffective', 'costly'])
+  } else if (Array.isArray(v.ineffective) || Array.isArray(v.costly)) {
+    // 整格缺口（2026-09-23 新增）：**这一格整个封不住**（C 桶）或**整个只能带代价封**（B 桶）——
+    // 于是没有可渲的名字。它与 `status:none`（本宿主不给你这个工具）是两件事，必须分开表达：
+    // 前者渲了是**空操作**，后者渲了是**假安全**。
+    const k = Array.isArray(v.ineffective) ? 'ineffective' : 'costly'
+    if (!v.why || !String(v.why).trim()) {
+      errs.push(ctx + ' 是整格 ' + k + ' 却没给 why——整格缺口说的是"这一格为什么封不住"，不写就是让人自己猜')
     }
+    checkGapNames(v, ctx, [k])
   } else if (v.status === 'none' || v.status === 'unverified' || v.status === 'unknown') {
     if (!v.why || !String(v.why).trim()) errs.push(ctx + ' 写了 status=' + v.status + ' 却没给 why（"没有这个工具"和"没查清"都必须留一句为什么）')
     // candidates＝给实测用的候选名（如 mcp__novelist__novel_chapter）：它不是名单，故不进
@@ -162,6 +240,38 @@ function checkLeaf(v, ctx, host, form, cid) {
 }
 {
   if (TABLE.schema !== 1) errs.push('schema 不是 1')
+  // ── 桶位台账自身的合法性（2026-09-23）：它是"渲不渲"的唯一判据，坏掉的后果是**静默渲错**
+  {
+    const where = 'hosts.codebuddy.deny_readings'
+    const dr = TABLE.hosts.codebuddy ? TABLE.hosts.codebuddy.deny_readings : undefined
+    if (!dr || typeof dr !== 'object') errs.push(where + ' 缺——四桶（A/B/C/D）是"能不能渲进名单"的唯一判据，不能只活在文档里')
+    else {
+      if (!dr.buckets || typeof dr.buckets !== 'object') errs.push(where + '.buckets 缺（四桶的定义要在表里）')
+      else for (const b of BUCKETS) if (!dr.buckets[b] || !String(dr.buckets[b]).trim()) errs.push(where + '.buckets 缺 ' + b + ' 桶的定义')
+      if (!Array.isArray(dr.names) || !dr.names.length) errs.push(where + '.names 必须是至少一条的数组（0 条＝一个名字都没测过，那就不该有这张表）')
+      else for (const [i, e] of dr.names.entries()) {
+        const w = where + '.names[' + i + ']'
+        if (!e || typeof e.name !== 'string' || !e.name.trim()) { errs.push(w + ' 缺 name'); continue }
+        if (knownTools.size && !knownTools.has(e.name)) errs.push(w + ' 的「' + e.name + '」不在 known_tools 里——桶位只对**本宿主的真名字**有意义')
+        if (ghostTools.has(e.name)) errs.push(w + ' 的「' + e.name + '」已被列进 nonexistent_tools_verified——一个名字不可能既存在又不存在')
+        if (!BUCKETS.has(e.bucket)) errs.push(w + ' 的 bucket「' + e.bucket + '」不是 A/B/C/D')
+        if (!e.raw || !String(e.raw).trim()) errs.push(w + ' 缺 raw（原始报文）——桶位是**读数**不是印象：没有报文支撑的桶位就是印象')
+        if (bucketOf.has(e.name)) errs.push(w + ' 的「' + e.name + '」重复登记')
+        bucketOf.set(e.name, e.bucket)
+      }
+      const ba = dr.bulk_attested
+      if (ba && typeof ba === 'object') {
+        for (const b of BUCKETS) for (const n of (ba[b] || [])) {
+          const prev = bucketOf.get(n)
+          if (prev && prev !== b) errs.push(where + ' 的「' + n + '」两处桶位不一致（' + prev + ' vs ' + b + '）')
+          bucketOf.set(n, b)
+        }
+      } else {
+        errs.push(where + '.bulk_attested 缺——批量标注的那批（最常渲的几个名字）不登记，' +
+          '这条耦合核对就只对逐条表有效，而对名单里最常出现的名字失效')
+      }
+    }
+  }
   if (!FORMS.length) errs.push('hosts.codebuddy.forms 为空（CodeBuddy 侧必须按形态分列：实测三形态工具面不同）')
   if (!knownTools.size) errs.push('hosts.codebuddy.known_tools 为空（没有它就无法对 CodeBuddy 列做 fail-closed 核对）')
   // inert（**存在、但本形态下不可用**）也必须过同一道核：名字要真在官方清单里、形态要存在、why 必填。
@@ -216,6 +326,24 @@ function checkLeaf(v, ctx, host, form, cid) {
       }
     }
     const exCaps = new Set(Array.isArray(exList) ? exList.map((e) => e && e.cap).filter(Boolean) : [])
+    // 盲读强度声明（2026-09-23 WB 侧点出）：四座盲角色的隔离强度**实测三档**（零读盘／单文件受限读／
+    // 读锚书工作必需），打包成一句"四座盲读隔离"会把三档混成一种。声明进表 → 生成器渲成表；
+    // 而引的条款号**必须真的在人格真源里**——引用一个查不到的条款，等于给下一个人一个错的依据。
+    if (r.blind) {
+      const iso = r.isolation
+      if (!iso || !iso.strength || !String(iso.strength).trim()) errs.push('盲角色 ' + rid + ' 缺 isolation.strength——"盲"必须带强度（四座实测三档，不是一种）')
+      if (!iso || !iso.why || !String(iso.why).trim()) errs.push('盲角色 ' + rid + ' 缺 isolation.why——强度差在哪儿必须写出来，否则读者只会记住"它们是盲的"')
+      const cl = iso && iso.clauses
+      if (!Array.isArray(cl) || !cl.length) errs.push('盲角色 ' + rid + ' 的 isolation.clauses 必须是至少一项的数组（依据条款号）')
+      else for (const code of cl) {
+        if (!personaCodes.has(code)) {
+          errs.push('盲角色 ' + rid + ' 的 isolation 引了条款「' + code + '」，但人格真源里没有这个 code' +
+            '（roles/persona/' + rid + '.json 与 _shared.json 都查过）——引用一个不存在的条款，等于给下一个人一个查不到的依据')
+        }
+      }
+    } else if (r.isolation) {
+      errs.push('角色 ' + rid + ' 不是盲角色（没有 blind: true）却写了 isolation——那是"盲读强度"，不是通用字段')
+    }
     const effDeny = r.deny.filter((c) => !exCaps.has(c))
 
     // 耦合不变量（2026-09-22 WB 侧实测所迫）：本形态 MCP 只能经 ToolSearch→DeferExecuteTool 到达，
@@ -231,6 +359,32 @@ function checkLeaf(v, ctx, host, form, cid) {
     for (const h of HOSTS) if (!r[h]) errs.push('角色 ' + rid + ' 缺 ' + h + ' 列（映射缺一列就是"这个宿主上它是什么"没答）')
     if (r.codebuddy && !FORMS.includes(r.codebuddy.form)) {
       errs.push('角色 ' + rid + '.codebuddy.form 不是已知形态（实得 ' + JSON.stringify(r.codebuddy && r.codebuddy.form) + '）——形态是映射的键，没它就查不出这个角色的面')
+    }
+    // ── 渲染面的桶位核对（2026-09-23）：**只有会被渲出去的名字才需要桶位**。
+    // 为什么按"渲出来的表"核、而不是逐能力核：一条能力列里的名字可能根本没有角色 deny 它
+    // （如主编座位的 `Agent`／`TeamCreate`——主编不封任何能力），对那些名字要求桶位＝逼人去测
+    // 一件没人用的事。真正的承诺是"**进名单的名字都测过**"，所以就在这里按名单核。
+    if (Array.isArray(r.deny) && r.codebuddy && FORMS.includes(r.codebuddy.form)) {
+      const exCaps2 = new Set((Array.isArray(r.codebuddy.denyExempt) ? r.codebuddy.denyExempt : [])
+        .map((e) => e && e.cap).filter(Boolean))
+      for (const cid of r.deny) {
+        if (exCaps2.has(cid) || !TABLE.capabilities[cid]) continue
+        const v = leafOf(TABLE.capabilities[cid], 'codebuddy', r.codebuddy.form)
+        // 解析不到取值／不是名单形态：那是别处的红（`checkLeaf` 与"形态解析不到"各有一条），
+        // 这里**不许崩**——守卫自己抛 TypeError 会把真正的错因埋掉（本文件第一版就栽在这种地方）。
+        if (!v || !Array.isArray(v.tools)) continue
+        for (const n of v.tools) {
+          if (inertNames.has(n)) continue    // 惰性名：渲它无害也无用（已在 inert_tools_verified 如实登记）
+          const b = bucketFor(n)
+          if (!b) {
+            errs.push('角色 ' + rid + ' 会把「' + n + '」渲进名单（能力 ' + cid + '），但它在 deny_readings 里**没有桶位**——' +
+              '没测过的名字不许渲：渲进名单等于对外承诺一件没人验证过的事（C 桶的表观与"已封"一模一样）')
+          } else if (b !== 'A') {
+            errs.push('角色 ' + rid + ' 会把「' + n + '」渲进名单（能力 ' + cid + '），可它是 ' + b + ' 桶——' +
+              'B 桶拦得住但每次派工被框架记 failed；C 桶名字还在工具面里、调用真执行')
+          }
+        }
+      }
     }
   }
 }
@@ -284,8 +438,15 @@ function faceOf(roleId, host) {
     const v = leafOf(TABLE.capabilities[cid], host, form)
     if (Array.isArray(v.tools)) {
       names.push(...v.tools)
-      if (Array.isArray(v.ineffective) && v.ineffective.length) skipped.push({ cid, status: 'ineffective', names: v.ineffective, why: v.note || '' })
+      // 渲了名字、但同格里还有**缺口名**（拦不住 / 拦得有代价）：两者都进 skipped，
+      // 由文档与安装器按 status 分别印——"渲了一半"这件事不许被沉默掉
+      for (const k of ['ineffective', 'costly']) {
+        if (Array.isArray(v[k]) && v[k].length) skipped.push({ cid, status: k, names: v[k], why: v.note || '' })
+      }
     }
+    // 整格缺口：这一格整个封不住（C 桶）或整个只能带代价封（B 桶），没有可渲的名字
+    else if (Array.isArray(v.ineffective)) skipped.push({ cid, status: 'ineffective', names: v.ineffective, why: v.why })
+    else if (Array.isArray(v.costly)) skipped.push({ cid, status: 'costly', names: v.costly, why: v.why })
     else skipped.push({ cid, status: v.status, why: v.why, candidates: v.candidates || [] })
   }
   return { names, skipped, exempted, form }
@@ -533,11 +694,12 @@ function codebuddyDoc() {
   L.push('')
   L.push('## 二、本形态的强制力现状（先说结论）')
   L.push('')
-  const enfZh = { enforced: '**宿主强制**（已在本机核实到源码级）', 'declared-unverified': '**只有声明，未核实是否生效**', 'proven-mechanism': '**机制已实测 · 载体未落地**（落点在项目级定义，本包尚未投放）' }
+  const enfZh = { enforced: '**宿主强制**（已在本机核实到源码级）', 'declared-unverified': '**只有声明，未核实是否生效**', 'proven-mechanism': '**机制已实测 · 载体已建**（落点＝宿主配置目录下的 agent 定义，由 `scripts/install-wb-agents.mjs` 装盘；**改已有文件要重启宿主才生效**，见 §七）' }
   L.push((enfZh[host.enforcement] || host.enforcement) + '。' + host.enforcement_note)
   L.push('')
   L.push('对比 DSH 形态：那边的角色工具面是**宿主强制**的——子代理的 deny 名单由宿主在挂载期编译，写错名字直接挂载失败（不是失败在第一次派工），')
-  L.push('而且过滤作用于子代理继承到的整个工具面。本形态目前只有**声明**：下面第三节的名单是"应该封掉什么"，不是"已经封掉什么"。')
+  L.push('而且过滤作用于子代理继承到的整个工具面。本形态是**同一个机制（`disallowedTools`）＋已实测的三种命运**：名单里哪个名字真拦得住，')
+  L.push('由 §三b 的四桶说了算——**第三节的名单不再等同于"已经封掉什么"**，它必须与四桶一起读。')
   L.push('')
   L.push('三种形态（映射的键，不是角色的属性）：')
   L.push('')
@@ -564,6 +726,71 @@ function codebuddyDoc() {
   L.push('「封掉的能力」一列是宿主无关口径（与 DSH 形态同一张表推导）；「工具真名」一列才是可以写进 disallowedTools 的东西。')
   L.push('同一列里既有名字又有"—"，差别不是重不重要，而是**这个形态下有没有这个工具**：没有工具可禁时，那条 deny 是空操作。')
   L.push('')
+  // ── 三b. 四桶（2026-09-23）：**一个名字写进名单之后会怎样**——本文件里最该带走的一张表。
+  // 为什么单列一节而不并进 §三 的表：§三 回答"该封什么"，这一节回答"封得成吗"。混在一起，
+  // 读者会把名单里的名字与"已封"当同义词——而 C 桶的表观与"已封"**一模一样**（不报错、也不拦）。
+  {
+    const dr = host.deny_readings || {}
+    L.push('## 三b、一个名字写进 `disallowedTools` 之后会怎样（四桶 · 2026-09-23 实测）')
+    L.push('')
+    L.push('同一张名单里，名字的命运**不是一种**。这张表是本形态唯一能回答"封不封得住"的东西，' +
+      '也是"哪个名字可以进生产名单"的唯一判据。')
+    L.push('')
+    L.push('| 桶 | 机器表现 |')
+    L.push('|---|---|')
+    for (const b of ['A', 'B', 'C', 'D']) {
+      if (dr.buckets && dr.buckets[b]) L.push('| **' + b + '** | ' + dr.buckets[b] + ' |')
+    }
+    L.push('')
+    L.push('| 名字 | 桶 | 原始报文（逐字） |')
+    L.push('|---|---|---|')
+    for (const e of (dr.names || [])) {
+      L.push('| `' + e.name + '` | **' + e.bucket + '** | ' + String(e.raw || '').replace(/\n/g, ' ') + ' |')
+    }
+    L.push('')
+    const ba = dr.bulk_attested || {}
+    for (const b of ['A', 'B', 'C', 'D']) {
+      const list = (ba[b] || []).filter(Boolean)
+      if (list.length) L.push('- **' + b + ' 桶**（批量标注，非本轮逐条重取）：' + list.map((n) => '`' + n + '`').join('、'))
+    }
+    L.push('')
+    for (const n of (dr.bucket_notes || [])) L.push(n)
+    L.push('')
+  }
+  // ── 三c. 四座盲角色的"盲"不是同一个强度（2026-09-23 WB 侧逐座对账时发现）
+  // 声明在能力表（roles[].isolation），条款号经生成器核对**真的在人格真源里**才渲出来——
+  // 引用一个查不到的条款＝给下一个人一个错的依据。
+  {
+    const blindRoles = roleIds.filter((r) => TABLE.roles[r].blind && TABLE.roles[r].isolation)
+    if (!blindRoles.length) die('能力表里没有任何带 isolation 声明的盲角色——0 件不等于没问题（这一节会整段消失，而它正是"别打包说"的落点）')
+    L.push('## 三c、四座盲角色的「盲」**不是同一个强度**（别打包成一句"四座盲读隔离"）')
+    L.push('')
+    L.push('逐座对账实测到的差别。**它们是有意为之**，但对外口径必须分开写——一句话打包会把三种强度混成一种，' +
+      '而其中一座（拆书员）的活本来就要求读盘。')
+    L.push('')
+    L.push('| 座 | 隔离强度 | 依据条款 | 条款原文（从人格真源现读） |')
+    L.push('|---|---|---|---|')
+    for (const rid of blindRoles) {
+      const r = TABLE.roles[rid]
+      const cell = (s) => String(s).replace(/\|/g, '／').replace(/\s+/g, ' ').trim()
+      const txt = r.isolation.clauses.map((c) => {
+        const hit = personaCodes.get(c)
+        const body = hit ? (hit.text.length > 88 ? hit.text.slice(0, 88) + '…' : hit.text) : '（条款号在人格真源里查不到——生成器本该拦住）'
+        return '`' + c + '`：' + body
+      }).join('<br>')
+      L.push('| ' + cell(r.zh) + ' | **' + cell(r.isolation.strength) + '** | ' +
+        r.isolation.clauses.map((c) => '`' + c + '`').join('、') + ' | ' + cell(txt) + ' |')
+    }
+    L.push('')
+    for (const rid of blindRoles) {
+      L.push('- **' + TABLE.roles[rid].zh + '**：' + TABLE.roles[rid].isolation.why)
+    }
+    L.push('')
+    L.push('★ **机器层与纪律层要分清**：上表只有「零读盘」那一档是机器全封的；' +
+      '「单文件受限读」的"只读**一个**"**在宿主层做不出来**（deny 只有整工具粒度，没有"只许读一个文件"的写法）' +
+      '⇒ 那一档的后半段是纪律。对外写隔离强度时**带上这一条**，别把纪律层的承诺写成机器层的保证。')
+    L.push('')
+  }
   if (exemptRows.length) {
     L.push('### 本形态有意**不封**的能力（豁免必须带理由，写在这里而不是悄悄少写一个名字）')
     L.push('')
@@ -641,15 +868,26 @@ function codebuddyDoc() {
     }
     L.push('')
   }
+  // 载体件数**现算**，不在文档里写死（写死＝发一个不会跟着变的数）
+  const carrierCount = roleIds.filter((r) => TABLE.roles[r].codebuddy && TABLE.roles[r].codebuddy.agentdef).length
   L.push('## 六、与 DSH 形态的强度差异（读者需要知道的那部分）')
   L.push('')
   L.push('| 机制 | DSH 形态 | 本形态（现状） |')
   L.push('|---|---|---|')
-  L.push('| 落账权隔离（只有主编能写账本） | 宿主强制：子代理 deny 掉写账本工具 | **机制已实测拦得住**（`disallowedTools` 中性同形探针红测），但**须把定义投放到项目级落点**；本包当前投放数＝**0**，故现状仍等于纯纪律 |')
-  L.push('| 盲读输入隔离（盲角色只能读派工包） | 宿主强制：读写文件工具全封 | 同上（同一机制）。五工种定义建好之前＝纯纪律 |')
-  L.push('| 盲角色不得发现/执行未加载的工具 | 宿主强制：本预设根本没挂这条通道 | **实测：通道存在且可执行**；但**对盲角色可以封**（`ToolSearch`+`DeferExecuteTool` 一对，封了＝切断全部 MCP）——机制已实测，定义未建 |')
+  L.push('| 落账权隔离（只有主编能写账本） | 宿主强制：子代理 deny 掉写账本工具 | **已实测拦得住**（`disallowedTools` 中性同形探针 → `Permission to use … has been denied.`）；载体已建 **' +
+    carrierCount + ' 件**、由 `scripts/install-wb-agents.mjs` 装盘。⚠ **装盘 ≠ 生效**：改动**已有**定义文件要重启宿主（见 §七） |')
+  L.push('| 盲读输入隔离（盲角色只能读派工包） | 宿主强制：读写文件工具全封 | **机器一层 ＋ 纪律一层**，且**四座强度不一**（见 §三c：零读盘／单文件受限读／读锚书工作必需）。机器那层的作用范围见 §三b 四桶 |')
+  L.push('| 盲角色不得发现/执行未加载的工具 | 宿主强制：本预设根本没挂这条通道 | **实测：通道存在且可执行**；**对盲角色已一层封掉**（`ToolSearch`＋`DeferExecuteTool` 一对都渲进了名单）——⚠ 封它＝该座一件 MCP 都拿不到（耦合不变量在装配期拦） |')
   L.push('')
-  L.push('引用本形态的盲读结论做重要判断时，请带上这条限定。日常写作不受影响。')
+  L.push('**★ 本形态的残留面（2026-09-23 实测，别读成"都封了"）**：三个 A 桶名字此前一直开着，现已渲进名单' +
+    '（`WebSearch`／`Edit`／`Skill`）；**剩下的六个仍开着，且在本形态封不干净**——')
+  L.push('')
+  L.push('| 仍开着的名字 | 为什么 |')
+  L.push('|---|---|')
+  L.push('| `Write`／`WebFetch` | **B 桶**：拦得住，但每次派工被框架记 `failed` ⇒ 按纪律不渲（**写面与外取面因此是半开的**） |')
+  L.push('| `automation_update`／`present_files`／`read_me`／`show_widget` | **C 桶**：写了等于没写（名字仍在、调用真执行）⇒ 收口只能走 DSH 侧或改宿主 |')
+  L.push('')
+  L.push('引用本形态的隔离结论做重要判断时，请带上这两条限定。日常写作不受影响。')
   L.push('')
   L.push('## 七、给实测用：只含已核实真名的声明片段（★读之前先看"落点"在不在）')
   L.push('')
@@ -674,7 +912,9 @@ function codebuddyDoc() {
   L.push('1. **人格文本** ＝ 包内 `agents/*.md`〔模板〕（真源＝`roles/persona/`），**不带封名单**——官方校验器对前言块做**子串**判断（出现 `tools:` 即报错），' +
     '而 `disallowedTools:` 含该子串 ⇒ **封名单渲进包内 MD 会立刻不合规**。')
   L.push('2. **宿主载体** ＝ 宿主配置目录下的 `agents/<name>.md`，由安装器**在包内文本之上补前言块与封名单**（名字从能力表现渲，**只渲 enforced**）。')
-  L.push('3. **陈旧门** ＝ 安装器 `--check` 逐文件比 sha256——**定义是热加载的，"装的时候对过"不作数**。')
+  L.push('3. **陈旧门** ＝ 安装器 `--check` 逐文件比 sha256。⚠ **它只管盘上**：它比的是"载体文件与真源一致不一致"，' +
+    '**验不出"宿主内存里还在用旧的那一版"**——这两件事从 2026-09-23 起必须分开说，否则会出现' +
+    '「`--check` 全绿、跑的还是上一版」的假绿灯。')
   L.push('')
   L.push('**五个工种的正文源在 `references/roles/`（派工文本），但那不是定义载体**——往里加前言块不会有任何效果；' +
     '它们的**定义**由安装器生成到宿主载体目录。耦合不变量（封发现面者必须封掉全部 MCP 面能力）在装配期拦。')
@@ -687,33 +927,59 @@ function codebuddyDoc() {
     const def = r.codebuddy && r.codebuddy.agentdef ? r.codebuddy.agentdef : '（未登记 agentdef）'
     // 载体路径写成符号形态（`<宿主配置目录>/…`）：它**不在本包内**，写成包内相对路径会被包内引用自证
     // 判成悬空——而那正是"装作它在包里"的错误来源（2026-09-22 实测：这样写会被装配期拦下）。
-    L.push('- **' + r.zh + '**（正文源 `' + src + '` → 载体 `<宿主配置目录>/' + def + '`，形态 ' + r.codebuddy.form + '）：`disallowedTools: [' + names.join(', ') + ']`')
+    // 名单构成**现算**：对外那句「N 个 `mcp__novelist__*` ＋ …」必须由名单本身数出来。手写一个数＝
+    // 发一个不会跟着名单变的数（本项目栽过：同一份名单在不同文档里数字不同）。
+    const mcp = names.filter((n) => n.startsWith('mcp__'))
+    const rest = names.filter((n) => !n.startsWith('mcp__'))
+    const how = mcp.length
+      ? '（' + mcp.length + ' 个 `mcp__novelist__*`' + (rest.length ? ' ＋ ' + rest.map((n) => '`' + n + '`').join('／') : '') + '）'
+      : ''
+    L.push('- **' + r.zh + '**（正文源 `' + src + '` → 载体 `<宿主配置目录>/' + def + '`，形态 ' + r.codebuddy.form + '）：`disallowedTools: [' + names.join(', ') + ']`　' + how)
     for (const e of exempted) {
       L.push('  - 本形态有意**不封**：`' + e.cid + '`' + (e.names.length ? '（`' + e.names.join('`, `') + '`）' : '') +
         '——理由：' + e.why)
     }
-    const gaps = (skipped || []).filter((s) => s.status === 'ineffective')
-    for (const g of gaps) {
-      L.push('  - **⚠ 缺口（已实测拦不住，故不写进名单）**：`' + g.names.join('`, `') + '`（能力 ' + g.cid + '）——' +
-        '写进 `disallowedTools` 后**它仍在工具面里、且调用真的会执行**。**不许写进去装作封住了**：静默列进去＝虚假的约束感。' +
-        '本行是**如实标注**，不是"以后会修"。')
+    // 缺口分三类印，**不许合并**：它们对"现在安不安全"的含义完全不同——
+    // C 桶＝写了等于没写、B 桶＝封住了但每次派工被记 failed、none＝根本没有东西可禁。
+    for (const s of (skipped || [])) {
+      if (s.status === 'ineffective') {
+        L.push('  - **⚠ 缺口 · C 桶（写了等于没写，故不渲）**：能力 `' + s.cid + '` 的 `' + s.names.join('`, `') +
+          '`——写进去之后**名字仍在工具面里、调用真的会执行**。**不许写进去装作封住了**：静默列进去＝虚假的约束感。' +
+          '本行是**如实标注**，不是"以后会修"。')
+      } else if (s.status === 'costly') {
+        L.push('  - **⚠ 缺口 · B 桶（拦得住，但有代价，故不渲）**：能力 `' + s.cid + '` 的 `' + s.names.join('`, `') +
+          '`——写进去名字会被摘掉，但**每次派工都被框架记 `failed`**。按纪律不进生产名单；' +
+          '**但这是缺口、不是已封**：这一格对本座仍然是半开的。')
+      } else if (s.status === 'none') {
+        L.push('  - ○ 空操作（本形态没有这个工具）：能力 `' + s.cid + '`——禁了不报错也不生效。' +
+          '属"没有东西可禁"，与上面两类缺口**不是一回事**（把它读成"已封"是过度乐观）。')
+      } else {
+        L.push('  - **⚠ 意图已登记、本形态尚未生效**（`' + s.status + '`）：能力 `' + s.cid + '`' +
+          (s.candidates && s.candidates.length ? '（候选名 `' + s.candidates.join('`, `') + '`）' : '') +
+          '——' + (s.why || '未核实') +
+          '。**这不等于已封**：名字没渲进名单之前，该工具对本座仍然是开着的。')
+      }
     }
-    // 未生效的「意图」也要印：角色 deny 里登记了，但本形态下渲不进去（名字形态未核实／本形态不存在）。
-    // 为什么必须印：不印＝**静默少封一个名字**，与静默封错一个名字同罪（表观都是"没报错"）。
-    // 2026-09-23 WB 侧点出同族缺陷（盲角色的残留面里有一批名字我们从没评估过）之后补的这个出口。
-    const pending = (skipped || []).filter((s) => s.status && s.status !== 'ineffective')
-    for (const p of pending) {
-      L.push('  - **⚠ 意图已登记、本形态尚未生效**（`' + p.status + '`）：能力 `' + p.cid + '`' +
-        (p.candidates && p.candidates.length ? '（候选名 `' + p.candidates.join('`, `') + '`）' : '') +
-        '——' + (p.why || '未核实') +
-        '。**这不等于已封**：名字没渲进名单之前，该工具对本座仍然是开着的。')
-    }
-    L.push('  - 落点：宿主配置目录下的 `agents/`（见上第 2 条；安装器 `--check` 可验是否陈旧）')
+    L.push('  - 落点：宿主配置目录下的 `agents/`（见上第 2 条；安装器 `--check` 可验**盘上**是否陈旧）')
   }
   L.push('')
-  L.push('预期：加上之后该 agent 调这些工具应当直接失败或被拒。**若照样能调通，说明本形态的 deny 不生效**——那就要如实降级到"纪律约束"，并把这条写进交付说明，而不是当它生效了。')
+  L.push('预期：**A 桶**名字应当直接失败或被拒；**B／C 桶的不会**（见 §三b 与该座的缺口行）——' +
+    '它们凭什么被挡，那是纪律层的事。**若 A 桶名字照样能调通，说明本形态的 deny 不生效**——' +
+    '那就要如实降级到"纪律约束"，并把这条写进交付说明，而不是当它生效了。')
   L.push('')
-  L.push('两条本宿主实测纪律：①**定义是热加载的**——2026-09-23 WB 侧实测：同会话内新建定义文件、**零重启**即可派起来（宿主每次枚举都重新读盘）。**但别读成更安全**：定义随时会被换掉且没有任何提示 ⇒ **陈旧检查只能靠比对**（安装器 `--check`；"装的时候对过"不作数）。⚠ **未测的另一半**：**改动已有文件**是否同样即时生效——源码里 `AgentLoader` 有一条按路径的 `already loaded, skipping` 去重，**新增与改动可能不是一回事**；取到那条读数之前，不许把"改完即刻生效"当已知。②"某工具缺席"类结论拿不到硬证据（不在清单里就发不起调用）——唯一出口是**强行发起一次对它的调用**，逼调度层回 `Tool Not Found`。')
+  L.push('**★ 重启前必须先跑的那一条（2026-09-23 起生效的门）**：本名单里 `Edit`／`Skill`／`WebSearch` 三个名字的读数，' +
+    '都是**在"只封它一个"的探针座上**取到的；**「目标座这一整份名单 ＋ 它们」这个组合没有测过**。' +
+    '而 D 桶（座位直接起不来）的报错名字**不固定**（单测报它自己、三项同写报 `Read`）⇒ **不许拿单名读数反推组合安全**。' +
+    '做法：**新建**一份探针文件（新路径＝即时生效），前言块照抄目标座的 `disallowedTools` 全名单，派一次，' +
+    '看它起不起得来、`TOOLS=` 里那几个名字在不在。**过了再重启；不过就回退名单。**' +
+    '（为什么用新文件：改动已有文件要重启，而这条探针的**全部意义**恰恰是在重启**之前**确认。）')
+  L.push('')
+  L.push('两条本宿主实测纪律：①**"热加载"是两句话，不是一句**——2026-09-23 WB 侧用同文件 A/B 钉死了：' +
+    '**新增一份新定义（新路径）＝即时生效**（同会话内零重启即可派起来）；' +
+    '**改动已有定义的内容＝不生效，必须重启**（`AgentLoader.loadFromPaths` 有一条按路径的 `already loaded, skipping` 去重，' +
+    '内容冻结在**首次读取的那一版**）。⇒ 纪律照这个写：**「改真源 → 重跑安装器 → 重启宿主 → 重跑 `--check` 验哈希」；' +
+    '只有「新增一份新角色」才不需重启。** 别写"改完即生效"——那是两句承诺里错的那一句。' +
+    '②"某工具缺席"类结论拿不到硬证据（不在清单里就发不起调用）——唯一出口是**强行发起一次对它的调用**，逼调度层回 `Tool Not Found`。')
   L.push('')
   L.push('---')
   L.push('')
