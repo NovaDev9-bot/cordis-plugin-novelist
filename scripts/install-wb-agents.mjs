@@ -18,7 +18,15 @@
  *      而 `disallowedTools:` 含该子串 ⇒ 封名单渲进包内 MD 会**立刻不合规**。
  * 2. **宿主载体** ＝ 本工具渲的 `<dir>/<role>.md` —— 前言块 + 封名单（名字来自生成器的派生件，
  *      **只渲 enforced**；实测拦不住的名字不渲，但会在输出里当缺口印出来）。
- * 3. **陈旧门** ＝ `--check` 逐文件比内容 sha256 —— 定义是**热加载**的，"装的时候对过"不作数。
+ * 3. **陈旧门** ＝ `--check` 逐文件比内容 sha256。⚠ **它只管盘上**：验的是"载体文件与真源一致不一致"，
+ *      **验不出"宿主内存里还在用旧的那一版"**——两件事必须分开说（见下）。
+ *
+ * ── 装盘 ≠ 生效（2026-09-23 WB 侧同文件 A/B 定案，别写错）────────────────
+ * **新增一份新定义（新路径）＝即时生效**（同会话内零重启即可派起来）；
+ * **改动已有定义的内容＝不生效，必须重启宿主**（`AgentLoader.loadFromPaths` 有一条按路径的
+ * `already loaded, skipping` 去重，内容冻结在首次读取的那一版）。
+ * ⇒ 纪律照这个写：**「改真源 → 重跑安装器 → 重启宿主 → 重跑 --check 验哈希」**；
+ *   只有「新增一份新角色」才不需重启。**别写"改完即生效"**——那是两句承诺里错的那一句。
  *
  * 本工具**不决定封什么**：名单只是消费 `roles/build-tool-face.mjs` 的派生件
  * （`wb-expert-starter/references/宿主载体封名单.json`）。安装器自己再算一遍＝第二份实现＝下一次漂移。
@@ -91,7 +99,8 @@ if (!PAYLOAD || !PAYLOAD.roles || !Object.keys(PAYLOAD.roles).length) die('宿�
     for (const leaf of Object.values(cap.codebuddy || {})) {
       if (!leaf || typeof leaf !== 'object') continue
       for (const n of leaf.tools || []) ok.add(n)
-      for (const n of leaf.ineffective || []) forbidden.add(n)   // 实测拦不住的真名字
+      for (const n of leaf.ineffective || []) forbidden.add(n)   // 实测拦不住的真名字（C 桶）
+      for (const n of leaf.costly || []) forbidden.add(n)        // 拦得住但有代价（B 桶）：按纪律也不进名单
       for (const n of leaf.candidates || []) forbidden.add(n)    // 只是候选，没核过
     }
   }
@@ -185,7 +194,13 @@ for (const p of plan) {
   }
   for (const s of e.skipped) {
     if (s.status === 'ineffective') {
-      console.log('      ⚠ 缺口：「' + (s.names || []).join('」「') + '」实测**拦不住**（写进去它照样执行）⇒ 不渲，如实标注')
+      console.log('      ⚠ 缺口·C 桶：「' + (s.names || []).join('」「') + '」**实测拦不住**（写进去它照样执行）⇒ 不渲，如实标注')
+    } else if (s.status === 'costly') {
+      // 2026-09-23 补：B 桶（拦得住但每次派工被框架记 failed）。它与 C 桶**不是一回事**——
+      // 混着印会让读者把"封住了但有代价"读成"封不住"，然后据此把这一格整个放弃。
+      console.log('      ⚠ 缺口·B 桶：「' + (s.names || []).join('」「') + '」**拦得住但有代价**（每次派工被框架记 failed）⇒ 不渲，如实标注')
+    } else if (s.status === 'none') {
+      console.log('      ○ 空操作：「' + s.cid + '」本形态没有这个工具 ⇒ 禁了不报错也不生效（不是缺口，是没有东西可禁）')
     } else if (s.status) {
       // 2026-09-23 补：登记了却渲不进去的**意图**也要印出来。
       // 不印＝这一座看起来"该封的都封了"，实际那几个工具对它一直开着（静默少封一个名字）。
@@ -203,15 +218,17 @@ if (CHECK) {
   for (const p of plan) {
     if (!existsSync(p.dest)) { console.log('  ✗ 缺文件：' + path.basename(p.dest) + '（还没装过）'); missing++; continue }
     const onDisk = readFileSync(p.dest, 'utf8')
-    if (onDisk === p.content) console.log('  ✓ ' + path.basename(p.dest) + ' 与真源一致')
-    else { console.log('  ✗ ' + path.basename(p.dest) + ' **与真源不一致**（热加载 ⇒ 载体随时可能是旧的那份：装了以后改过真源、或有人手改过载体）'); drift++ }
+    if (onDisk === p.content) console.log('  ✓ ' + path.basename(p.dest) + ' 与真源一致（**盘上**）')
+    else { console.log('  ✗ ' + path.basename(p.dest) + ' **与真源不一致**（改了真源没重装、或有人手改过载体）'); drift++ }
   }
   if (drift || missing) {
     console.log('\n✗ 陈旧/缺失 ' + (drift + missing) + ' 件。跑一次不带 --check 的安装：')
     console.log('  node scripts/install-wb-agents.mjs --dir "' + DIR + '"')
     process.exit(1)
   }
-  console.log('\n✓ 全部 ' + plan.length + ' 件与真源一致（陈旧门通过）')
+  console.log('\n✓ 全部 ' + plan.length + ' 件与真源一致（陈旧门通过，**仅指盘上**）')
+  console.log('  ⚠ 本门验不出"宿主内存里是不是还在用旧的那一版"：**改动已有定义要重启宿主才生效**。')
+  console.log('    改过的件若要确认真的在跑，唯一办法是重启后看派工回执里的 `SELF=`／`OBL=` 原文或再取一次工具面读数。')
   process.exit(0)
 }
 
@@ -235,5 +252,6 @@ for (const p of plan) {
   console.log('  ' + (prev === null ? '＋ 新建' : '↻ 更新') + ' ' + path.basename(p.dest) + '（' + p.content.split('\n').length + ' 行 · sha256:' + p.sha + '）')
 }
 console.log('\n✓ 装好：新建/更新 ' + wrote + ' 件，' + same + ' 件本来就一致 · 目录＝' + DIR)
-console.log('  定义是**热加载**的——不需要重启宿主，但也因此**没有"装过就算数"**：改真源后重跑本工具，或跑 --check 验陈旧。')
+console.log('  ⚠ **装盘 ≠ 生效**：新增一份新定义即时生效；**改动已有定义的内容要重启宿主**（宿主内存里那一版冻结在首次读取）。')
+console.log('     所以改完真源的正规序列是：**重跑本工具 → 重启宿主 → 重跑 --check 验哈希**。')
 console.log('  回滚：删掉上述 ' + plan.length + ' 个文件即可（本工具不碰目录里别人的文件）。')

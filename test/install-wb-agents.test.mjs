@@ -48,7 +48,8 @@ function nameSets(table) {
     for (const leaf of Object.values(cap.codebuddy || {})) {
       if (!leaf || typeof leaf !== 'object') continue
       for (const n of leaf.tools || []) ok.add(n)
-      for (const n of leaf.ineffective || []) forbidden.add(n)
+      for (const n of leaf.ineffective || []) forbidden.add(n)   // C 桶：拦不住
+      for (const n of leaf.costly || []) forbidden.add(n)        // B 桶：拦得住但有代价（2026-09-23 加）
       for (const n of leaf.candidates || []) forbidden.add(n)
     }
   }
@@ -204,20 +205,37 @@ test('安装只写自己的 7 件，不碰同目录别人的文件', () => {
 // CodeBuddy 下是 `unknown`（不许渲）⇒ **名字一个都没渲出去、输出里也一个字没提**。
 // 表观＝"看着配过"，实际＝那几个工具对本座一直开着：**静默少封一个名字**，
 // 与静默封错一个名字同罪（两者都表现为"没报错"）。
-test('安装器把"登记了但本形态没生效"的意图印出来（不许静默少封一个名字）', () => {
+test('安装器把三类"没进名单"的出口分开印出来（B 桶 / C 桶 / 空操作 / 未生效）', () => {
   const d = fakeRepo()
   const carrier = path.join(d, 'carrier')
   try {
     const r = run(d, ['--dir', carrier, '--check'])   // --check 也会打这份摘要
     const out = both(r)
-    assert.match(out, /意图已登记/, '渲不进去的 deny 必须在输出里印出来，否则读的人以为已经封了')
-    assert.match(out, /fs\.write/, '要点名是哪一格能力（否则读者不知道该去封谁）')
-    assert.match(out, /仍然开着/, '要说清后果：名字没进名单之前，那件工具对本座仍然开着')
-    // 两条出口不许互相吃掉：实测拦不住（ineffective）仍走"缺口"那一条
-    assert.match(out, /PowerShell/, 'ineffective 仍必须走缺口那一条')
-    // 反向：**已渲进名单**的能力不许被误报成"未生效"（否则这条出口退化成"所有 deny 都印一遍"）
-    const pending = out.split('\n').filter((l) => l.includes('意图已登记'))
-    assert.ok(!pending.some((l) => /fs\.read|shell\.exec|ledger\.write/.test(l)),
-      '可渲染的能力不该出现在"未生效"里：' + pending.join(' | '))
+    // C 桶（拦不住）与 B 桶（拦得住但有代价）都必须各有自己的行——**合并＝把两种相反的含义混成一种**
+    assert.match(out, /缺口·C 桶/, 'C 桶必须走"缺口"那一条')
+    assert.match(out, /缺口·B 桶/, 'B 桶必须走"代价缺口"那一条（2026-09-23 新增：它与 C 桶不是一回事）')
+    assert.match(out, /PowerShell/, 'C 桶的代表 `PowerShell` 要点名（否则读者不知道该去封谁）')
+    assert.match(out, /Write/, 'B 桶的代表 `Write` 要点名')
+    assert.match(out, /空操作/, '"本形态没有这个工具"要单列一条（与缺口混在一起会把空操作读成已封）')
+    // 反向：**已渲进名单**的能力不许被误报成"未生效"或缺口（否则出口退化成"所有 deny 都印一遍"）
+    const noise = out.split('\n').filter((l) => /意图已登记|缺口/.test(l))
+    assert.match(out, /缺口/, '这条用例的前提是确实存在缺口行')
+    assert.ok(!out.split('\n').some((l) => /缺口/.test(l) && /`mcp__novelist__/.test(l)),
+      'MCP 名是 A 桶、已渲进名单，不该出现在缺口行里：' + noise.join(' | '))
   } finally { rmSync(d, { recursive: true, force: true }) }
+
+  // 合成的「未生效」：安装器**打印的内容全部来自派生件**（连 skipped 也在里面），所以夹具要改派生件。
+  // 只改能力表不会影响打印（那条路只管"拒渲"核对）——这一点本身就是"两处各算一遍就会漂"的现场。
+  const led = realLedger()
+  led.roles.reader.skipped = led.roles.reader.skipped.concat([
+    { cid: 'fs.read', status: 'unverified', candidates: ['Read'], why: '测试夹具：假装这一格还没核实' },
+  ])
+  const d2 = fakeRepo({ ledger: led })
+  try {
+    const r2 = run(d2, ['--dir', path.join(d2, 'carrier'), '--check'])
+    const out2 = both(r2)
+    assert.match(out2, /意图已登记/, '渲不进去的 deny 必须在输出里印出来，否则读的人以为已经封了')
+    assert.match(out2, /fs\.read/, '要点名是哪一格能力（否则读者不知道该去封谁）')
+    assert.match(out2, /仍然开着/, '要说清后果：名字没进名单之前，那件工具对本座仍然开着')
+  } finally { rmSync(d2, { recursive: true, force: true }) }
 })

@@ -35,6 +35,10 @@ function fakeRepo({ table, preset } = {}) {
   mkdirSync(path.join(d, 'wb-expert-starter'), { recursive: true })
   cpSync(path.join(PLUGIN, 'lib'), path.join(d, 'lib'), { recursive: true })
   mkdirSync(path.join(d, 'roles'), { recursive: true })
+  // 人格真源也要拷：`roles[].isolation` 引的条款号必须能在人格真源里查到（2026-09-23 新增的
+  // 那道核）。不拷＝假仓里"人格真源读不到任何条款号"，于是**所有**盲角色的 isolation 都报红，
+  // 测出来的红是夹具自己造出来的，与守卫无关。
+  cpSync(path.join(PLUGIN, 'roles', 'persona'), path.join(d, 'roles', 'persona'), { recursive: true })
   writeFileSync(path.join(d, 'roles', 'tool-face.json'), JSON.stringify(table || realTable(), null, 2))
   mkdirSync(path.join(d, 'preset-starter'), { recursive: true })
   writeFileSync(path.join(d, PRESET_REL), preset === undefined ? realPreset() : preset)
@@ -319,10 +323,14 @@ test('WB 角色工具面文档：零机器路径、点明三个不存在的名�
 test('能力表：每个能力两列齐全，且 domain 工具名与 lib 注册表一致', async () => {
   const t = realTable()
   const forms = Object.keys(t.hosts.codebuddy.forms)
-  // 合法状态三值（2026-09-22 加 unknown）：none＝本宿主没这个能力；unverified＝**没查**；
-  // unknown＝**查过了，结论是"不许渲染"**（实测会致命、或未二分到底）——它必须与 unverified 分开：
-  // 前者是"我没看"，后者是"我看了，不能写"。混成一个，下一个人会把"实测禁止"读成"还没测"。
-  const leafOk = (v) => Array.isArray(v.tools) ? v.tools.length > 0 : (v.status === 'none' || v.status === 'unverified' || v.status === 'unknown')
+  // 合法状态五值：none＝本宿主没这个能力；unverified＝**没查**；unknown＝**查过了，结论是"不许渲染"**；
+  // 加上 2026-09-23 的两种**整格缺口**：ineffective＝这一格整个**拦不住**（C 桶）、
+  // costly＝整个**只能带代价封**（B 桶）。后两种必须与 none/unverified 分开：
+  // 前者是"没有东西可禁"、中者是"我还没看"、后者是"我看了，封不住 / 封得起但不划算"。
+  const leafOk = (v) => Array.isArray(v.tools) ? v.tools.length > 0
+    : Array.isArray(v.ineffective) ? v.ineffective.length > 0
+      : Array.isArray(v.costly) ? v.costly.length > 0
+        : (v.status === 'none' || v.status === 'unverified' || v.status === 'unknown')
   for (const [cid, cap] of Object.entries(t.capabilities)) {
     assert.ok(cap.dsh, cid + ' 缺 dsh 列')
     assert.ok(leafOk(cap.dsh), cid + '.dsh 取值非法：' + JSON.stringify(cap.dsh))
@@ -415,45 +423,166 @@ test('派工文本的工具面生成区：手改即红；缺标记即拒（第�
 // `unknown`（不许渲，理由见表），于是**名字一个也没渲出去、文档里也一个字没提**。
 // 表观＝"看着配过"，实际＝那几个工具对本座一直开着——**静默少封一个名字**，
 // 与静默封错一个名字同罪（两者都表现为"没报错"）。
-// 这条测试锁的是"有意图就必须有出口"：渲得进去的走名单，渲不进去的必须在文档里印出来。
-test('deny 里登记了、本形态渲不进去的能力 ⇒ 必须在文档里印成"未生效"（不许静默少封）', () => {
+// 锁的是"有意图就必须有出口"，且**出口要分对类**：B 桶（拦得住但有代价）与 C 桶（根本拦不住）
+// 的含义相反，合并印会把"封不住"读成"封得住"、也会把"有代价"读成"封不住"（后者会让人白放弃一格）。
+test('"登记了但没生效"必须留痕：B 桶 / C 桶 / 空操作三类出口分开，且渲得进去的不许被误报', () => {
   const docRel = ['wb-expert-starter', 'references', '宿主工具面.md']
+  const withRefs = (d) => cpSync(path.join(PLUGIN, 'wb-expert-starter', 'references'),
+    path.join(d, 'wb-expert-starter', 'references'), { recursive: true })
 
-  // ① 真表：`fs.write`／`fs.edit` 是 unknown 且被盲角色 deny ⇒ 必须各有一行"未生效"
+  // ① 真表：三类的代表都必须出现
   const d = fakeRepo()
-  // 假仓是 flat 形态、只造空目录；把真仓的 references/ 拷进去（产出目录 + 派工文本都要在）
+  withRefs(d)
+  try {
+    const r = run(d, ['--host', 'codebuddy'])
+    assert.equal(r.status, 0, '应能生成：' + both(r))
+    const doc = readFileSync(path.join(d, ...docRel), 'utf8')
+    const lines = doc.split('\n')
+    const gapsB = lines.filter((l) => l.includes('缺口 · B 桶'))
+    const gapsC = lines.filter((l) => l.includes('缺口 · C 桶'))
+    const noop = lines.filter((l) => l.includes('空操作（本形态没有这个工具）'))
+    assert.ok(gapsB.some((l) => l.includes('Write')), '`Write` 是 B 桶（拦得住但每次派工记 failed）⇒ 必须印成 B 桶缺口')
+    assert.ok(gapsB.some((l) => l.includes('WebFetch')), '`WebFetch` 同 B 桶')
+    assert.ok(gapsC.some((l) => l.includes('PowerShell')), '`PowerShell` 是 C 桶（写了等于没写）⇒ 必须印成 C 桶缺口')
+    assert.ok(gapsC.some((l) => l.includes('automation_update')), '`automation_update` 同 C 桶')
+    assert.ok(noop.length > 0, '"本形态没有这个工具"要单列一类——与缺口混在一起会把"空操作"读成"已封"')
+    // ★ 两类缺口**不许互相串**：串了就是把"有代价"说成"封不住"（白放弃一格），或反过来（假安全）
+    assert.ok(!gapsB.some((l) => l.includes('PowerShell')), 'C 桶名字不许出现在 B 桶行里')
+    assert.ok(!gapsC.some((l) => l.includes('`Write`')), 'B 桶名字不许出现在 C 桶行里')
+  } finally { rmSync(d, { recursive: true, force: true }) }
+
+  // ② 负例：把缺口消掉，那格就不该再印缺口（否则出口退化成"所有 deny 都印一遍"）
+  const t = realTable()
+  delete t.capabilities['shell.exec'].codebuddy['*'].ineffective
+  const d2 = fakeRepo({ table: t })
+  withRefs(d2)
+  try {
+    const r2 = run(d2, ['--host', 'codebuddy'])
+    assert.equal(r2.status, 0, '应能生成：' + both(r2))
+    const doc2 = readFileSync(path.join(d2, ...docRel), 'utf8')
+    assert.ok(!doc2.split('\n').some((l) => l.includes('缺口 · C 桶') && l.includes('PowerShell')),
+      '缺口已从表里删掉，文档里就不该还有它（出口失灵：印了表上没有的缺口）')
+  } finally { rmSync(d2, { recursive: true, force: true }) }
+})
+
+// ── 2026-09-23：四桶与名单的**机器耦合**——渲进名单的名字必须是 A 桶
+//
+// 为什么这条是这一批最贵的核：C 桶名字写进 deny **不报错、也不拦**，表观与"已封"一模一样；
+// B 桶名字写进去每次派工被框架记 `failed`。两种都是"进了名单却没得到想要的保护"。
+// 少了这道核，唯一的发现途径是下一次红测——而它未必有人跑。
+test('渲一个 B/C 桶名字进名单 ⇒ 拒绝生成（没测过的名字同样不许渲）', () => {
+  // ① B 桶：`Write` 能拦但有代价 ⇒ 仍不许渲
+  const t1 = realTable()
+  t1.capabilities['fs.write'].codebuddy['*'] = { tools: ['Write'], note: '测试夹具：假装把它渲进去' }
+  const d1 = fakeRepo({ table: t1 })
+  try {
+    const r = run(d1, ['--host', 'codebuddy', '--check'])
+    assert.equal(r.status, 2, 'B 桶名字渲进名单必须 exit 2：' + both(r))
+    assert.match(both(r), /B 桶/, '报错要点明是桶位问题，不是拼写问题')
+  } finally { rmSync(d1, { recursive: true, force: true }) }
+
+  // ② C 桶：`PowerShell` 根本拦不住 ⇒ 更不许渲
+  const t2 = realTable()
+  t2.capabilities['shell.exec'].codebuddy['*'] = { tools: ['Bash', 'PowerShell'], note: '测试夹具：把拦不住的名字硬塞进名单' }
+  const d2 = fakeRepo({ table: t2 })
+  try {
+    const r = run(d2, ['--host', 'codebuddy', '--check'])
+    assert.equal(r.status, 2, 'C 桶名字渲进名单必须 exit 2：' + both(r))
+    assert.match(both(r), /C 桶/, '报错要点明是 C 桶（"名字还在、调用真执行"）')
+  } finally { rmSync(d2, { recursive: true, force: true }) }
+
+  // ③ 没桶位（没测过）的名字也不许渲——这是"承诺一件没人验证过的事"。
+  // 拿 `Skill` 开刀：它在 2026-09-23 新渲进四个盲角色的名单，正踩在这条上。
+  const t3 = realTable()
+  t3.hosts.codebuddy.deny_readings.names = t3.hosts.codebuddy.deny_readings.names.filter((e) => e.name !== 'Skill')
+  const d3 = fakeRepo({ table: t3 })
+  try {
+    const r = run(d3, ['--host', 'codebuddy', '--check'])
+    assert.equal(r.status, 2, '拿掉桶位登记后必须 exit 2（`Edit`/`Skill`/`WebSearch` 立刻变成"没测过"）：' + both(r))
+    assert.match(both(r), /没有桶位/, '报错要说清是"没桶位"，不是"名字错了"')
+  } finally { rmSync(d3, { recursive: true, force: true }) }
+})
+
+// ── 2026-09-23：缺口名放错格子 = 把 B 说成 C（比不说更糟）
+test('缺口名与其桶位不符 ⇒ 拒绝生成（B／C 是两种缺口，不许互串）', () => {
+  const t = realTable()
+  // 把 `Write`（B 桶）塞进 ineffective（应为 C 桶）
+  delete t.capabilities['fs.write'].codebuddy['*'].costly
+  t.capabilities['fs.write'].codebuddy['*'] = { ineffective: ['Write'], why: '测试夹具：把 B 说成 C' }
+  const d = fakeRepo({ table: t })
+  try {
+    const r = run(d, ['--host', 'codebuddy', '--check'])
+    assert.equal(r.status, 2, '桶位不符必须 exit 2：' + both(r))
+    assert.match(both(r), /与它所在的格子不符/, '报错要点明"放错格子"这件事')
+  } finally { rmSync(d, { recursive: true, force: true }) }
+})
+
+// ── 2026-09-23：桶位台账自身的 fail-closed（没有报文的桶位＝印象，不是读数）
+test('deny_readings 条目缺 raw ⇒ 拒绝生成（桶位是读数，必须有报文）', () => {
+  const t = realTable()
+  delete t.hosts.codebuddy.deny_readings.names[0].raw
+  const d = fakeRepo({ table: t })
+  try {
+    const r = run(d, ['--host', 'codebuddy', '--check'])
+    assert.equal(r.status, 2, '缺 raw 必须 exit 2：' + both(r))
+    assert.match(both(r), /缺 raw/, '报错要点名缺的是原始报文')
+  } finally { rmSync(d, { recursive: true, force: true }) }
+})
+
+// ── 2026-09-23：盲读强度声明必须**引得到**条款（引一个查不到的条款＝给下一个人一个错的依据）
+test('盲角色 isolation 引不存在的条款号 ⇒ 拒绝生成；非盲角色写 isolation 也拒绝', () => {
+  const t = realTable()
+  t.roles.proofer.isolation.clauses = ['CORE-01', 'PROOF-99']
+  const d = fakeRepo({ table: t })
+  try {
+    const r = run(d, ['--host', 'codebuddy', '--check'])
+    assert.equal(r.status, 2, '引不存在的条款必须 exit 2：' + both(r))
+    assert.match(both(r), /PROOF-99/, '报错要点名是哪一个条款号')
+  } finally { rmSync(d, { recursive: true, force: true }) }
+
+  const t2 = realTable()
+  t2.roles.archivist.isolation = { strength: '测试夹具', clauses: ['ARCH-01'], why: '它不是盲角色，不该有这个字段' }
+  const d2 = fakeRepo({ table: t2 })
+  try {
+    const r2 = run(d2, ['--host', 'codebuddy', '--check'])
+    assert.equal(r2.status, 2, '非盲角色写 isolation 必须 exit 2：' + both(r2))
+    assert.match(both(r2), /不是盲角色/, '报错要说清这个字段只属于盲角色')
+  } finally { rmSync(d2, { recursive: true, force: true }) }
+})
+
+// ── 2026-09-23：四桶表与盲读强度表必须真的渲进文档（不是只活在能力表里）
+test('文档必须渲出四桶表与盲读强度表（含条款原文，且条款号现读）', () => {
+  const docRel = ['wb-expert-starter', 'references', '宿主工具面.md']
+  const d = fakeRepo()
   cpSync(path.join(PLUGIN, 'wb-expert-starter', 'references'), path.join(d, 'wb-expert-starter', 'references'), { recursive: true })
   try {
     const r = run(d, ['--host', 'codebuddy'])
     assert.equal(r.status, 0, '应能生成：' + both(r))
     const doc = readFileSync(path.join(d, ...docRel), 'utf8')
-    const pending = doc.split('\n').filter((l) => l.includes('意图已登记、本形态尚未生效'))
-    assert.ok(pending.length > 0, '渲不进去的 deny 必须在文档里印出来，否则读文档的人以为已经封了')
-    assert.ok(pending.some((l) => l.includes('fs.write')), '要点名是哪一格能力（fs.write 缺失）')
-    assert.ok(pending.some((l) => l.includes('fs.edit')), '要点名是哪一格能力（fs.edit 缺失）')
-    // ② 反向：**渲得进去**的能力不许被误报成"未生效"——否则这条出口会退化成"所有 deny 都印一遍"
-    assert.ok(!pending.some((l) => l.includes('fs.read')), 'fs.read 是可渲染的，不该出现在"未生效"里')
-    assert.ok(!pending.some((l) => l.includes('shell.exec')), 'shell.exec 是可渲染的，不该出现在"未生效"里')
-  } finally {
-    rmSync(d, { recursive: true, force: true })
-  }
+    assert.match(doc, /## 三b、一个名字写进/, '四桶表必须自成一节')
+    for (const b of ['**A**', '**B**', '**C**', '**D**']) assert.ok(doc.includes(b), '四桶定义缺 ' + b)
+    assert.ok(doc.includes('D 桶的报错名字不固定'), 'D 桶的"名字不固定"这条限定必须跟着表一起印（否则会有人反推哪个名字有毒）')
+    assert.match(doc, /## 三c、四座盲角色的/, '盲读强度表必须自成一节')
+    // 三档强度都要在（打包成一句正是这条要治的病）
+    for (const s of ['零读盘', '单文件受限读', '读锚书']) assert.ok(doc.includes(s), '缺一档强度：' + s)
+    // 条款原文必须来自人格真源现读（这里抽 PROOF-02 的一句原文）
+    assert.ok(doc.includes('单次只读**一个**受审文件'), '盲读强度表的条款原文应从 roles/persona/ 现读，不许手写')
+  } finally { rmSync(d, { recursive: true, force: true }) }
+})
 
-  // ③ 负例（能红）：把一格能力从"未核实"改成"可渲染"，那格就**不该**再走"未生效"出口
-  const t = realTable()
-  t.capabilities['fs.edit'].codebuddy['*'] = { tools: ['Edit'], note: '测试夹具：假装已核实可渲' }
-  const d2 = fakeRepo({ table: t })
-  cpSync(path.join(PLUGIN, 'wb-expert-starter', 'references'), path.join(d2, 'wb-expert-starter', 'references'), { recursive: true })
+// ── 2026-09-23：热加载措辞只许说两句话（说成"改完即生效"是最贵的那种错）
+test('文档与安装器的热加载措辞：新增即时 / 改动需重启，且 --check 只管盘上', () => {
+  const d = fakeRepo()
+  cpSync(path.join(PLUGIN, 'wb-expert-starter', 'references'), path.join(d, 'wb-expert-starter', 'references'), { recursive: true })
   try {
-    const r2 = run(d2, ['--host', 'codebuddy'])
-    assert.equal(r2.status, 0, '应能生成：' + both(r2))
-    const doc2 = readFileSync(path.join(d2, ...docRel), 'utf8')
-    const pending2 = doc2.split('\n').filter((l) => l.includes('意图已登记、本形态尚未生效'))
-    assert.ok(!pending2.some((l) => l.includes('fs.edit')), '已改成可渲的能力不该再出现在"未生效"里（出口失灵）')
-    // 而且它应当真的以名字形态渲进各座名单
-    assert.match(doc2, /`Edit`/, '改成可渲之后应真的渲出名字')
-  } finally {
-    rmSync(d2, { recursive: true, force: true })
-  }
+    const r = run(d, ['--host', 'codebuddy'])
+    assert.equal(r.status, 0, '应能生成：' + both(r))
+    const doc = readFileSync(path.join(d, 'wb-expert-starter', 'references', '宿主工具面.md'), 'utf8')
+    assert.ok(doc.includes('**改动已有定义的内容＝不生效，必须重启**'), '文档必须写死这一句：改动需重启')
+    assert.ok(doc.includes('**新增一份新定义（新路径）＝即时生效**'), '文档必须写死这一句：新增即时生效')
+    assert.ok(doc.includes('验不出"宿主内存里还在用旧的那一版"'), '必须把 --check 的边界写出来（它只管盘上）')
+    assert.ok(doc.includes('重启前必须先跑的那一条'), '组合探针那条门必须印在文档里（否则重启会把没测过的名单带上去）')
+  } finally { rmSync(d, { recursive: true, force: true }) }
 })
 
 // ── 2026-09-23：工具面读数必须回灌本表（"文档清单 ≠ 运行时清单"）
