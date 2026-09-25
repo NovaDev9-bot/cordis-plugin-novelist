@@ -446,7 +446,7 @@ test('"登记了但没生效"必须留痕：B 桶 / C 桶 / 空操作三类出�
     assert.ok(gapsC.some((l) => l.includes('PowerShell')), '`PowerShell` 是 C 桶（写了等于没写）⇒ 必须印成 C 桶缺口')
     assert.ok(gapsC.some((l) => l.includes('automation_update')), '`automation_update` 同 C 桶')
     assert.ok(noop.length > 0, '"本形态没有这个工具"要单列一类——与缺口混在一起会把"空操作"读成"已封"')
-    // ★ 两类缺口**不许互相串**：串了就是把"有代价"说成"封不住"（白放弃一格），或反过来（假安全）
+    // 两类缺口**不许互相串**：串了就是把"有代价"说成"封不住"（白放弃一格），或反过来（假安全）
     assert.ok(!gapsB.some((l) => l.includes('PowerShell')), 'C 桶名字不许出现在 B 桶行里')
     assert.ok(!gapsC.some((l) => l.includes('`Write`')), 'B 桶名字不许出现在 C 桶行里')
   } finally { rmSync(d, { recursive: true, force: true }) }
