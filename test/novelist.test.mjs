@@ -107,7 +107,7 @@ test('readJsonlLines: 末行撕裂容忍（真追加崩溃语义）＋中段损�
   assert.equal((await readJsonlLines(fs, '/x/none.jsonl')).length, 0, '缺文件=空')
 })
 
-test('appendJsonlLine 行尾纪律: 首写必带换行（190 章压测实锤 bug 回归——首写无 \\n 则后续 os-append 并行成脏行）', async () => {
+test('appendJsonlLine 行尾纪律: 首写必带换行（190 章压测暴露的 bug 回归——首写无 \\n 则后续 os-append 并行成脏行）', async () => {
   const { appendJsonlLine } = _internals
   const files = new Map()
   const fs = { // 无 processPath → 强制走降级臂（首写分支）

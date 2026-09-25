@@ -163,16 +163,32 @@ if (!PAYLOAD || !PAYLOAD.roles || !Object.keys(PAYLOAD.roles).length) die('宿�
 
 // ── 载体目录
 const DIR_FLAG = opt('--dir')
+// 载体落点：不给 --dir 时**不许猜**（2026-09-25 实测教训）。
+// 事故事实：本机宿主真正读的是 `<宿主配置目录>/agents`（日志：`[HotReload] Triggered by agents change: …\\.workbuddy/agents/…`），
+// 而本脚本原先默默默认 `~/.codebuddy/agents` —— 于是那一次装盘在**另一个目录**造出第二套同名角色，
+// 既不会生效，又正好踩中"两级同名无优先级"的坑。默认值在裸 shell 里读不到宿主的 CODEBUDDY_CONFIG_DIR，
+// 所以判据改成**探测**：候选中只有一个存在就用它；两个都存在＝歧义 ⇒ 拒跑（点明两级同名）；一个都不存在 ⇒ 拒跑（要点名 --dir）。
+const CANDIDATES = [
+  process.env.CODEBUDDY_CONFIG_DIR && process.env.CODEBUDDY_CONFIG_DIR.trim()
+    ? path.join(process.env.CODEBUDDY_CONFIG_DIR.trim(), 'agents') : null,
+  path.join(os.homedir(), '.workbuddy', 'agents'),
+  path.join(os.homedir(), '.codebuddy', 'agents'),
+].filter(Boolean)
+const existing = CANDIDATES.filter((c) => existsSync(c))
 const DIR = DIR_FLAG
   ? path.resolve(DIR_FLAG)
-  : path.join(process.env.CODEBUDDY_CONFIG_DIR && process.env.CODEBUDDY_CONFIG_DIR.trim()
-    ? process.env.CODEBUDDY_CONFIG_DIR.trim()
-    : path.join(os.homedir(), '.codebuddy'), 'agents')
+  : (existing.length === 1 ? existing[0] : null)
+if (!DIR) {
+  die(existing.length === 0
+    ? '载体落点判不出来：候选目录一个都不存在（' + CANDIDATES.join(' / ') + '）'
+    : '载体落点有歧义：两个候选都存在（' + existing.join(' / ') + '）——它们是**两级真实落点**，同名文件谁生效宿主没有定义优先级 ⇒ 拒装（装错一级＝静默不生效，还会留下同名副本）',
+    '用 --dir <宿主配置目录>/agents 显式指定；本机宿主读的是 ' + (existing[0] || '<宿主配置目录>/agents'))
+}
 const DIR_HOW = DIR_FLAG
   ? '--dir 显式指定'
-  : (process.env.CODEBUDDY_CONFIG_DIR && process.env.CODEBUDDY_CONFIG_DIR.trim()
+  : (process.env.CODEBUDDY_CONFIG_DIR && process.env.CODEBUDDY_CONFIG_DIR.trim() && path.dirname(DIR) === path.resolve(process.env.CODEBUDDY_CONFIG_DIR.trim())
     ? '环境变量 CODEBUDDY_CONFIG_DIR'
-    : '默认 ~/.codebuddy（**裸 shell 读不到宿主的 CODEBUDDY_CONFIG_DIR**，WorkBuddy 装机上这个默认值多半是错的）')
+    : '探测到唯一存在的候选目录')
 
 // ── 渲染（正文源 → 前言块 + 正文）
 const ANCHOR = '## 人格'
