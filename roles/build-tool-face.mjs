@@ -939,7 +939,7 @@ function codebuddyDoc() {
   L.push('两级都在热加载监视里（日志两侧各有触发：`[HotReload] Triggered by agents change: …\\.codebuddy\\agents/…` 与 `…\\.workbuddy/agents/…`，`[HotReload] Completed for agents`）。')
   L.push('⇒ **同名文件同时出现在两级时谁生效，宿主不定义优先级，本项目也不做互检**——与"用户级 mcp.json 同名静默盖掉包内声明"同族。装完载体后请核一遍另一级有没有同名文件。')
   L.push('1. **包内 `agents/` 不是注册载体**——宿主组件装载器不枚举专家包（日志里 11 个插件各有 `Loaded plugin components for …`，本包一次都没出现）；包内那两份的真实用途是**人格文本的权威来源**，往里补前言块不会让它进表。')
-  L.push('2. **热加载是两句话，不是一句（2026-09-23 同文件 A/B 实测）**：**新增一份新定义（新路径）＝即时生效**（同会话内零重启即可派起来）；**改动已有定义的内容＝不生效，必须重启**（装载器有一条按路径的 `already loaded, skipping` 去重，内容冻结在**首次读取的那一版**）。⇒ 纪律照这个写：**改真源 → 重跑安装器 → 重启宿主 → 重跑 `--check` 验哈希**；只有"新增一份新角色"才不需重启。')
+  L.push('2. **热加载是两句话，不是一句（2026-09-23 同文件 A/B 实测）**：**新增一份新定义（新路径）＝即时生效**（同会话内零重启即可派起来）；**改动已有定义的内容＝不生效，必须重启**（取证措辞 2026-09-27 更正：09-23 引的 `already loaded, skipping` 在 5.6.2 运行时日志里**不存在**；实际可 grep `[HotReload] Triggered by agents change: <path>` ＋ `[HotReload] Completed for agents`——事件层确有触发、枚举层同刻刷新，**但派工取到的正文仍是首次读取的那一版**）。⇒ 纪律照这个写：**改真源 → 重跑安装器 → 重启宿主 → 重跑 `--check` 验哈希**；只有"新增一份新角色"才不需重启。')
   L.push('3. **deny 拦得住**：中性同形探针 `disallowedTools:[mcp__novelist__novel_chapter]` → `Error: Permission to use mcp__novelist__novel_chapter has been denied.`（拦在权限层，未到工具本体）。')
   L.push('')
   L.push('**红测必须用中性同形探针，不要借本座。**WB 侧第一版让"主笔去调它自己被禁的工具"，它**以纪律为由拒发**——')
@@ -1023,8 +1023,8 @@ function codebuddyDoc() {
   L.push('')
   L.push('两条本宿主实测纪律：①**"热加载"是两句话，不是一句**——2026-09-23 WB 侧用同文件 A/B 钉死了：' +
     '**新增一份新定义（新路径）＝即时生效**（同会话内零重启即可派起来）；' +
-    '**改动已有定义的内容＝不生效，必须重启**（`AgentLoader.loadFromPaths` 有一条按路径的 `already loaded, skipping` 去重，' +
-    '内容冻结在**首次读取的那一版**）。⇒ 纪律照这个写：**「改真源 → 重跑安装器 → 重启宿主 → 重跑 `--check` 验哈希」；' +
+    '**改动已有定义的内容＝不生效，必须重启**（取证措辞 2026-09-27 更正：09-23 引的 `already loaded, skipping` 在 5.6.2 运行时日志里**不存在**，实际可 grep `[HotReload] Triggered by agents change` ＋ `[HotReload] Completed for agents`——事件层确有触发、枚举层同刻刷新，' +
+    '**但派工取到的正文仍是首次读取那一版**）。⇒ 纪律照这个写：**「改真源 → 重跑安装器 → 重启宿主 → 重跑 `--check` 验哈希」；' +
     '只有「新增一份新角色」才不需重启。** 别写"改完即生效"——那是两句承诺里错的那一句。' +
     '②"某工具缺席"类结论拿不到硬证据（不在清单里就发不起调用）——唯一出口是**强行发起一次对它的调用**，逼调度层回 `Tool Not Found`。')
   L.push('')
