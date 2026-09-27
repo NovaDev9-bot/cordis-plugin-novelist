@@ -336,6 +336,39 @@
       "usedBy": [
         "wb-seat"
       ]
+    },
+    {
+      "id": "chief-editor.obl.craftanchor.emotion",
+      "layer": "obligation",
+      "text": "手艺锚——情绪目标怎么落：章纲里的情绪目标必须落到可指认的画面与瞬间（读者在这一拍为谁揪心、在哪一行松一口气），不收「情绪拉满／张力十足」这类形容词；审稿追问固定为「这个瞬间读者身体里发生了什么」，答不出画面的情绪目标退回重写。",
+      "usedBy": [
+        "dsh-prod",
+        "dsh-public",
+        "wb-seat"
+      ],
+      "code": "ED-18"
+    },
+    {
+      "id": "chief-editor.obl.craftanchor.curve",
+      "layer": "obligation",
+      "text": "结构曲线怎么排：按「压—放」交替排章，先压到位再给兑现，相邻两章强度错开——连续两章同一强度＝曲线拉平；大兑现隔开排布，章章都是高潮＝没有高潮。",
+      "usedBy": [
+        "dsh-prod",
+        "dsh-public",
+        "wb-seat"
+      ],
+      "code": "ED-19"
+    },
+    {
+      "id": "chief-editor.obl.craftanchor.negative",
+      "layer": "obligation",
+      "text": "反面清单：转折写成转述（「此后她变了」）＝曲线造假，变化必须发生在场景里；同一承载通道三连用（章章靠对话爆、章章靠心理独白）＝手法钝化；只报强度不报代价（「更激烈了」，却说不出谁失去什么）＝假升级。",
+      "usedBy": [
+        "dsh-prod",
+        "dsh-public",
+        "wb-seat"
+      ],
+      "code": "ED-20"
     }
   ],
   "carriers": [
@@ -372,7 +405,10 @@
         "chief-editor.obl.autonomy",
         "chief-editor.obl.conflictrule",
         "chief-editor.aud.conflictdispatch.prod",
-        "chief-editor.obl.longrun"
+        "chief-editor.obl.longrun",
+        "chief-editor.obl.craftanchor.emotion",
+        "chief-editor.obl.craftanchor.curve",
+        "chief-editor.obl.craftanchor.negative"
       ]
     },
     {
@@ -404,7 +440,10 @@
         "chief-editor.obl.autonomy",
         "chief-editor.obl.conflictrule",
         "chief-editor.aud.conflictdispatch.pub",
-        "chief-editor.obl.longrun"
+        "chief-editor.obl.longrun",
+        "chief-editor.obl.craftanchor.emotion",
+        "chief-editor.obl.craftanchor.curve",
+        "chief-editor.obl.craftanchor.negative"
       ]
     },
     {
@@ -437,7 +476,10 @@
         "chief-editor.obl.autonomy",
         "chief-editor.obl.conflictrule",
         "chief-editor.aud.conflictdispatch.pub",
-        "chief-editor.obl.longrun"
+        "chief-editor.obl.longrun",
+        "chief-editor.obl.craftanchor.emotion",
+        "chief-editor.obl.craftanchor.curve",
+        "chief-editor.obl.craftanchor.negative"
       ]
     }
   ]

@@ -16,6 +16,17 @@
  * 一 语域指南（一句话，禁数字）／二 锚段／三 同场景范例 3–5 条／
  * 四 这个作者不会做的事／五 AI 腔黑名单／六 数字去哪了。
  *
+ * ── 冻结锚卡模式（E1 · 2026-09-26）─────────────────────────────────────────
+ * --anchor <锚段文件>：显式给入"原文锚段"＝**Owner 认可的那一版正文**（逐字冻结，工具不摘不改）。
+ * 给了 --anchor 即按**冻结锚卡**产出：卡头带版本号（--version，缺省 1）与冻结日，
+ * 卡头带纪律行「**改锚必须 Owner 再来一次**」（跟写来回磨→满意→冻结→再写两三章验崩；
+ * 主编与写手只消费锚卡，无权换锚——改锚＝重新冻结，版本 +1）。
+ * 锚段一节改为**两栏核心**：原文锚段（逐字冻结）× 结构节拍记录（何事何时发生——四分界①的合法形状）。
+ * --beats <节拍记录文件>：结构节拍记录给入（≤400 汉字，是节拍不是散文）；缺省留待填槽。
+ * --book 变为可选：给了照旧按场景功能挑同场景范例；不给则范例槽**如实留空**（缺料注明，不凑数）。
+ * 锚源纪律（E2）：craft/style-dna 28 件风格 DNA 是**蒸馏素材源**（建卡参考），不是锚源——
+ * **锚的最终来源是 Owner 认可的正文**。不许拿 DNA 卡当锚卡混用。
+ *
  * ── 范例候选怎么挑（规则写死，不许改成"主题相似度"）────────────────────────
  * 按**场景功能**分四类：对话密集／动作密集／心理描写／场景铺陈，每类挑 1 条。
  * 判据是**可计算的代理量**，不是语义判断：
@@ -43,7 +54,8 @@ import path from 'node:path'
 
 const argv = process.argv.slice(2)
 const opt = (k, d) => { const i = argv.indexOf(k); return i >= 0 ? argv[i + 1] : d }
-const USAGE = '用法：node build-author-card.mjs --book <锚书目录> [--out <卡文件>] [--json out.json]'
+const USAGE = '用法：node build-author-card.mjs --book <锚书目录> [--out <卡文件>] [--json out.json]\n' +
+  '      冻结锚卡（E1）：node build-author-card.mjs --anchor <锚段文件> [--beats <节拍记录文件>] [--version N] [--date YYYY-MM-DD] [--book <锚书目录>] [--source "《书名》· 作者"] [--out <卡文件>] [--json out.json]'
 
 /** 没测成：用法错、锚书不存在、0 章节。一律 exit 2——把"没检查"与"检查到没有"分开。 */
 function die(msg, hint) {
@@ -52,12 +64,21 @@ function die(msg, hint) {
 }
 
 const bookArg = opt('--book')
-if (!bookArg) die('缺 --book <锚书目录>', USAGE)
-const BOOK = path.resolve(bookArg)
+// 冻结锚卡模式（E1）：--anchor 在场时 --book 变可选（锚段是显式给入的 Owner 认可版，锚书只为范例候选服务）
+const ANCHOR_FILE = opt('--anchor') ? path.resolve(opt('--anchor')) : null
+const BEATS_FILE = opt('--beats') ? path.resolve(opt('--beats')) : null
+if (!bookArg && !ANCHOR_FILE) die('缺 --book <锚书目录>（或冻结锚卡模式：--anchor <锚段文件>）', USAGE)
+const BOOK = bookArg ? path.resolve(bookArg) : null
 const OUT = opt('--out') ? path.resolve(opt('--out')) : null
 const JSON_OUT = opt('--json') ? path.resolve(opt('--json')) : null
 /** 出处字符串（书名 · 作者）。卡里贴的是别人的正文，引用必须指明出处。 */
 const SOURCE = opt('--source') || ''
+/** 锚卡版本号（E1）：改锚必须 Owner 再来一次——每重新冻结一次 +1。 */
+const rawVersion = opt('--version')
+const CARD_VERSION = rawVersion == null ? 1 : Number(rawVersion)
+if (!Number.isInteger(CARD_VERSION) || CARD_VERSION < 1) die('--version 需为 ≥1 的整数（改锚重新冻结一次加一）', USAGE)
+const FREEZE_DATE = opt('--date') || new Date().toISOString().slice(0, 10)
+if (!/^\d{4}-\d{2}-\d{2}$/.test(FREEZE_DATE)) die('--date 需为 YYYY-MM-DD（缺省取今天）', USAGE)
 
 // ---------------------------------------------------------------- 读文本（UTF-8 → GBK 回退）
 
@@ -114,13 +135,17 @@ async function discover() {
 }
 
 // 自证：0 个章节文件＝没测成，不是"这本书没有风格"
+// （冻结锚卡模式且未附 --book：锚段是显式给入的，不扫锚书——units 留空，范例槽如实留空）
 let units = []
-try { units = (await discover()).units } catch (e) { die('读锚书失败：' + BOOK + '（' + (e && e.code ? e.code : e) + '）') }
-if (!units.length) {
-  die('锚书里扫到 0 个章节文件：' + BOOK,
-    '认两种布局：① <锚书>/manuscript/chapter_NNN.md ② 目录下任意 *.md / *.txt（会跳过 editorial/ 等账本目录）。' +
-    '\n  0 件不等于"这本书没有风格"——是没测成，所以退出码是 2 而不是 0')
+if (BOOK) {
+  try { units = (await discover()).units } catch (e) { die('读锚书失败：' + BOOK + '（' + (e && e.code ? e.code : e) + '）') }
+  if (!units.length) {
+    die('锚书里扫到 0 个章节文件：' + BOOK,
+      '认两种布局：① <锚书>/manuscript/chapter_NNN.md ② 目录下任意 *.md / *.txt（会跳过 editorial/ 等账本目录）。' +
+      '\n  0 件不等于"这本书没有风格"——是没测成，所以退出码是 2 而不是 0')
+  }
 }
+const NO_BOOK = !BOOK
 
 // ---------------------------------------------------------------- 段落切分
 
@@ -130,6 +155,33 @@ const MIN_WIN = 150      // 范例候选的字数带下限（模板：每条 150
 const MAX_WIN = 400
 const MIN_ANCHOR = 100   // 锚段（模板：100–200 字）
 const MAX_ANCHOR = 200
+
+// ---------------------------------------------------------------- 冻结锚卡输入（E1：原文锚段 + 结构节拍记录）
+
+/**
+ * 显式锚段＝Owner 认可的那一版正文，**逐字冻结**——工具不摘不改（判定归人，代码做壳；
+ * 这里不做洁净度剔除等自动加工：那段字经 Owner 过目，机器再"帮忙"就是在改锚）。
+ * 带宽只 warn 不拦：冻多长是 Owner 的决定，工具如实报数。
+ */
+let ownerAnchor = null
+if (ANCHOR_FILE) {
+  let t = ''
+  try { t = (await readTextSafe(ANCHOR_FILE)).trim() } catch (e) { die('读 --anchor 锚段文件失败：' + ANCHOR_FILE + '（' + (e && e.code ? e.code : e) + '）', USAGE) }
+  if (!t) die('--anchor 文件是空的：锚段＝Owner 认可的正文，空文件冻不成锚卡', USAGE)
+  const hc = hanzi(t)
+  if (hc < MIN_ANCHOR) console.error('[build-author-card] ⚠ 锚段只有 ' + hc + ' 汉字（模板带 100–200）——短锚段立语域偏弱；冻结是 Owner 决定，工具不拦但如实报。')
+  if (hc > MAX_ANCHOR) console.error('[build-author-card] ⚠ 锚段 ' + hc + ' 汉字，超出模板带（100–200）——卡字数预算 600–2000，超带会挤占范例与禁令的位置；冻结是 Owner 决定，工具不拦但如实报。')
+  ownerAnchor = { text: t, label: path.basename(ANCHOR_FILE) + '（--anchor 显式给入：Owner 认可版）' }
+}
+/** 结构节拍记录（四分界①合法形状：何事何时发生）。上限 400 汉字——是节拍不是散文。 */
+let ownerBeats = null
+if (BEATS_FILE) {
+  let t = ''
+  try { t = (await readTextSafe(BEATS_FILE)).trim() } catch (e) { die('读 --beats 节拍记录文件失败：' + BEATS_FILE + '（' + (e && e.code ? e.code : e) + '）', USAGE) }
+  if (!t) die('--beats 文件是空的：节拍记录缺省留待填槽即可，不必传空文件', USAGE)
+  if (hanzi(t) > 400) die('--beats 节拍记录超过 400 汉字——它是"何事何时发生"的节拍，不是散文；超长说明在往卡里塞手册', USAGE)
+  ownerBeats = t
+}
 
 /** 标题行／元数据行不是正文段落：切窗时剔掉。 */
 const isMeta = (l) =>
@@ -278,7 +330,7 @@ for (const u of units) {
     off += w.length
   }
 }
-if (!all.length) {
+if (!all.length && BOOK) {
   die('锚书读到了 ' + units.length + ' 个章节文件，但切不出任何 150 字以上的正文段落：' + BOOK,
     '是不是整个文件都是标题/目录？先人工确认锚书文本形态，别把"切不出窗口"当成"这本书没有范例"')
 }
@@ -327,26 +379,29 @@ for (const cls of CLASSES) {
 // 候选按锚书顺序排列（读起来是"这本书的几副嗓子"，不是按分数排队）
 candidates.sort((a, b) => a.unit.sort - b.unit.sort || a.off - b.off)
 
-// 锚段：取第一个章节单元的开头（放任务书开头，用来立语域）
-let anchor = null
-for (const u of units) {
-  const paras = paragraphsOf(u.text)
-  let buf = ''
-  for (const p of paras) {
-    buf += (buf ? '\n' : '') + p
-    if (hanzi(buf) >= MIN_ANCHOR) break
-  }
-  if (hanzi(buf) < MIN_ANCHOR) continue
-  if (hanzi(buf) > MAX_ANCHOR) {
-    let cut = ''
-    for (const s of buf.split(/(?<=[。！？…”」』])/)) {
-      if (hanzi(cut + s) > MAX_ANCHOR) break
-      cut += s
+// 锚段：冻结锚卡模式用显式给入的 Owner 认可版（逐字冻结，工具不摘不改）；
+// 否则取第一个章节单元的开头（放任务书开头，用来立语域）
+let anchor = ownerAnchor
+if (!anchor) {
+  for (const u of units) {
+    const paras = paragraphsOf(u.text)
+    let buf = ''
+    for (const p of paras) {
+      buf += (buf ? '\n' : '') + p
+      if (hanzi(buf) >= MIN_ANCHOR) break
     }
-    buf = hanzi(cut) >= MIN_ANCHOR ? cut : buf.slice(0, MAX_ANCHOR)
+    if (hanzi(buf) < MIN_ANCHOR) continue
+    if (hanzi(buf) > MAX_ANCHOR) {
+      let cut = ''
+      for (const s of buf.split(/(?<=[。！？…”」』])/)) {
+        if (hanzi(cut + s) > MAX_ANCHOR) break
+        cut += s
+      }
+      buf = hanzi(cut) >= MIN_ANCHOR ? cut : buf.slice(0, MAX_ANCHOR)
+    }
+    anchor = { text: buf, label: u.label }
+    break
   }
-  anchor = { text: buf, label: u.label }
-  break
 }
 
 // ---------------------------------------------------------------- 审校侧统计（只进 stderr / --json）
@@ -370,7 +425,11 @@ const reviewStats = {
 }
 
 const selectionReport = {
-  book_medians: {
+  anchor_card: ANCHOR_FILE
+    ? { mode: 'frozen-anchor-card', version: CARD_VERSION, frozen_on: FREEZE_DATE,
+        anchor_source: ANCHOR_FILE, beats_source: BEATS_FILE || null, note: '改锚必须 Owner 再来一次（重新冻结，版本 +1）' }
+    : undefined,
+  book_medians: NO_BOOK ? null : {
     dlg: Math.round(mid.dlg * 1000) / 1000,
     act: Math.round(mid.act * 10) / 10,
     psy: Math.round(mid.psy * 10) / 10,
@@ -381,8 +440,10 @@ const selectionReport = {
     dlg: Math.round(c.dlg * 1000) / 1000, act: Math.round(c.act * 10) / 10,
     psy: Math.round(c.psy * 10) / 10, para_mean: Math.round(c.para * 10) / 10,
   })),
-  classes_not_measured: missing,
-  anchor_source: anchor ? anchor.label : null,
+  classes_not_measured: NO_BOOK ? null : missing,
+  anchor_source: anchor
+    ? (ownerAnchor ? ownerAnchor.label : anchor.label)
+    : null,
 }
 
 // ---------------------------------------------------------------- 卡正文
@@ -397,9 +458,19 @@ function buildCard() {
   const L = []
   L.push('# （待填：风格指纹名） · （待填：作品特征描述）')
   L.push('')
-  L.push('> 性质：写手参照卡（**不是赏析、不是规格清单**）。字数预算 600–2000。')
-  L.push('> 使用方式：随派工包**全文**贴给主笔（留在库里不贴＝这一格空转）。')
-  L.push('> 生成：本卡由 build-author-card 生成，范例来自你自己的锚书。**卡名用风格指纹**（形态描述）——名字不落在卡名上，落在下一行的出处上。')
+  if (ANCHOR_FILE) {
+    // 冻结锚卡（E1）：卡头带版本号与改锚纪律——锚源＝Owner 认可的正文，改锚必须 Owner 再来一次
+    L.push('> 性质：**冻结锚卡 v' + CARD_VERSION + '**（冻结日 ' + FREEZE_DATE + '）——写手参照卡（**不是赏析、不是规格清单**）。字数预算 600–2000。')
+    L.push('> 冻结流程（Owner 9-24 定）：跟写来回磨 → Owner 满意 → **冻结** → 再写两三章验崩。')
+    L.push('> **改锚必须 Owner 再来一次**：锚源＝Owner 认可的正文；主编与写手只消费本卡，无权换锚、无权改版本——改锚＝重新冻结，版本 +1。')
+    L.push('> 使用方式：**每章派工喂当前版本锚卡**——把卡**全文**贴进派工包（留在库里不贴＝这一格空转；旧版本卡不进包，版本以卡头为准）。')
+  } else {
+    L.push('> 性质：写手参照卡（**不是赏析、不是规格清单**）。字数预算 600–2000。')
+    L.push('> 使用方式：随派工包**全文**贴给主笔（留在库里不贴＝这一格空转）。')
+  }
+  L.push('> 生成：本卡由 build-author-card 生成' + (ANCHOR_FILE
+    ? '（冻结锚卡模式：锚段为**显式给入的 Owner 认可版**，逐字冻结' + (NO_BOOK ? '；本次未附锚书' : '，范例来自你自己的锚书') + '）。'
+    : '，范例来自你自己的锚书。') + '**卡名用风格指纹**（形态描述）——名字不落在卡名上，落在下一行的出处上。')
   // 出处不是可选项：卡里贴的是别人的正文，"适当引用"的前提条件就是指明作者与作品名。
   // 卡名去名（指纹）与引文署名（出处）不冲突——两者管的是不同的东西。
   L.push('> 出处：' + (SOURCE || '（待填：范例所出的**书名 · 作者**——卡里贴了原文，就必须指明出处）'))
@@ -408,11 +479,29 @@ function buildCard() {
   L.push('（待填：一句话定性，**禁数字**。例：冷硬克制，靠动作和对话推进，叙述者不解释情绪。）')
   L.push('')
   L.push('## 二、锚段（放任务书开头）')
-  L.push(anchor ? anchor.text + '\n\n（锚段取自' + anchor.label + '开头）' : '（自备：用 build-author-card 从你的锚书生成）')
+  if (ANCHOR_FILE) {
+    // 两栏核心（E1）：原文锚段（逐字冻结）× 结构节拍记录（何事何时发生——四分界①的合法形状）。
+    // 表格单元格内换行写 <br>：两栏在渲染与裸读两种形态下都保持左右并置。
+    const cell = (t) => t.split('\n').map((s) => s.trim()).filter(Boolean).join('<br>')
+    L.push('')
+    L.push('| 原文锚段（Owner 认可版，逐字冻结） | 结构节拍记录（何事何时发生） |')
+    L.push('|---|---|')
+    L.push('| ' + cell(anchor ? anchor.text : '') + ' | ' + cell(ownerBeats ||
+      '（待填：冻结前由主编随 Owner 认可正文一并记下——只收结构节拍（如"每 500 字一钩""章末留卡点"这类何事何时发生），不收篇幅配比与表层统计（见本卡第六节））') + ' |')
+    L.push('')
+    L.push('（锚段来源：' + (anchor ? anchor.label : '—') + '，' + hanzi(anchor ? anchor.text : '') + ' 汉字——逐字冻结；**改锚必须 Owner 再来一次**。）')
+  } else {
+    L.push(anchor ? anchor.text + '\n\n（锚段取自' + anchor.label + '开头）' : '（自备：用 build-author-card 从你的锚书生成）')
+  }
   L.push('')
   L.push('## 三、同场景范例 3–5 条')
   L.push('按**即将写的场景类型**取用：对话戏配对话戏、动作段配动作段。**不要按主题相似度选**——按内容相似度选范例会降低风格归属。')
   L.push('')
+  if (NO_BOOK) {
+    L.push('（本次冻结未附锚书（--book 未给）：同场景范例槽**如实留空**——范例要按场景功能从锚书里测着挑，没测就不凑数。'
+      + '补法＝补跑一次带 --book 的生成，把范例节并进来；三处人填项照旧搬。）')
+    L.push('')
+  }
   for (const c of candidates) {
     L.push('### ' + c.cls + '（' + c.unit.label + '）')
     L.push(c.text)
@@ -420,7 +509,7 @@ function buildCard() {
     L.push('> 为什么是这条：' + c.why + '（本锚书该类候选中测得最靠前的一条）')
     L.push('')
   }
-  if (missing.length) {
+  if (missing.length && !NO_BOOK) {
     L.push('（本次锚书里未测到合格段落的功能类：' + missing.join('、') + '——**未测到不等于没有**，'
       + '要这一类范例就换一本锚书或补一段进语料，别拿别的类顶替。）')
     L.push('')
@@ -463,12 +552,28 @@ const guideSec = (card.match(/## 一、语域指南[^\n]*\n([\s\S]*?)\n## /) || 
 const guideDigits = guideSec.match(/\d+/)
 if (guideDigits) violations.push('语域指南一节出现数字：' + guideDigits[0])
 
-if (candidates.length < 3) violations.push('范例候选只有 ' + candidates.length + ' 条（模板要求 3–5 条）')
-if (candidates.length > 5) violations.push('范例候选有 ' + candidates.length + ' 条（模板要求 3–5 条）')
+// 范例条数断言只在**附了锚书**时成立——没附锚书的冻结锚卡范例槽如实留空（缺料≠违规）
+if (!NO_BOOK) {
+  if (candidates.length < 3) violations.push('范例候选只有 ' + candidates.length + ' 条（模板要求 3–5 条）')
+  if (candidates.length > 5) violations.push('范例候选有 ' + candidates.length + ' 条（模板要求 3–5 条）')
+} else if (candidates.length) {
+  violations.push('未附锚书却产出了 ' + candidates.length + ' 条范例候选——无源之水，不许')
+}
 for (const h of ['## 一、语域指南', '## 二、锚段', '## 三、同场景范例', '## 四、这个作者不会做的事', '## 五、AI 腔黑名单', '## 六、数字去哪了']) {
   if (!card.includes(h)) violations.push('缺小节：' + h)
 }
-if (!card.includes('本卡由 build-author-card 生成，范例来自你自己的锚书')) violations.push('缺生成声明')
+// 冻结锚卡（E1）的自证：带版本的卡头、改锚纪律行、两栏核心，一样都不能少
+if (ANCHOR_FILE) {
+  const cellOf = (t) => t.split('\n').map((s) => s.trim()).filter(Boolean).join('<br>')
+  if (!card.includes('冻结锚卡 v' + CARD_VERSION)) violations.push('缺版本行（冻结锚卡必须带版本号）')
+  if (!card.includes('改锚必须 Owner 再来一次')) violations.push('缺改锚纪律行')
+  if (!card.includes('| 原文锚段（Owner 认可版，逐字冻结） | 结构节拍记录（何事何时发生） |')) violations.push('缺两栏核心表头（原文锚段 × 结构节拍记录）')
+  // 两栏单元格里换行写作 <br>（表格形态的约束），比对用同一变换——文字本体仍逐字保留
+  if (!ownerAnchor || !card.includes(cellOf(ownerAnchor.text))) violations.push('两栏核心里没有逐字冻结的原文锚段')
+  if (ownerBeats && !card.includes(cellOf(ownerBeats))) violations.push('两栏核心里没有给入的结构节拍记录')
+} else if (!card.includes('本卡由 build-author-card 生成，范例来自你自己的锚书')) {
+  violations.push('缺生成声明')
+}
 
 const cardChars = hanzi(card)
 if (cardChars > 2000) violations.push('卡正文 ' + cardChars + ' 字，超出模板预算上限 2000')
@@ -481,9 +586,18 @@ if (violations.length) {
 
 // ---------------------------------------------------------------- 输出（卡 → stdout/--out；数字 → stderr/--json）
 
-console.error('[build-author-card] 锚书=' + BOOK + '（' + units.length + ' 个章节文件，模式=' + (units[0].label.startsWith('第 ') ? 'manuscript' : 'files') + '）')
-console.error('[build-author-card] 范例候选 ' + candidates.length + ' 条：' + candidates.map((c) => c.cls + '@' + c.unit.label).join('、'))
-console.error('[build-author-card] 引号普查：' + Object.entries(census).map(([k, v]) => k + ' ×' + v).join(' ｜ '))
+console.error('[build-author-card] 锚书=' + (BOOK || '（未附——冻结锚卡模式，锚段为显式给入）') + (BOOK ? '（' + units.length + ' 个章节文件，模式=' + (units[0].label.startsWith('第 ') ? 'manuscript' : 'files') + '）' : ''))
+if (ANCHOR_FILE) {
+  console.error('[build-author-card] 冻结锚卡：v' + CARD_VERSION + '（冻结日 ' + FREEZE_DATE + '）——改锚必须 Owner 再来一次（重新冻结，版本 +1）')
+  console.error('[build-author-card] 原文锚段：' + ANCHOR_FILE + '（' + hanzi(ownerAnchor.text) + ' 汉字，逐字冻结）｜ 结构节拍记录：' + (ownerBeats ? BEATS_FILE + '（' + hanzi(ownerBeats) + ' 汉字）' : '（未给——卡内留待填槽）'))
+}
+if (!NO_BOOK) console.error('[build-author-card] 范例候选 ' + candidates.length + ' 条：' + candidates.map((c) => c.cls + '@' + c.unit.label).join('、'))
+else console.error('[build-author-card] 未附锚书：同场景范例槽如实留空（缺料≠违规；要范例就补跑带 --book 的生成）')
+if (NO_BOOK) {
+  console.error('[build-author-card] 引号普查：（未附锚书，未测）')
+} else {
+  console.error('[build-author-card] 引号普查：' + Object.entries(census).map(([k, v]) => k + ' ×' + v).join(' ｜ '))
+}
 if (junkWindows || deWindows) {
   const parts = []
   if (junkWindows) parts.push('OCR 噪声（带圈数字/罗马数字/CJK 兼容字）' + junkWindows + ' 个')
@@ -491,7 +605,7 @@ if (junkWindows || deWindows) {
   console.error('[build-author-card] 洁净度：剔除 ' + parts.join('、') + ' 窗口——'
     + '盗版文本常见，那不是风格，贴给主笔等于教它写乱码与错字。')
 }
-if (missing.length) {
+if (missing.length && !NO_BOOK) {
   console.error('[build-author-card] 未测到合格段落的功能类：' + missing.join('、') + '（未测到≠没有；未用别的类顶替）')
   if (missing.includes('对话密集') && noQuoteBook) {
     console.error('[build-author-card]   ⚠ 全书一个引号都没有——"对话密集未测到"多半是**语料不带引号**，'
@@ -505,17 +619,21 @@ if (!SOURCE) {
 }
 console.error('[build-author-card] 卡正文 ' + cardChars + ' 字；数字型风格断言 0 个（已断言：卡正文无 `\\d+%` 与量化词，语域指南一节无数字）')
 console.error('')
-console.error('── 以下是审校侧口径，**不进写手派工包**（给 style-check / structure-check 对手，别贴给主笔）')
-console.error('   句长中位 ' + reviewStats.sentence_median_hanzi + ' 字 ｜ 短句占比 ' + reviewStats.short_sentence_ratio +
-  ' ｜ 对话段占比 ' + reviewStats.dialogue_para_ratio + ' ｜ 锚书汉字 ' + reviewStats.hanzi_total)
-console.error('   候选实测代理量（挑选依据，可复核）：')
-for (const c of selectionReport.candidates) {
-  console.error('     ' + c.class + ' @' + c.where + '  引号内汉字占比 ' + c.dlg + ' ｜ 动作动词密度/千字 ' + c.act +
-    ' ｜ 心理标记密度/千字 ' + c.psy + ' ｜ 段均长 ' + c.para_mean + ' 字')
+if (NO_BOOK) {
+  console.error('── 审校侧口径：未附锚书，本工具测不了（"没测"与"测到没有"分开——这里如实报"没测"）')
+} else {
+  console.error('── 以下是审校侧口径，**不进写手派工包**（给 style-check / structure-check 对手，别贴给主笔）')
+  console.error('   句长中位 ' + reviewStats.sentence_median_hanzi + ' 字 ｜ 短句占比 ' + reviewStats.short_sentence_ratio +
+    ' ｜ 对话段占比 ' + reviewStats.dialogue_para_ratio + ' ｜ 锚书汉字 ' + reviewStats.hanzi_total)
+  console.error('   候选实测代理量（挑选依据，可复核）：')
+  for (const c of selectionReport.candidates) {
+    console.error('     ' + c.class + ' @' + c.where + '  引号内汉字占比 ' + c.dlg + ' ｜ 动作动词密度/千字 ' + c.act +
+      ' ｜ 心理标记密度/千字 ' + c.psy + ' ｜ 段均长 ' + c.para_mean + ' 字')
+  }
+  console.error('   全书窗口中位（定标用）：引号内汉字占比 ' + selectionReport.book_medians.dlg +
+    ' ｜ 动作 ' + selectionReport.book_medians.act + ' ｜ 心理 ' + selectionReport.book_medians.psy +
+    ' ｜ 段均长 ' + selectionReport.book_medians.para_mean)
 }
-console.error('   全书窗口中位（定标用）：引号内汉字占比 ' + selectionReport.book_medians.dlg +
-  ' ｜ 动作 ' + selectionReport.book_medians.act + ' ｜ 心理 ' + selectionReport.book_medians.psy +
-  ' ｜ 段均长 ' + selectionReport.book_medians.para_mean)
 
 if (OUT) {
   await writeFile(OUT, card, 'utf8')

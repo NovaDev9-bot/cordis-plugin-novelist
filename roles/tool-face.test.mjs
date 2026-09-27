@@ -587,10 +587,12 @@ test('文档与安装器的热加载措辞：新增即时 / 改动需重启，�
 
 // ── 2026-09-23：工具面读数必须回灌本表（"文档清单 ≠ 运行时清单"）
 //
-// 现场形状：宿主官方 tools-reference 里**没有** `automation_update`／`present_files`／`read_me`／
+// 现场形状：宿主官方 tools-reference 里**没有** `automation_update`／`present_files`／`widget_guidelines`／
 // `show_widget`／`Skill` 这五个名字，而它们在运行时工具面里**都在**。它们此前从没进过 known_tools
 // ⇒ 既没被归类、也没被封、也没人发现（未归类＝默认敞开且不留痕迹）。
 // 本表因此要求：**每次拿到的运行时工具面读数，都要能在 known_tools 里对上号**。
+// （2026-09-27 批次三 F6c：`read_me` → `widget_guidelines` 换名登记——历史读数里的名字随宿主改名
+// 同步换成新名，旧名只活在 note 原文里；5.6.2 实证旧名不进暴露面。）
 test('运行时工具面读数里的每个名字都必须已在 known_tools（新名字出现＝表已落后）', () => {
   const t = realTable()
   const known = new Set(t.hosts.codebuddy.known_tools || [])
@@ -603,8 +605,13 @@ test('运行时工具面读数里的每个名字都必须已在 known_tools（�
   }
   assert.deepEqual(missing, [], '读数里有 known_tools 认不得的名字——表落后于宿主的真实工具面：' + missing.join('、'))
   // 反向也要有一条：这条教训的来源名字必须真的在清单里（防"读数登记了但名字没补进去"）
-  for (const n of ['automation_update', 'present_files', 'read_me', 'show_widget', 'Skill']) {
+  for (const n of ['automation_update', 'present_files', 'widget_guidelines', 'show_widget', 'Skill']) {
     assert.ok(known.has(n), '这条教训的来源名字必须在 known_tools 里：' + n)
+  }
+  // 换名同步的自证：宿主改名后，读数里的旧名不许再以"当前名"的资格出现在 names 数组里
+  //（否则同一位名字在本表有两个家，下一个读数来了不知道该对哪个）。
+  for (const r of readings) {
+    assert.ok(!r.names.includes('read_me'), '读数 ' + r.when + ' 的 names 里还有旧名 read_me——按 2026-09-27 换名登记应写 widget_guidelines')
   }
 })
 
@@ -649,7 +656,7 @@ test('派生件必须带 couplings / _forbidden / unclaimed 三节，且都是�
     // ③ 未被任何角色认领的能力：现算。`host.ui` 必须在内——那正是 §5.1 问的那一格
     const un = new Map(led.unclaimed.map((u) => [u.cid, u]))
     assert.ok(un.has('host.ui'), 'host.ui 没有任何角色认领 ⇒ 必须出现在 unclaimed 里（这就是「它为什么不在件里」的答案）')
-    assert.deepEqual(un.get('host.ui').ineffective, ['present_files', 'read_me', 'show_widget'],
+    assert.deepEqual(un.get('host.ui').ineffective, ['present_files', 'widget_guidelines', 'show_widget'],
       '要如实带出它是整格 C 桶（不是 status:unknown——那会把「有名字但封不住」说成「没查清」）')
     assert.ok(un.has('team.admin'), 'team.admin 也没人认领（只有主编可能用到，而主编不封任何能力）')
     assert.ok(!un.has('ledger.write'), '有人认领的能力不许出现在 unclaimed 里（否则这一节退化成"把所有能力列一遍"）')

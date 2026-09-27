@@ -1,6 +1,6 @@
 {
   "name": "cordis-plugin-novelist",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "File-backed book ledger tools for long-form fiction, shipped in two host forms from one source of truth. Fifteen deterministic novel_* tools read and write one directory per book: JSON ledgers (project/bible/characters/foreshadows/timeline/outline/status), Markdown manuscripts with per-revision snapshots, an append-only JSONL event log, and an editorial workspace (transaction receipts, per-revision fact snapshots, judge scores, decision log). Chapter submissions are transactional: pending/done receipts bound to a content hash, optimistic concurrency via expected_rev, and an idempotent retry path. Writes to one book are serialized in-process and across processes by a lock file. Also ships an MCP server exposing the same tools to any MCP client (workspace root enforced at boot), a two-role editorial preset for DSH, and a WorkBuddy (CodeBuddy) expert package built from the same host-agnostic capability table (editor-in-chief as lead, author as teammate, tool-face isolation rendered per host into the host's own carrier directory). No runtime dependencies. The code does the bookkeeping; the model does the writing.",
   "type": "module",
   "main": "lib/novelist.js",
@@ -27,7 +27,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "test": "node --test test/audit-regressions.test.mjs test/novelist.test.mjs test/context.test.mjs test/retrieval.test.mjs test/decide-faults.test.mjs test/versioning.test.mjs test/structure.test.mjs test/required-fields.test.mjs test/seal.test.mjs test/realfs.test.mjs test/preset.test.mjs test/batch-aggregate.test.mjs test/versions.test.mjs test/platform-export.test.mjs mcp/test/mcp.test.mjs mcp/test/server-e2e.test.mjs test/test-manifest.test.mjs instruments/style-check.test.mjs instruments/instrument-aggregate.test.mjs instruments/instrument-guards.test.mjs scripts/build-wb-expert.test.mjs roles/tool-face.test.mjs roles/text-invariants.test.mjs roles/persona-roundtrip.test.mjs test/blind-credentials.test.mjs test/e2e-acceptance.test.mjs test/rule-ledger.test.mjs test/untested-paths.test.mjs test/install-wb-agents.test.mjs",
+    "test": "node --test test/audit-regressions.test.mjs test/novelist.test.mjs test/context.test.mjs test/retrieval.test.mjs test/decide-faults.test.mjs test/versioning.test.mjs test/structure.test.mjs test/required-fields.test.mjs test/seal.test.mjs test/realfs.test.mjs test/preset.test.mjs test/batch-aggregate.test.mjs test/versions.test.mjs test/platform-export.test.mjs mcp/test/mcp.test.mjs mcp/test/server-e2e.test.mjs test/test-manifest.test.mjs instruments/style-check.test.mjs instruments/instrument-aggregate.test.mjs instruments/instrument-guards.test.mjs instruments/marginal-cost-check.test.mjs instruments/build-author-card.test.mjs scripts/build-wb-expert.test.mjs roles/tool-face.test.mjs roles/text-invariants.test.mjs roles/persona-roundtrip.test.mjs test/blind-credentials.test.mjs test/e2e-acceptance.test.mjs test/rule-ledger.test.mjs test/ledger-coverage.test.mjs test/blueprint-ledger.test.mjs test/book-classification.test.mjs test/word-window-tiers.test.mjs test/untested-paths.test.mjs test/install-wb-agents.test.mjs",
     "check:wb-package": "node scripts/wb-package-check.mjs"
   },
   "keywords": [

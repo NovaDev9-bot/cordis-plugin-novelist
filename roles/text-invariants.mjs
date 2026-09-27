@@ -12,7 +12,9 @@
  * 人格段里的义务句、协议里的口径句、SOP 里的数字。两者都是"装配前 fail-closed"，
  * 都挂在装配器第 0 步与 check-all 上。
  *
- * ── 四组不变量，各自的病根
+ * ── 五组不变量，各自的病根
+ * （①禁模式 ②同句 ③同数 ④写手侧数字四分界 ⑤载体禁码标——⑤ 于 2026-09-27 批次三 A5① 加入，
+ *   与 build-persona.mjs 的"渲染即剥码标"配套：生成器负责剥，本组负责让写回去报红。）
  * ① **禁模式（人格义务句）**：人格段里"你没有 X"是**宿主能力事实**——换个宿主形态就是假话，
  *    而且同一份文件末尾的工具清单会当场证伪它（2026-09-21 实测与分析：被证伪的事实句
  *    不产生行为，只把人格段自己的权威折价）。这一类句子已统一改成义务句"你不得动用"。
@@ -325,9 +327,34 @@ if (personaFiles.length < 4) die('（含预设）扫描面只有 ' + personaFile
   }
 }
 
+// ── 不变量 ⑤ 载体禁码标（A5① · 2026-09-27 批次三，总纲）：载体不得出现 〔AUTH-NN〕 条款码标 ──
+// 病根：码标此前由 build-persona.mjs 渲进**每一个化身**（人格面带着内部台账的引用号，模型
+// 会照抄自报——WB 人格注入读数实测引用 AUTH-01…19）。2026-09-27 批次三改为生成器剥码标
+//（号只活在真源与条款台账里）；本条是它的反向锁：**谁把码标写回载体（手改化身、或生成器
+// 回潮），这里当场报红**。同组顺带锁 `_note`：真源的元信息数组只许活在真源里，漏进化身＝
+// 把编辑过程当人格发了出去。
+{
+  const MARKER = /〔[A-Z]{2,6}-\d{2}〕/
+  const NOTE = '_note'
+  let scanned = 0
+  for (const f of personaFiles) {
+    const lines = read(f).split('\n')
+    scanned += lines.length
+    lines.forEach((l, i) => {
+      const m = l.match(MARKER)
+      if (m) violations.push('⑤ 载体禁码标：' + REL(f) + ':' + (i + 1) + ' 出现条款码标「' + m[0] + '」——' +
+        '码标只许活在真源（roles/persona/*.json）与条款台账（能力表/宿主工具面.md）里，不许进任何化身\n      ' + l.trim().slice(0, 140))
+      if (l.includes(NOTE)) violations.push('⑤ 载体禁 _note：' + REL(f) + ':' + (i + 1) + ' 出现「' + NOTE + '」——真源元信息漏进化身（把编辑过程当人格发出去了）\n      ' + l.trim().slice(0, 140))
+    })
+  }
+  if (scanned === 0) die('⑤ 扫描面为 0 行——人格化身一份都没读到（路径变了？0 件不等于干净）')
+  notes.push('⑤ 载体禁码标：' + personaFiles.length + ' 件 / ' + scanned + ' 行零命中（码标与 _note 都不进化身；' +
+    '剥码标的实现点＝build-persona.mjs renderSeg——在真源模板层剥，不改生成产物）')
+}
+
 // ── 输出 ────────────────────────────────────────────────────────────────────
 console.log('')
-console.log('══════ 文本层不变量（人格义务句 / 跨文件同句 / SOP 同数 / 写手侧数字四分界）══════')
+console.log('══════ 文本层不变量（人格义务句 / 跨文件同句 / SOP 同数 / 写手侧数字四分界 / 载体禁码标）══════')
 // 登记为跳过的条（`○` 开头）原样打出，不加 ✓——「没查」不许看起来像「查过了」。
 for (const n of notes) console.log(n.startsWith('○') ? '  ' + n : '  ✓ ' + n)
 if (violations.length) {
@@ -341,6 +368,6 @@ const skipped = notes.filter((n) => n.startsWith('○')).length
 if (skipped) {
   console.log('  · 通过的是 ' + (notes.length - skipped) + ' 组；另有 ' + skipped + ' 组**登记为跳过、未查**（见上面的 ○ 行）——不写成"全部成立"')
 } else {
-  console.log('  ✓ 四组不变量全部成立（扫描面 ' + personaFiles.length + ' 件人格/派工文本 + guide + SKILL + 参照卡）')
+  console.log('  ✓ 五组不变量全部成立（扫描面 ' + personaFiles.length + ' 件人格/派工文本 + guide + SKILL + 参照卡）')
 }
 process.exit(0)

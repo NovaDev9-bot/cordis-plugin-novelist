@@ -1,4 +1,4 @@
-# 编剧部 starter 预设（公开版）
+# 编辑部 starter 预设（公开版）
 
 与 novelist 插件配套的**两座位制编辑部预设**：主编（常驻主智能体，三段式人格+裁量条款）+ 主笔（作者+执笔一体，continuable 同事线）+ 按需工种（档案员/拆书员/试读员/结构校准员/校对员，one-shot）。职责分工、防自批不变量（子代理一律 deny 写类工具，落盘权唯一在主编）、盲读输入隔离都写在 agent.cordis.yml 里。
 
@@ -19,7 +19,7 @@ dsh plugin --profile web add cordis-plugin-novelist
 mkdir -p ~/.dsh/.agent-presets/editorial-starter
 cp preset-starter/agent.cordis.yml preset-starter/preset.yml ~/.dsh/.agent-presets/editorial-starter/
 
-# 3) 启动后在预设选择器里选「编剧部 starter」（预设入口以你所用 DSH 版本界面为准）
+# 3) 启动后在预设选择器里选「编辑部 starter」（预设入口以你所用 DSH 版本界面为准）
 dsh web
 ```
 

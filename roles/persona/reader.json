@@ -28,7 +28,10 @@
     "⑤ 生产版的身份句与公开版**不止差一个前缀**（删掉「NarrativeForge 的」得不出「编辑部的」），但两侧在「试读员」处仍逐字相同，故只把差异部分各存一段，后面那句（——一位**读了三十年网文的资深读者**：…）留在义务层由三份共用；不整句各存一份。",
     "⑥ 生产版人格把账本工具数成「（novel_bible/novel_outline/novel_verify）」，而它自己的 toolFilter.deny 里还有 novel_ask 与 novel_score；公开版与 wb 的同一句把这两件都列了，并多「也不查别人的判词（独立读感是盲读的全部价值）」。两份都没改、原样存两个变体，哪版对由 Owner 拍板。",
     "⑦ reader.md 的第三段（审法…两栏分开记）在盘上**折成两行**（文件第 15–16 行），而生成器重排后一段一行 ⇒ --apply 会把这两行并成一行（纯排版、剥空白后逐字不变），即 reader.md 也会字节变——「Markdown 那七份逐字节不变」这条预期对 reader.md 的第三段不成立。",
-    "⑧ 本角色的三份化身里没有座位 agent 定义（wb-expert-starter/agents/*.md 只有主编/主笔两份；试读员按能力表 roles.reader.dsh.seat=null，是 one-shot duty，不占编制）。"
+    "⑧ 本角色的三份化身里没有座位 agent 定义（wb-expert-starter/agents/*.md 只有主编/主笔两份；试读员按能力表 roles.reader.dsh.seat=null，是 one-shot duty，不占编制）。",
+    "",
+    "── 2026-09-27 批次三（总纲 F5，Owner 总令）",
+    "⑨ READ-14 的逐名枚举（novel_chapter/ledger/bible/outline/verify/ask/event/score 共 8 名）改为按类别（「任何账本工具——写入口/查账/章纲/核数/事件带/判据账，一类不漏」）：工具真名随宿主变（WB 侧是 mcp__novelist__*），人格面按类别说、名单由能力表/载体承载，防第二事实。deny 实名单不变（能力表照旧逐名）。"
   ],
   "segments": [
     {
@@ -230,7 +233,7 @@
     {
       "id": "reader.obl.tools",
       "layer": "obligation",
-      "text": "你不得动用 novel_chapter 与 novel_ledger，也不得动用账本工具（novel_bible/novel_outline/novel_verify/novel_ask）与事件带（novel_event）、判据账（novel_score）——你知道的一切只来自派工包，也不查别人的判词（独立读感是盲读的全部价值）",
+      "text": "你不得动用任何账本工具——账本写入口、查账、章纲、核数、事件带、判据账，一类不漏——你知道的一切只来自派工包，也不查别人的判词（独立读感是盲读的全部价值）",
       "usedBy": [
         "dsh-prod",
         "dsh-public",

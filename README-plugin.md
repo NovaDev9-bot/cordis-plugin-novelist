@@ -74,6 +74,7 @@ A plain-file book ledger + 14 deterministic tools for multi-agent long-form fict
 | `instruments/corpus-falsify.mjs` | 对锚书语料逐条验证流行写作规范（哪些是行业线、哪些只是某位作者的口味） |
 | `instruments/platform-export.mjs` | 番茄/起点导出（章标题/书籍信息块，字数口径与 `novel_count` 同源）；**规则表每条带官方出处或显式标"未证实"**，并按官方驳回原因查空章/乱码/乱序/字数门槛；`--checklist` 生成**上传前核对清单**（有依据的照抄项 ＋ 须实测项 ＋ 实测方法） |
 | `instruments/instrument-aggregate.mjs` / `instruments/batch-report.mjs` / `instruments/batch-aggregate.mjs` | 判据账聚合、批审报告、多采样意见聚合 |
+| `instruments/blueprint-diff.mjs <book_dir> [--from N] [--to M] [--json out.json]` | dissector 自解剖（总纲批次三 C6）：成稿章区间实测账 vs 卷级蓝图对照——成稿/汉字/波峰-基线档位/`blueprint_ref` 挂靠核对/线网坐标 vs `foreshadows.json` 实值对账，确定性缺口列清单；**语义判读留白归 dissector**（代码不判义）；**对照表只进审校侧，绝不进生成派工包**。蓝图未立＝EXIT 2，不产空表 |
 
 ## Install / 安装
 

@@ -14,7 +14,10 @@
     "需要段边界（换行）时，段文本自带空行——空行＝段落边界（本批 8 个段全属同一段，未用到）。",
     "空白是排版不是口径：比对时剥掉全部空白（仓内既有惯例，见 roles/text-invariants.mjs 的 norm）。折行方式各化身本就不同，按原样比会把排版差读成口径差。",
     "本文件的正文一个字都不是本文件改的：它逐字取自三份化身（见 carriers），有分歧处按原样分成 audience 变体——**不替 Owner 统一**。",
-    "别手改化身：改这里，然后 node roles/build-persona.mjs --apply（先 --check 看差在哪）。"
+    "别手改化身：改这里，然后 node roles/build-persona.mjs --apply（先 --check 看差在哪）。",
+    "",
+    "── 2026-09-27 批次三（总纲 F5，Owner 总令）",
+    "archivist.host.tools 的逐名枚举（novel_bible／novel_verify／novel_chapter／novel_ledger 共 4 名）改为按类别（「只读账本工具…账本写入口不在此座」）：工具真名随宿主变（WB 侧是 mcp__novelist__*），人格面按类别说、实名单由能力表/载体承载，防第二事实。deny 实名单不变（能力表照旧逐名）。"
   ],
   "segments": [
     {
@@ -81,7 +84,7 @@
     {
       "id": "archivist.host.tools",
       "layer": "host",
-      "text": "用 novel_bible / novel_verify 查账，没有 novel_chapter 与 novel_ledger；",
+      "text": "查账走只读账本工具（设定与一致性对账），账本写入口不在此座；",
       "usedBy": [
         "dsh-prod",
         "dsh-public",

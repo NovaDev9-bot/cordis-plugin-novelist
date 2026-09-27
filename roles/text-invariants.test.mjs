@@ -1,10 +1,12 @@
 // roles/text-invariants.mjs（文本层不变量守卫）的回归
 //
-// 锁的是什么：这条守卫守三组"散文层不变量"，而**每一条都必须能红**——
+// 锁的是什么：这条守卫守五组"散文层不变量"，而**每一条都必须能红**——
 // 一个永远绿的守卫比没有守卫更坏（它把"没查"伪装成"查过了"）。
 //   ① 禁模式：人格段里的能力否定句（"你没有 X"）不得复活；被封落账权的座位角色必须带义务句。
 //   ② 同句：画像 ④ 条款（章节长度窗）在各化身之间必须逐字相同。
 //   ③ 同数：SOP 的验收步数从文本里数出来，两处对它的引用必须等于数出来的值。
+//   ④ 写手侧数字四分界：参照卡里不许出现"会被当成目标"的量（百分比/分布统计带数字）。
+//   ⑤ 载体禁码标（2026-09-27 批次三 A5①）：〔AUTH-NN〕 条款码标与 _note 不许进任何化身。
 // 还有三条**空转**判据（exit 2）：条款整类被删、标记消失、扫描面为 0——
 // 空集不许被当成"没问题"（本仓元纪律）。
 //
@@ -58,11 +60,11 @@ function patchAll(root, rel, old, next) {
 }
 
 // ── 正向：真仓必须安静通过（守卫不许变成永远红）
-test('真仓四组不变量成立：exit 0，且四组都打印出来（不靠退出码掩盖局部）', () => {
+test('真仓五组不变量成立：exit 0，且五组都打印出来（不靠退出码掩盖局部）', () => {
   const r = run(PLUGIN)
   assert.equal(r.status, 0, '真仓应全部成立：' + both(r))
-  for (const group of ['① 禁模式', '② 同句', '③ 同数', '④ 写手侧数字']) {
-    assert.match(r.stdout, new RegExp(group), '四组都要出现在输出里：' + group)
+  for (const group of ['① 禁模式', '② 同句', '③ 同数', '④ 写手侧数字', '⑤ 载体禁码标']) {
+    assert.match(r.stdout, new RegExp(group), '五组都要出现在输出里：' + group)
   }
 })
 
@@ -108,7 +110,38 @@ test('④ 卡目录不存在 ⇒ 登记为跳过（exit 0），且**不写成"�
     const r = run(d)
     assert.equal(r.status, 0, '没有卡目录不该红（它只是没查）：' + both(r))
     assert.match(r.stdout, /登记为跳过/, '要说清这一条未查：' + both(r))
-    assert.doesNotMatch(r.stdout, /四组不变量全部成立/, '跳过不许写成"全部成立"——那正是"把没查伪装成查过了"')
+    assert.doesNotMatch(r.stdout, /五组不变量全部成立/, '跳过不许写成"全部成立"——那正是"把没查伪装成查过了"')
+  } finally { rmSync(d, { recursive: true, force: true }) }
+})
+
+// ── ⑤ 载体禁码标（2026-09-27 批次三 A5①）：码标与 _note 都不许进化身
+test('⑤ 载体出现条款码标 ⇒ exit 1 且点名文件与行号', () => {
+  const d = fakeRepo()
+  try {
+    const rel = READER
+    const f = p(d, rel)
+    const t = readFileSync(f, 'utf8')
+    const lines = t.split('\n')
+    const at = lines.findIndex((l) => l.includes('只读派工包'))
+    assert.ok(at !== -1, '夹具找不到可改的行')
+    lines[at] = '〔XX-01〕' + lines[at]
+    writeFileSync(f, lines.join('\n'))
+    const r = run(d)
+    assert.equal(r.status, 1, '该红：' + both(r))
+    assert.match(r.stderr + r.stdout, /载体禁码标/, '要说清是⑤ 命中')
+    assert.match(r.stderr + r.stdout, /roles\/reader\.md:\d+/, '要点到文件与行号')
+  } finally { rmSync(d, { recursive: true, force: true }) }
+})
+
+test('⑤ 真源 _note 漏进化身 ⇒ exit 1（元信息不许进人格面）', () => {
+  const d = fakeRepo()
+  try {
+    const rel = READER
+    const f = p(d, rel)
+    writeFileSync(f, readFileSync(f, 'utf8') + '\n_note 泄漏测试行\n')
+    const r = run(d)
+    assert.equal(r.status, 1, '该红：' + both(r))
+    assert.match(r.stderr + r.stdout, /载体禁 _note/, '要说清是 _note 命中')
   } finally { rmSync(d, { recursive: true, force: true }) }
 })
 

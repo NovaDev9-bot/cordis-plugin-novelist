@@ -697,7 +697,6 @@ function codebuddyDoc() {
   L.push('')
   L.push('> **本文件是生成的**，由 `' + REL_TABLE + '`〔仓外〕产出（生成器 `' + path.relative(PLUGIN, path.join(PLUGIN, 'roles', 'build-tool-face.mjs')).split(path.sep).join('/') + '`〔仓外〕）。')
   L.push('> 不要手改：改表 → 重跑生成器。装配器每次装配都会核对，不一致即装配失败——手改会在下一次装配时被抹掉，而不是悄悄生效。')
-  L.push('> 生成时点（表内 updated 字段）：' + TABLE.updated + '。')
   L.push('')
   L.push('## 一、这份文件在回答什么')
   L.push('')
@@ -819,6 +818,20 @@ function codebuddyDoc() {
       '「单文件受限读」的"只读**一个**"**在宿主层做不出来**（deny 只有整工具粒度，没有"只许读一个文件"的写法）' +
       '⇒ 那一档的后半段是纪律。对外写隔离强度时**带上这一条**，别把纪律层的承诺写成机器层的保证。')
     L.push('')
+    // 〔2026-09-27 批次三 F4（总纲）〕档案员的对外口径**单列**：它的机器面≈零约束（deny 全是 MCP 名），
+    // 与四座盲读根本不是一个故事——打包表述会把它的零约束说成盲读强度（或反过来稀释盲读承诺）。
+    {
+      const arch = TABLE.roles.archivist
+      const mcpDeny = faceOf('archivist', 'codebuddy').names.filter((n) => n.startsWith('mcp__'))
+      const nonMcp = faceOf('archivist', 'codebuddy').names.filter((n) => !n.startsWith('mcp__'))
+      if (!arch || !arch.deny.length) die('能力表里没有档案员或它的 deny 为空——§三c 的单列段没有事实可写，先修表')
+      if (nonMcp.length) die('档案员的机器面出现了非 MCP 名（' + nonMcp.join('、') + '）——"机器面≈零约束（7 名全 MCP）"这条口径不再成立，请更新 §三c 单列段与 roles.archivist.why，不许静默照印旧话')
+      const cnt = (cid) => ((TABLE.capabilities[cid].codebuddy['*'] || {}).tools || []).length
+      L.push('**档案员不在这四座里（对外口径单列，不许与四盲座打包）**：它不是盲座——deny 只有 `ledger.write`／`decision.write` 两项能力，' +
+        '落到机器上＝**' + mcpDeny.length + ' 个 MCP 名**（' + cnt('ledger.write') + ' 个落账写入口＋' + cnt('decision.write') + ' 个判据账入口），此外**≈零约束**：读盘、检索、命令、外取、写文件通道全部照开。' +
+        '它的隔离是**账本写入口一层**，不是盲读——把"四座盲读隔离"说成"五工种隔离"，或把它的名字混进盲读强度表，都会把零约束说成隔离强度（或把隔离强度稀释成零约束）。')
+      L.push('')
+    }
   }
   if (exemptRows.length) {
     L.push('### 本形态有意**不封**的能力（豁免必须带理由，写在这里而不是悄悄少写一个名字）')
@@ -914,7 +927,7 @@ function codebuddyDoc() {
   L.push('| 仍开着的名字 | 为什么 |')
   L.push('|---|---|')
   L.push('| `Write`／`WebFetch` | **B 桶**：拦得住，但每次派工被框架记 `failed` ⇒ 按纪律不渲（**写面与外取面因此是半开的**） |')
-  L.push('| `automation_update`／`present_files`／`read_me`／`show_widget` | **C 桶**：写了等于没写（名字仍在、调用真执行）⇒ 收口只能走 DSH 侧或改宿主 |')
+  L.push('| `automation_update`／`present_files`／`widget_guidelines`／`show_widget` | **C 桶**：写了等于没写（名字仍在、调用真执行；`widget_guidelines` 实测时名 `read_me`，2026-09-27 随宿主改名换登记）⇒ 收口只能走 DSH 侧或改宿主 |')
   L.push('')
   L.push('引用本形态的隔离结论做重要判断时，请带上这两条限定。日常写作不受影响。')
   L.push('')

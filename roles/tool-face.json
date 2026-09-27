@@ -68,16 +68,16 @@
         "Agent", "Bash", "Edit", "Glob", "Grep", "PowerShell", "Read", "Write", "WebFetch", "WebSearch",
         "NotebookEdit", "SendMessage", "TaskCreate", "TaskGet", "TaskList", "TaskOutput", "TaskStop", "TaskUpdate",
         "TeamCreate", "TeamDelete", "Workflow", "ToolSearch", "DeferExecuteTool", "REPL",
-        "automation_update", "present_files", "read_me", "show_widget", "Skill"
+        "automation_update", "present_files", "widget_guidelines", "show_widget", "Skill"
       ],
-      "known_tools_note": "本宿主**模型可见内置工具真名**。**两个来源缺一不可**：①**官方 tools-reference**（2026-09-20 由 WB 侧提供 docId=0218529670178036e200025d1c13158e）②**运行时实测工具面**（`[硬返回]`，逐次登记在 tool_face_readings）。**为什么要两个**：2026-09-23 实测证明**文档清单 ≠ 运行时清单**——探针的工具面里有 5 个名字（`automation_update`／`present_files`／`read_me`／`show_widget`／`Skill`）**官方文档里没有**，而它们在此之前**从没进过本表**：既没被归类、也没被封、也没人发现。**未归类＝默认敞开且不留痕迹**，这是本表最容易被绕过的一种缺口形状（补记：本清单只保证「本表认得的真名」，不保证「宿主只有这些名字」——所以每次拿到新的工具面读数都要照它核一遍）。CodeBuddy 列里出现不在本清单的名字＝拼错了或抄错了宿主，生成器直接拒绝（R-c：不许静默空转）。",
+      "known_tools_note": "本宿主**模型可见内置工具真名**。**两个来源缺一不可**：①**官方 tools-reference**（2026-09-20 由 WB 侧提供 docId=0218529670178036e200025d1c13158e）②**运行时实测工具面**（`[硬返回]`，逐次登记在 tool_face_readings）。**为什么要两个**：2026-09-23 实测证明**文档清单 ≠ 运行时清单**——探针的工具面里有 5 个名字（`automation_update`／`present_files`／`read_me`／`show_widget`／`Skill`）**官方文档里没有**，而它们在此之前**从没进过本表**：既没被归类、也没被封、也没人发现。**未归类＝默认敞开且不留痕迹**，这是本表最容易被绕过的一种缺口形状（补记：本清单只保证「本表认得的真名」，不保证「宿主只有这些名字」——所以每次拿到新的工具面读数都要照它核一遍）。CodeBuddy 列里出现不在本清单的名字＝拼错了或抄错了宿主，生成器直接拒绝（R-c：不许静默空转）。**改名登记（2026-09-27 批次三 F6，总纲）**：`read_me` → `widget_guidelines`——WB 侧 5.6.2 实证旧名 `read_me` 已不进暴露面（宿主侧改名）；旧读数记录里的 `read_me` 是**当时的名字**，原样保留不改写历史，C 桶判定按调用行为同族继承到新名。",
       "tool_face_readings": [
         {
           "when": "2026-09-23T12:20+08:00",
           "by": "WB 侧中立探针（zz-deny-probe-0923：同会话内新建、零重启）",
           "how": "派工只问四行（SELF=／OBL=／TOOLS=／DENY=）、不给业务任务——这样 TOOLS= 才是**纯净的工具面读数**，不被业务动作干扰",
           "form": "subagent",
-          "names": ["automation_update", "present_files", "read_me", "show_widget", "Read", "Write", "Edit", "Glob", "Grep", "Bash", "PowerShell", "TaskCreate", "TaskGet", "TaskUpdate", "TaskList", "TaskOutput", "WebFetch", "WebSearch", "Skill", "SendMessage", "ToolSearch", "DeferExecuteTool"],
+          "names": ["automation_update", "present_files", "widget_guidelines", "show_widget", "Read", "Write", "Edit", "Glob", "Grep", "Bash", "PowerShell", "TaskCreate", "TaskGet", "TaskUpdate", "TaskList", "TaskOutput", "WebFetch", "WebSearch", "Skill", "SendMessage", "ToolSearch", "DeferExecuteTool"],
           "note": "**⚠ 证据等级订正（2026-09-23 晚 · 自查发现我方标错）**：本条原文声称它是「宿主直接返回、本表最强的一类证据」——**那句是错的**。这份 `TOOLS=` 清单是**探针自己逐个列名写出来的**（探针正文：『把你当前**完整的工具清单逐个原样列名**——一行一个名字，原文照抄』）⇒ 它是**模型自陈**，与我们在别处贬为线索的 `DENY=` **同一类**；而 WB 侧在回信八里对主笔本座那份也说得很清楚：「那半是**本座自陈枚举**（非宿主硬返回）」。⇒ **同一类数据被标成了两种等级，取决于哪个结论需要它**——这正是「框架自我加固」的指纹。**本表的真正硬证据是 `deny_readings`**：那批的 `raw` 是**工具调用的返回报文**（`Error: Permission to use WebSearch has been denied.`／`Tool X not found in agent …`），是宿主在调用路径上回的，不是谁写的清单。**由此产生的连带后果**：本读数里的**基线 22 名**、以及一切形如「工具面 N 名」的数，**都是自陈**——而整套四桶算式（22 − 10 − 1 ＝ 11）正是以它为地基。⇒ 待办＝**用非模型通道复核它**：宿主日志里有现成仪器（`[AgentTask] … available=[…]` 那一行，免重启免派工）。在复核之前，凡引用「工具面 N 名」的地方都必须带上「自陈」二字。\n\n以下是本条读数的**内容**（内容仍有效，只是等级要降）：「同批还取了四个盲/半盲角色的工具面：reader 与 calibrator **逐字相同**、proofer 与 dissector 比它们**多一个 `Read`**；四个座位的**残留面**＝写面（`Write`／`Edit`）＋外取面（`WebFetch`／`WebSearch`）＋`Skill`＋`automation_update`＋`present_files`／`read_me`／`show_widget` ＋ `Task*` 一族——**这些名字在本表里此前一个都没有**（见 capabilities 新增的四格）。」",
           "count_note": "同一形态、未封任何名字的**基线＝22 名**（WB 侧 09-23 多次取到）。⚠ 对方 09-23 首封的正文里把这个数写成「21」而**列出来的正好是 22 个名字**——我按列出来的那份登记（22），并把这次口径不一留在案上：**同一个数在同一句里两个值，是本项目最贵的那类形状**。"
         },
@@ -86,7 +86,7 @@
           "by": "WB 侧组合探针（zz-combo-probe-0923：项目级新路径、零重启；前言块**逐字照抄试读员生产名单**）",
           "how": "这是本批的「重启前gate」——四个盲角色名单新增 `Edit`／`Skill`／`WebSearch` 三个名字，而它们的读数原先**都取自「只封它一个」的探针座**；D 桶报错名字不固定 ⇒ 不许拿单名读数反推组合安全。探针只问五行（`ALIVE=`／`READ=`／`BASH=`／`TOOLSEARCH=`／`NEWNAMES=`）",
           "form": "subagent",
-          "names": ["automation_update", "present_files", "read_me", "show_widget", "PowerShell", "TaskCreate", "TaskGet", "TaskUpdate", "TaskList", "TaskOutput", "WebFetch"],
+          "names": ["automation_update", "present_files", "widget_guidelines", "show_widget", "PowerShell", "TaskCreate", "TaskGet", "TaskUpdate", "TaskList", "TaskOutput", "WebFetch"],
           "note": "**组合安全：一次派工同时摘掉 10 个非 MCP 被禁名（含 3 个新增名）＋1 个连带名（`Write`），座位照常起、照常交回执、零 `Tool … not found`** —— 正是 09-22 那次「座位起不来」的反面。**算式闭合**（WB 侧复算，我不采信自报）：基线 22 − 10 个非 MCP 被禁名（Read/Edit/Glob/Grep/Bash/WebSearch/Skill/ToolSearch/DeferExecuteTool/SendMessage）− 1 个连带名（Write）＝ **11**，与探针自报的 11 名差集为空；三个新增名一个不在，而它们在基线里都在。⚠ **探针自陈它「是无效样本」的那段被我方驳回**：它**没有对照**，不知道未封任何名字的同类座位**含**这三个名字——基线一摆，`ABSENT` 就只能是 deny 的效果。这条正是本项目「自陈不是读数」的**镜像**：**单座自陈没有对照时，既不能证「封住了」，也不能证「从未有过」** ⇒ 纪律：**探针必须附基线**（对照即谓词）。",
           "probe_selfreport_note": "探针原文自陈：『本座位同样不持有 Read／Bash／ToolSearch……拿这个座位去回填「组合是否会让座位起不来」是无效样本——它的清单本来就短于那三个名字，deny 与不 deny 在这里读数恒等。』——**谨慎值得记，结论不成立**（缺对照）。"
         },
@@ -95,7 +95,7 @@
           "by": "WB 侧主笔本座（author-1-b0b5）——**只让它列名、不让它调任何工具**（避免把「人格纪律」与「机器 deny」混成同一变量）",
           "how": "§七·5 那条长期欠账的换问法：只问清单、不问行为。本座**未调用任何工具、未读写文件**，因此这次读数**没有**混淆变量",
           "form": "teammate",
-          "names": ["automation_update", "present_files", "read_me", "show_widget", "Read", "Write", "Edit", "Glob", "Grep", "PowerShell", "TaskCreate", "TaskGet", "TaskUpdate", "TaskList", "TaskOutput", "WebFetch", "WebSearch", "Skill", "SendMessage", "ToolSearch", "DeferExecuteTool"],
+          "names": ["automation_update", "present_files", "widget_guidelines", "show_widget", "Read", "Write", "Edit", "Glob", "Grep", "PowerShell", "TaskCreate", "TaskGet", "TaskUpdate", "TaskList", "TaskOutput", "WebFetch", "WebSearch", "Skill", "SendMessage", "ToolSearch", "DeferExecuteTool"],
           "note": "**主笔本座的直接可调用面＝21 名**：`Bash` 与 8 个 MCP 写入口**都不在其中** ✓（正是本包渲进它名单的那些）；`Write`／`Edit` **都在** ✓（有意——主笔要写交付件）。另报 **deferred 注册池 68 名，含全部 15 个 `mcp__novelist__*`**（含被禁的 8 个写入口）⇒ **落账名可见、但可见 ≠ 可执行**（调用期由同形探针那条读数兜住）。⚠ **两条诚实标注**：①这 21 名与本座未提供的 68 名池**都是本座自陈枚举**（非宿主硬返回），强度与 `TOOLS=` 同类；②调用期那半仍是**同形探针**，不是本座自测。⇒ 口径升为「**机器两层（挂载期摘名 ＋ 调用期拒绝）＋ 纪律一层**」，**仍不许写「主笔已被机器封死」**。"
         }
       ],
@@ -120,7 +120,7 @@
           { "name": "Write", "bucket": "B", "raw": "宿主层：`Tool Write not found in agent zz-np-write.`；座内注入：同上形（框架记 `failed`；**该座仍交回了回执**）" },
           { "name": "automation_update", "bucket": "C", "raw": "`{\"type\":\"automation_update_tool_result\",\"mode\":\"list\",\"success\":true,\"message\":\"Automations listed\",\"automations\":[]}`——**调用真成功**" },
           { "name": "present_files", "bucket": "C", "raw": "`{\"kind\":\"present_files_result\",\"presented\":[<靶文件>],\"skipped\":[],\"previewed\":[]}`——**调用真成功**（原文里那一段是**绝对路径**，此处按「包内文档零机器绝对路径」硬门把它换成占位符；报文其余部分逐字未改）" },
-          { "name": "read_me", "bucket": "C", "raw": "真返回了设计规范正文（组件规范全文）——**调用真成功**" },
+          { "name": "widget_guidelines", "bucket": "C", "raw": "真返回了设计规范正文（组件规范全文）——**调用真成功**", "note": "**旧名 `read_me`**（09-23 实测时的名字；报文按当时状态登记）。WB 侧 5.6.2 实证旧名已不进暴露面（宿主改名）⇒ 本表 2026-09-27 起以新名登记；C 桶判定按调用行为同族继承，待下次工具面读数复核。" },
           { "name": "show_widget", "bucket": "C", "raw": "`widget payload prepared`——**调用真成功**" }
         ],
         "bulk_attested": {
@@ -142,7 +142,7 @@
           "tool": "SendMessage",
           "form": "subagent",
           "why": "**存在、但本形态下不可用**——名字真实，不在团里的普通子代理发起调用会被宿主拒：`Not in a team. SendMessage is only available when you are in a team or have background agents running.`（2026-09-21 WB 侧「强行发起一次调用」实测，硬返回）",
-          "consequence": "对以 subagent 形态跑的五个盲角色，封它是**空操作**（没有可用的通道可封）。它与 nonexistent 那三个**后果同类、成因不同**：那三个是名字不存在，这个是名字存在但本形态下惰性。要防它，只能改用 teammate 形态并另算语义（teammate 里 SendMessage 是向主编回报的**正常通道**，封掉＝断回报——同一格能力在两种形态下语义相反）。"
+          "consequence": "对以 subagent 形态跑的五个工种（四座盲读＋档案员——**档案员不是盲座**，见 roles.archivist.why 的单列口径），封它是**空操作**（没有可用的通道可封）。它与 nonexistent 那三个**后果同类、成因不同**：那三个是名字不存在，这个是名字存在但本形态下惰性。要防它，只能改用 teammate 形态并另算语义（teammate 里 SendMessage 是向主编回报的**正常通道**，封掉＝断回报——同一格能力在两种形态下语义相反）。"
         }
       ],
       "inert_tools_note": "**存在、本形态不可用**的名字（与「已封」「不存在」都不同类，故单列一格）。混进别的格子会让读者把「惰性」读成「已封」。",
@@ -280,7 +280,7 @@
         "zh": "宿主 UI／交付面（向界面交付文件、自我介绍、显示组件）",
         "dsh": { "status": "none", "why": "DSH 的对应物是 present（`@deepseek-ai/dsh-tool-present`）；本预设未挂，故不存在" },
         "codebuddy": {
-          "*": { "ineffective": ["present_files", "read_me", "show_widget"], "why": "**2026-09-23 实测：三个名字全是 C 桶——写了等于没写**（`present_files` 真把文件呈现了、`read_me` 真返回了设计规范正文、`show_widget` 真返回 `widget payload prepared`）。**三个名字官方文档清单里一个都没有**——正是这条实测逼出「文档清单 ≠ 运行时清单」。它们**不与书数据打交道**（交付面/自述面/展示面），本项目**没有角色需要封它们**；登记在此的**唯一目的**是把它们从「**未归类＝默认敞开且没人知道**」变成「**已归类、判定为不封、且判定为封不住**」。" }
+          "*": { "ineffective": ["present_files", "widget_guidelines", "show_widget"], "why": "**2026-09-23 实测：三个名字全是 C 桶——写了等于没写**（`present_files` 真把文件呈现了、`widget_guidelines`（实测时名 `read_me`，2026-09-27 随宿主改名换登记，见 deny_readings 那条的 note）真返回了设计规范正文、`show_widget` 真返回 `widget payload prepared`）。**三个名字官方文档清单里一个都没有**——正是这条实测逼出「文档清单 ≠ 运行时清单」。它们**不与书数据打交道**（交付面/自述面/展示面），本项目**没有角色需要封它们**；登记在此的**唯一目的**是把它们从「**未归类＝默认敞开且没人知道**」变成「**已归类、判定为不封、且判定为封不住**」。" }
         }
       },
     "team.admin": {
@@ -339,9 +339,9 @@
       "zh": "档案员",
       "kind": "duty",
       "dsh": { "entry": "nf-role-archivist", "toolName": "nf_archivist", "backgroundMode": "one-shot" },
-      "codebuddy": { "file": "references/roles/archivist.md", "agentdef": "agents/archivist.md", "form": "subagent", "seat": null, "maxTurns": 50, "description": "档案员：维护事件带与事实投影——只写事件，不碰正文与裁决。" },
+      "codebuddy": { "file": "references/roles/archivist.md", "agentdef": "agents/archivist.md", "form": "subagent", "seat": null, "maxTurns": 50, "description": "档案员：维护事件带与事实投影——只写事件，不碰正文与裁决。（非盲座：读盘/检索/命令通道照开，机器隔离只有落账权一层。）" },
       "deny": ["ledger.write", "decision.write"],
-      "why": "只读对账，保留事件带（对账要记痕）"
+      "why": "只读对账，保留事件带（对账要记痕）。**对外口径单列（2026-09-27 批次三 F4，总纲）**：档案员**不在四座盲读之列**——它的机器面≈零约束（deny 全部是 MCP 名：5 个落账写入口＋2 个判据账入口＝7 名），读盘/检索/命令/外取通道全开。把「四座盲读隔离」打包说成「五工种隔离」＝把它的零约束说成盲读强度；反过来把盲读强度摊进它的名字＝稀释隔离承诺。生成文档 §三c 有它的单列段。"
     },
     "reader": {
       "zh": "试读员",

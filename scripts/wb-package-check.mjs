@@ -129,6 +129,6 @@ const r = spawnSync(process.execPath, [
 if (r.status === null) die('装配器未能执行（超时或被杀）')
 if (r.status === 0) {
   console.log('[wb-package-check] ✓ 已装包与真源一致')
-  console.log('  想再核"包自身是否自洽"：node ' + path.join(PKG, 'scripts', 'selfcheck.mjs'))
+  console.log('  想再核"包自身是否自洽"（含 MANIFEST 逐字节、引用可达、宿主注册表 installPath 对账——F7）：node ' + path.join(PKG, 'scripts', 'selfcheck.mjs'))
 }
 process.exit(r.status === 0 ? 0 : r.status === 1 ? 1 : 2)

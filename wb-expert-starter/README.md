@@ -1,6 +1,6 @@
 > 引用基底：包内
 
-# 编剧部（novel-forge-editorial）
+# 编辑部（novel-forge-editorial）
 
 > 〔引用基底说明〕本目录（`wb-expert-starter/`）是**启动包模板**，不是装配产物。
 > 里面的 `references/…`、`scripts/…` 指的是**装出来的那个包里的位置**——那些文件由装配器生成，

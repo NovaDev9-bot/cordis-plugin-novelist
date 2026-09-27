@@ -305,6 +305,39 @@
         "wb-dispatch"
       ],
       "code": "AUTH-19"
+    },
+    {
+      "id": "author.obl.craftanchor.emotion",
+      "layer": "obligation",
+      "text": "⑥手艺锚——情绪不直说：情绪落在动作、对话与感官细节里（她把筷子放下、他把烟按灭又点上一根），不写「她很紧张／他很愤怒」这类直陈情绪词；写完自查「删掉这个画面情绪还在不在」，还在＝白写。",
+      "usedBy": [
+        "dsh-prod",
+        "dsh-public",
+        "wb-dispatch"
+      ],
+      "code": "AUTH-20"
+    },
+    {
+      "id": "author.obl.craftanchor.curve",
+      "layer": "obligation",
+      "text": "章内曲线按「先压后放」写：先把代价摆上台面（让读者看见可能失去什么），中段把赌注抬一级，尾拍兑现并留下一问——没先摆出来的东西不算代价，兑现就不响。",
+      "usedBy": [
+        "dsh-prod",
+        "dsh-public",
+        "wb-dispatch"
+      ],
+      "code": "AUTH-21"
+    },
+    {
+      "id": "author.obl.craftanchor.negative",
+      "layer": "obligation",
+      "text": "反面清单：连续三段同一节奏（全是长句或全是短句）＝读感发闷；高潮靠形容词条堆（「巨大的悲痛」「难以言喻」）＝假高潮；转折靠转述（「从那天起他变了」）＝曲线造假；每段结尾补一句总结＝把话说尽。",
+      "usedBy": [
+        "dsh-prod",
+        "dsh-public",
+        "wb-dispatch"
+      ],
+      "code": "AUTH-22"
     }
   ],
   "carriers": [
@@ -338,7 +371,10 @@
         "author.obl.long-chapter",
         "author.obl.only-text",
         "author.obl.forbidden",
-        "author.obl.ledger-gate"
+        "author.obl.ledger-gate",
+        "author.obl.craftanchor.emotion",
+        "author.obl.craftanchor.curve",
+        "author.obl.craftanchor.negative"
       ]
     },
     {
@@ -371,7 +407,10 @@
         "author.obl.long-chapter",
         "author.obl.only-text",
         "author.obl.forbidden",
-        "author.obl.ledger-gate"
+        "author.obl.ledger-gate",
+        "author.obl.craftanchor.emotion",
+        "author.obl.craftanchor.curve",
+        "author.obl.craftanchor.negative"
       ]
     },
     {
@@ -404,7 +443,10 @@
         "author.obl.long-chapter",
         "author.obl.only-text",
         "author.obl.forbidden",
-        "author.obl.ledger-gate"
+        "author.obl.ledger-gate",
+        "author.obl.craftanchor.emotion",
+        "author.obl.craftanchor.curve",
+        "author.obl.craftanchor.negative"
       ]
     }
   ]

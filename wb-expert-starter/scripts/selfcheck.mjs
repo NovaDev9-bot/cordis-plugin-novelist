@@ -174,6 +174,77 @@ if (pj.expertType === 'team') {
   }
 }
 
+// ── 3d. installPath 对账（2026-09-27 批次三 F7）────────────────────────────────
+// 病根（"宿主报的路径≠生效那份"同族第三次）：宿主把已装插件登记在注册表里，逐条带 installPath
+// 指向**版本目录**。实测（回信九 §3.4）：注册表指向 `…\novel-forge-editorial\0.1.11`，而那个
+// 版本目录的 `agents/` 是**空的**——宿主报的路径上是一份空壳，跑起来的是哪份没有任何东西会报。
+// 这里做三件事：①扫注册表找本包条目（按 plugin.json 的 name）；②条目的 installPath 与**被检包根**
+// 不同 ⇒ ⚠ 打出来（环境事实，只警示不计 findings，与 §3c 同口径）；③installPath 指向的副本若
+// 声明了 agents[] 而其 agents/ 目录为空 ⇒ **finding（红）**——空壳顶着的正是"已装"这个假象。
+// 自证：注册表读到了就报总数与命中数；读不到/没命中**明写"未查"**，不并入"已核"。
+{
+  const registries = [
+    path.join(os.homedir(), '.workbuddy', 'plugins', 'installed_plugins.json'),  // WorkBuddy（本包目标宿主）
+    path.join(os.homedir(), '.codebuddy', 'plugins', 'installed_plugins.json'),  // 同族 CodeBuddy
+  ]
+  const pkgName = pj.name
+  const found = []
+  let scannedReg = 0
+  for (const rf of registries) {
+    if (!existsSync(rf)) continue
+    let j = null
+    try { j = JSON.parse(readFileSync(rf, 'utf8')) } catch (e) { findings.push('插件注册表解析失败（' + rf + '）：' + e.message); continue }
+    scannedReg++
+    const plugins = (j && j.plugins) || {}
+    for (const [key, entries] of Object.entries(plugins)) {
+      if (!Array.isArray(entries)) continue
+      if (key.split('@')[0] !== pkgName) continue
+      for (const e of entries) if (e && typeof e.installPath === 'string') found.push({ reg: rf, key, ...e })
+    }
+  }
+  if (scannedReg === 0) {
+    say('· installPath 对账：两处注册表（~/.workbuddy、~/.codebuddy 的 installed_plugins.json）都不存在——**未查，不并入已核**')
+  } else if (!found.length) {
+    say('⚠ installPath 对账：注册表里没有「' + pkgName + '@…」条目（宿主可能按市场目录直挂专家，不走版本目录）——对账未做成，登记不并入已核')
+  } else {
+    say('· installPath 对账：注册表 ' + scannedReg + ' 处，命中本包条目 ' + found.length + ' 条')
+    for (const e of found) {
+      const ip = path.resolve(e.installPath)
+      if (!existsSync(ip)) { findings.push('注册表 installPath 不存在：' + e.key + ' → ' + e.installPath); continue }
+      if (ip !== root) {
+        say('⚠ 宿主注册表报的路径 ≠ 被检的这份：' + e.key + ' → ' + e.installPath + '（被检包根＝' + root + '）')
+        say('  ⇒ 两份都存在时，"跑起来的是哪份"以注册表为准——改完这份还要让注册表那份跟上（重装配/重装），别只改一处。')
+      }
+      const ipPj = path.join(ip, '.codebuddy-plugin', 'plugin.json')
+      if (!existsSync(ipPj)) {
+        // 注册表副本缺 plugin.json：连"它是不是一份完整包"都判不了。但若它还带着一个**空的 agents/**
+        // 目录，那就是 F7 的实测形状本身（回信九 §3.4：注册表指向 …\0.1.11 而 agents/ 为空）——
+        // 空壳顶着"已装"的假象，这里按 finding 报红，不当成"判不了就放过"。
+        const agentsDir = path.join(ip, 'agents')
+        const ipAgents0 = existsSync(agentsDir) ? readdirSync(agentsDir).filter((f) => f.endsWith('.md')) : null
+        if (ipAgents0 !== null && ipAgents0.length === 0) {
+          findings.push('注册表指向的版本目录是空壳（缺 .codebuddy-plugin/plugin.json 且 agents/ 为 0 份定义）——' +
+            '"宿主报的路径≠生效那份"同族第三次：' + e.key + ' → ' + e.installPath + '。' +
+            '处置：对注册表那份重跑装配/安装，或把注册表条目指回完整那份。')
+        } else {
+          say('⚠ 注册表副本缺 .codebuddy-plugin/plugin.json（判不了它的 agents 基数）：' + e.installPath)
+        }
+        continue
+      }
+      let declaredAgents = 0
+      try { declaredAgents = (JSON.parse(readFileSync(ipPj, 'utf8')).agents || []).length } catch { /* 解析失败上面已报过形状，这里按 0 处理 */ }
+      const ipAgents = existsSync(path.join(ip, 'agents')) ? readdirSync(path.join(ip, 'agents')).filter((f) => f.endsWith('.md')) : []
+      if (declaredAgents > 0 && ipAgents.length === 0) {
+        findings.push('注册表指向的生效副本 agents/ 为空（声明 ' + declaredAgents + ' 个 agent，实际 0 份定义）——' +
+          '"宿主报的路径≠生效那份"同族第三次：' + e.key + ' → ' + e.installPath + '。' +
+          '处置：对这份副本重跑装配/安装（改已有定义还要重启宿主才进内存），或把注册表指回完整那份。')
+      } else {
+        say('· 注册表副本 agents 基数：' + e.key + ' 声明 ' + declaredAgents + '／盘上 ' + ipAgents.length + '（' + e.installPath + '）')
+      }
+    }
+  }
+}
+
 // ── 4. 关键资产存在性 + 基数自证 ────────────────────────────────────────────
 const assets = [
   ['机制手册', () => listDir('references').filter((f) => /^novelist-guide.*\.md$/.test(f)), 1],

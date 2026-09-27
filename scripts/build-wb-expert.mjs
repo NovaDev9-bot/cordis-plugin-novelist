@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * build-wb-expert.mjs —— 从仓内真源装配 WorkBuddy 专家包（编剧部）
+ * build-wb-expert.mjs —— 从仓内真源装配 WorkBuddy 专家包（编辑部）
  *
  * 用法：
  *   node scripts/build-wb-expert.mjs --out <专家包目录> [--root <仓库根>] [--check]

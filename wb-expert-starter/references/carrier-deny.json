@@ -15,8 +15,8 @@
     "Write",
     "automation_update",
     "present_files",
-    "read_me",
-    "show_widget"
+    "show_widget",
+    "widget_guidelines"
   ],
   "_forbidden_note": "**任何时候都不许渲进名单的名字**（实测拦不住／拦得有代价／只是候选）。带着它，安装器在**没有真源（`roles/tool-face.json`）的装机侧**也能做 fail-closed 核对——否则装机侧只能采信这份件，无法判断\"名单里这个字是不是本来就不该渲\"。",
   "unclaimed": [
@@ -31,10 +31,10 @@
       "zh": "宿主 UI／交付面（向界面交付文件、自我介绍、显示组件）",
       "ineffective": [
         "present_files",
-        "read_me",
+        "widget_guidelines",
         "show_widget"
       ],
-      "why": "**2026-09-23 实测：三个名字全是 C 桶——写了等于没写**（`present_files` 真把文件呈现了、`read_me` 真返回了设计规范正文、`show_widget` 真返回 `widget payload prepared`）。**三个名字官方文档清单里一个都没有**——正是这条实测逼出「文档清单 ≠ 运行时清单」。它们**不与书数据打交道**（交付面/自述面/展示面），本项目**没有角色需要封它们**；登记在此的**唯一目的**是把它们从「**未归类＝默认敞开且没人知道**」变成「**已归类、判定为不封、且判定为封不住**」。"
+      "why": "**2026-09-23 实测：三个名字全是 C 桶——写了等于没写**（`present_files` 真把文件呈现了、`widget_guidelines`（实测时名 `read_me`，2026-09-27 随宿主改名换登记，见 deny_readings 那条的 note）真返回了设计规范正文、`show_widget` 真返回 `widget payload prepared`）。**三个名字官方文档清单里一个都没有**——正是这条实测逼出「文档清单 ≠ 运行时清单」。它们**不与书数据打交道**（交付面/自述面/展示面），本项目**没有角色需要封它们**；登记在此的**唯一目的**是把它们从「**未归类＝默认敞开且没人知道**」变成「**已归类、判定为不封、且判定为封不住**」。"
     },
     {
       "cid": "team.admin",
@@ -114,7 +114,7 @@
       "form": "subagent",
       "agentdef": "agents/archivist.md",
       "sourceText": "references/roles/archivist.md",
-      "description": "档案员：维护事件带与事实投影——只写事件，不碰正文与裁决。",
+      "description": "档案员：维护事件带与事实投影——只写事件，不碰正文与裁决。（非盲座：读盘/检索/命令通道照开，机器隔离只有落账权一层。）",
       "maxTurns": 50,
       "denyNames": [
         "mcp__novelist__novel_chapter",

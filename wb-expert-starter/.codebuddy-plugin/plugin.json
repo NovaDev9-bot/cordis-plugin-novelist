@@ -1,6 +1,6 @@
 {
   "name": "novel-forge-editorial",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "description": "A two-seat editorial department for long-form web novels: an editor-in-chief who owns the ledger, the gates and disk-vs-ledger reconciliation, an author who drafts, plus blind-read calibration and zero-LLM instruments. Requires the novelist connector.",
   "expertType": "team",
   "agentName": "chief-editor",
@@ -45,11 +45,11 @@
   ],
   "displayName": {
     "en": "NarrativeForge Editorial",
-    "zh": "编剧部"
+    "zh": "编辑部"
   },
   "profession": {
     "en": "Long-form Web Novel Studio",
-    "zh": "编剧部"
+    "zh": "编辑部"
   },
   "displayDescription": {
     "en": "A two-seat long-form web-novel studio: the editor-in-chief owns the ledger, the gates and disk-vs-ledger reconciliation; the author owns proposals and prose.",

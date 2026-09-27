@@ -30,9 +30,7 @@
     "   但判据「提到工具真名或宿主机制才算 host」对空行不成立——这一条属判断，不是规则直读。",
     "② calibrator.host.arcpath.dsh（跨章规律挂 orders/arc-卷X-弧Y/）vs .wb（同句、路径被反引号包裹 `orders/arc-卷X-弧Y/`）：",
     "   差异轴同样是载体形态（Markdown 用反引号、YAML 不用），同理归 host，同一处存疑同上。",
-    "③ calibrator.host.ledger.prod / .pub 两变体之间有一段约 50 字的**逐字相同**引子",
-    "   （「你不得动用任何账本工具（不见 bible/outline/伏笔表，也不核字数，也见不到事件带 novel_event」）被存了两次：",
-    "   它按保守规则可归义务层、本可共用一段，但切开它会**断在括号中间**（段尾无标点），故按「一个变体＝一整句」保留现状；要不要切开由 Owner 定。",
+    "③ calibrator.host.ledger 两变体（.prod／.pub）已于 2026-09-27 批次三（总纲 F5，Owner 总令）**合并为一段** calibrator.host.ledger（host 层，三份化身共用）：两变体唯一的差别本就是逐名枚举的工具集（novel_event／novel_ask／novel_score），枚举清成类别后正文全同——同一句话不许两个家。工具真名随宿主变（WB 侧是 mcp__novelist__*），人格面按类别说、实名单由能力表/载体承载。",
     "④ prod 的豁免括号带内部坐标（ADR-034、质询会 A4）、预算括号带内部日期与 16K 数字，公开版已脱敏——",
     "   按 audience 两个变体原样存（一处两变体＝两段），不评判哪一版口径对。"
   ],
@@ -183,18 +181,11 @@
       ]
     },
     {
-      "id": "calibrator.host.ledger.prod",
+      "id": "calibrator.host.ledger",
       "layer": "host",
-      "text": "你不得动用任何账本工具（不见 bible/outline/伏笔表，也不核字数，也见不到事件带 novel_event），纯就正文论正文；",
+      "text": "你不得动用任何账本工具（不见设定/章纲/伏笔表，也不核字数，也见不到事件带），纯就正文论正文；",
       "usedBy": [
-        "dsh-prod"
-      ]
-    },
-    {
-      "id": "calibrator.host.ledger.pub",
-      "layer": "host",
-      "text": "你不得动用任何账本工具（不见 bible/outline/伏笔表，也不核字数，也见不到事件带 novel_event，更查不了账本 novel_ask、判不了分 novel_score），纯就正文论正文；",
-      "usedBy": [
+        "dsh-prod",
         "dsh-public",
         "wb-dispatch"
       ]
@@ -238,7 +229,7 @@
         "calibrator.obl.noreport",
         "calibrator.aud.exemption.prod",
         "calibrator.aud.budget.prod",
-        "calibrator.host.ledger.prod",
+        "calibrator.host.ledger",
         "calibrator.host.arcpath.dsh",
         "calibrator.host.stop.dsh",
         "shared.obl.packet",
@@ -265,7 +256,7 @@
         "calibrator.obl.noreport",
         "calibrator.aud.exemption.pub",
         "calibrator.aud.budget.pub",
-        "calibrator.host.ledger.pub",
+        "calibrator.host.ledger",
         "calibrator.host.arcpath.dsh",
         "calibrator.host.stop.dsh",
         "shared.obl.packet",
@@ -292,7 +283,7 @@
         "calibrator.obl.noreport",
         "calibrator.aud.exemption.pub",
         "calibrator.aud.budget.pub",
-        "calibrator.host.ledger.pub",
+        "calibrator.host.ledger",
         "calibrator.host.arcpath.wb",
         "calibrator.host.stop.wb",
         "shared.obl.packet",

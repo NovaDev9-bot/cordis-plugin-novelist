@@ -155,14 +155,18 @@ const TABLE = JSON.parse(fsSync.readFileSync(TABLE_PATH, 'utf8'))
 const LAYERS = ['obligation', 'audience', 'host']
 const KINDS = ['yaml-persona', 'md-persona']
 
-// ── 条款锚点（A3 · 2026-09-22）───────────────────────────────────────────────
-// 真源段可带 `code`（稳定号）。带 code 的段在**所有化身**里渲染成「〔CODE〕正文」——
-// 引用用稳定号，序号只作导航。业界依据（原文摘句与 URL 见 docs/planning/整改总计划_2026-09-21.md §九）：
+// ── 条款锚点（A3 · 2026-09-22；2026-09-27 批次三 A5① 载体剥码标）─────────────
+// 真源段可带 `code`（稳定号）。**号只活在两处**：真源本体（本目录）与能力表/宿主工具面.md
+// 的条款台账（build-tool-face.mjs 从真源现读 code→text 渲表）——**不再渲染进任何化身**。
+// 为什么反转（总纲 A5①，Owner 2026-09-26 定）：码标进人格面＝模型每句话都带着内部引用号，
+// 载体（运行时人格）不需要它，而它会让"对外文本带着内部台账的印"；WB 人格注入读数也证明
+// 号会进模型自报（自报并引用 AUTH-01…19）。引用仍用稳定号（业界依据不变）：
 //   · NASA NPR 7150.2D：位置号（3.12.1）＋稳定号 [SWE-052] 并存，**引用只写稳定号**；
 //   · SARIF v2.1.0 §3.49.3：rule id **SHALL** be stable、SHOULD be opaque；§3.49.4
 //     `deprecatedIds`：改号必须留旧号映射（旧号不得回收）；
 //   · OWASP ASVS：纯位置号会随版本漂移（其 README 明说）——所以这里**不**用「纪律⑤」式位置号。
 // 格式：`<角色前缀>-<两位序号>`；序号一经发布不改、不复用（要改就进 deprecated 清单）。
+// 反向守卫：**载体里出现码标＝红**（roles/text-invariants.mjs ⑤）——这里剥掉、那里锁死。
 const CODE_RE = /^[A-Z]{2,6}-\d{2}$/
 const CODES = new Map()   // code -> 段 id（跨角色查重；同一段出现在多个化身里不算撞号）
 function renderSeg(s, where) {
@@ -177,9 +181,9 @@ function renderSeg(s, where) {
       '稳定号的唯一意义是可引用：撞号＝两个条款共用一个引用。改号只许进 deprecated 清单，不许回收旧号')
   }
   CODES.set(s.code, s.id)
-  // 号插在**前导空白之后**：段的段落边界由前导换行决定，插在换行之前会把段落结构改掉。
-  const lead = /^\s*/.exec(s.text)[0]
-  return lead + '〔' + s.code + '〕' + s.text.slice(lead.length)
+  // 2026-09-27 批次三 A5①：号**不再插进正文**——渲染即剥码标（真源里有 code 的段与没有的
+  // 渲染结果相同），号经 CODES 登记后由条款台账（能力表/宿主工具面.md）消费。
+  return s.text
 }
 
 // ── 跨角色共享段（可选真源 roles/persona/_shared.json）──────────────────────
