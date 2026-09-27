@@ -55,6 +55,21 @@ test('D2: op=rule 写下的 rules.json 不得被 verify 报成「账外条目」
   assert.ok(v2.warnings.some((x) => x.includes('账外条目') && x.includes('来历不明')), '已知清单扩容不得把探针钝化：' + JSON.stringify(v2.warnings))
 })
 
+test('M1 收束裁定: 书根 orders/board/reports（编辑部工作产物，guide 明文豁免直写）不得报账外；来路不明目录仍报', async () => {
+  const { files, call } = shimFs()
+  await call('novel_init', { book_dir: DIR, title: 'T', genre: 'xuanyi', logline: 'L' })
+  files.set(DIR + '/orders/block-001/试读员-意见.md', '意见（root_hash=abc）')
+  files.set(DIR + '/board/issue-001.md', '事项')
+  files.set(DIR + '/reports/弧审-卷1-弧1.md', '报告')
+  const v = await call('novel_verify', { book_dir: DIR })
+  const outside = v.warnings.filter((x) => x.includes('账外条目'))
+  assert.equal(outside.length, 0, '编辑部工作目录被自家 verify 报账外（M1 内部不一致）：' + JSON.stringify(outside))
+  // 探针不钝化对照：三目录入 KNOWN 后，其他来路不明的顶层条目仍要报
+  files.set(DIR + '/随便什么/note.txt', 'x')
+  const v2 = await call('novel_verify', { book_dir: DIR })
+  assert.ok(v2.warnings.some((x) => x.includes('账外条目') && x.includes('随便什么')), '三目录入 KNOWN 不得把探针钝化：' + JSON.stringify(v2.warnings))
+})
+
 test('D1: 缺一章 timeline ⇒ verify 报 warning 具名到章且不拦稿；补齐 ⇒ 绿', async () => {
   const { files, call } = await book3()
   // 基线：三章都有时间线时不得报
