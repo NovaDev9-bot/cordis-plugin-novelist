@@ -451,7 +451,7 @@ say('· 作家卡：' + await copyDir(path.join(PLUGIN, 'craft', 'author-cards')
       '把对应资产也装进 vendor/novelist/（见本脚本"内置连接器资产"一节）')
     // 〔2026-09-20 复核 REC-01〕判据从"在本机存在"加严为"**在包内**"——
     // 存在性只管装配机，跨机器安装时唯一有意义的不变量是"这些路径都在包里"。
-    // 比较必须**先归一化**：同一目录可有两种字面（junction `F:\c-moved\…` vs `C:\Users\…`、
+    // 比较必须**先归一化**：同一目录可有两种字面（junction `X:\moved\…` vs `C:\Users\…`、
     // Windows 8.3 短名）——本仓在 fs 适配层栽过同款，这里是同一族的第三处。
     const canon = (p) => { try { return fsSync.realpathSync.native(p).toLowerCase() } catch { return path.resolve(p).toLowerCase() } }
     const outCanon = canon(OUT)

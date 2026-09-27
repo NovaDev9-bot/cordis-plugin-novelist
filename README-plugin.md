@@ -2,9 +2,9 @@
 
 **File-ledger domain tools for long-form fiction production on [DSH](https://github.com/deepseek-ai/deepseek-harness) (`dsh`).**
 
-一个「文件账本」插件：给 AI 编辑部（主编 / 写手 / 审稿子代理）14 个确定性的 `novel_*` 工具，把长篇小说生产中**能用代码管死的事**（账本、字数、伏笔、版本链、状态机、冲突仲裁流程）交给代码；**语义判断（写得好不好、怎么改）留给模型**。代码做壳，模型做智能。
+一个「文件账本」插件：给 AI 编辑部（主编 / 写手 / 审稿子代理）十五个确定性的 `novel_*` 工具，把长篇小说生产中**能用代码管死的事**（账本、字数、伏笔、版本链、状态机、冲突仲裁流程）交给代码；**语义判断（写得好不好、怎么改）留给模型**。代码做壳，模型做智能。
 
-A plain-file book ledger + 14 deterministic tools for multi-agent long-form fiction: the code does accounting, the model does the writing. No HTTP, no database, no LLM calls inside the plugin — just files and invariants.
+A plain-file book ledger + 15 deterministic tools for multi-agent long-form fiction: the code does accounting, the model does the writing. No HTTP, no database, no LLM calls inside the plugin — just files and invariants.
 
 ---
 

@@ -57,7 +57,7 @@ DSH 形态下的三道**机器约束**在 WorkBuddy **只有一道半是机器�
 其余差异：
 
 - WorkBuddy **没有 DSH 的 subagent 工厂**（`nf_author` 那种）。主笔以**专家团队成员**、五个工种以**子代理定义**存在，两类都由安装器渲进宿主载体（`Task(subagent_type="reader")` 这类派工才拿得到人）。**载体里的名字是机器拦得住的**，但拦不住的写在这里：`PowerShell` 通道 + `Write` 可覆写——所以"任务书写清边界 + 交付后核账"这两条**不能省**。
-- 本包的 `scripts/` 下四个仪器（`style-check` / `structure-check` / `instrument-aggregate` / `corpus-falsify`）是**零 LLM Node 脚本**。宿主允许跑 shell 就直接跑；不允许则把仪器报告列为"未测"——**不许用模型判断冒充仪器读数**。
+- 本包的 `scripts/` 下有一批**零 LLM Node 仪器**（文体机检/结构/批审聚合/导出/自证等，全集见 README §二）。宿主允许跑 shell 就直接跑；不允许则把仪器报告列为"未测"——**不许用模型判断冒充仪器读数**。
 - 判据降权照旧：量表只守门，"这章写得好"的证据唯 Owner 裁决 + 语料库个体范本。
 
 ---

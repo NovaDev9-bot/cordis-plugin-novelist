@@ -2,7 +2,7 @@
 /**
  * novelist MCP server —— IO 壳（G1，v0.8.0）。
  *
- * 把 novelist 十二工具暴露为 MCP（Model Context Protocol）stdio server，
+ * 把 novelist 全套 `novel_*` 工具暴露为 MCP（Model Context Protocol）stdio server，
  * 任何 MCP 客户端（Claude Code / ZCode / Cursor / 其他智能体）可插。
  * 协议逻辑见 handler.mjs；fs 适配与书库根安全见 fs-adapter.mjs。
  *

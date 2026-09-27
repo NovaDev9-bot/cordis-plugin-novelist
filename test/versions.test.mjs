@@ -41,9 +41,13 @@ test('批E: 工具数量口径一致（防"文档说 12 个、实际变了没人
   const claimed = /^\d+$/.test(desc[1]) ? Number(desc[1]) : words[desc[1].toLowerCase()]
   assert.equal(claimed, n, 'package.json 描述的工具数与实际不符（实际 ' + n + '）')
   const names = _internals.TOOLS.map((t) => t.name)
-  for (const f of ['README.md', 'mcp/README.md']) {
+  const cnCount = { 10: '十', 11: '十一', 12: '十二', 13: '十三', 14: '十四', 15: '十五' }[n]
+  for (const f of ['README.md', 'README-plugin.md', 'mcp/README.md', 'mcp/server.mjs', 'wb-expert-starter/README.md']) {
     const s = read(f)
-    if (/\d+ 个工具|1[0-9] tools/.test(s)) assert.ok(s.includes(String(n)) || s.includes('十二') || s.includes('十三') || s.includes('十四'), f + ' 里的工具数与实际不符')
+    // 数量声明有三族写法（阿拉伯带/不带"个"、英文插词、中文数词"十X"）——旧正则只认第一族，
+    // 2026-09-27 清理批实测四处文案靠另外两族幸存（14 工具／14 deterministic tools／十五工具）。
+    if (/\d+ 个?工具|\d+ (?:deterministic )?tools|十[一二三四五]?个?工具/i.test(s))
+      assert.ok(s.includes(String(n)) || s.includes(cnCount) || s.includes('十二') || s.includes('十三') || s.includes('十四'), f + ' 里的工具数与实际不符')
   }
   assert.equal(new Set(names).size, n, '工具名不得重复')
 })
