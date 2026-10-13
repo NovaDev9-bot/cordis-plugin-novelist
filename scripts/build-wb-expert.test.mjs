@@ -219,17 +219,22 @@ test('角色工具面随包发布，且装配时与能力表核对（fail-closed
   for (const s of ['Agent', 'ToolSearch', 'DeferExecuteTool', '试读员', 'disallowedTools']) {
     assert.ok(text.includes(s), '宿主工具面文档缺关键内容：' + s)
   }
-  // 反向：装配前会调生成器的 --check，派生件过期必须装配失败（不是装完再报）
-  const preset = path.join(REPO_ROOT, 'preset-starter', 'agent.cordis.yml')
-  const orig = readFileSync(preset, 'utf8')
-  try {
-    writeFileSync(preset, orig.replace(/^(\s*deny: \[)(.*?)(\])$/m, '$1$2, ghost_tool$3'))
-    const r = run(['--out', path.join(tmp('nf-wb-'), 'plugins', 'x')])
-    assert.equal(r.status, 2, '派生件与能力表不一致时装配必须失败，实得 ' + r.status + '：' + r.stdout + r.stderr)
-    assert.match(String(r.stderr), /角色工具面|不一致/, '报错要说清是角色工具面的问题')
-  } finally {
-    writeFileSync(preset, orig)     // 无论断言成败都还原，别把坏文件留在树上
-  }
+  // 反向：装配前会调生成器的 --check，派生件过期必须装配失败（不是装完再报）。
+  // 〔2026-10-13 修〕原实现直接**改真仓的 preset** 再还原（try/finally）——而 node --test
+  // 并行跑测试文件，`test/preset.test.mjs` 会在这段窗口里读到被注入 `ghost_tool` 的那一份，
+  // 于是 CI 上出现与本改动毫无关系的红（2026-10-13 实测两次：355 pass / 1 fail）。
+  // 同一个文件被两个测试同时读写＝本仓反复吃的那个形状；改法＝把仓复制到临时根，只改副本。
+  const fake = path.join(tmp('nf-wb-repo-'), 'repo')
+  fsSync.cpSync(REPO_ROOT, fake, {
+    recursive: true,
+    filter: (src) => !/[\\/](\.git|node_modules)([\\/]|$)/.test(src),
+  })
+  const preset = path.join(fake, 'preset-starter', 'agent.cordis.yml')
+  writeFileSync(preset, readFileSync(preset, 'utf8').replace(/^(\s*deny: \[)(.*?)(\])$/m, '$1$2, ghost_tool$3'))
+  const r = run(['--root', fake, '--out', path.join(tmp('nf-wb-'), 'plugins', 'x')])
+  assert.equal(r.status, 2, '派生件与能力表不一致时装配必须失败，实得 ' + r.status + '：' + r.stdout + r.stderr)
+  assert.match(String(r.stderr), /角色工具面|不一致/, '报错要说清是角色工具面的问题')
+  rmSync(fake, { recursive: true, force: true })
 })
 
 test('--prune 只清上一版清单里的残留，且确实清掉', () => {
